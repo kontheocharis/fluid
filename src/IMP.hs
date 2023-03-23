@@ -4,9 +4,9 @@ import Data.Maybe (fromJust)
 import GHC.Data.Maybe (rightToMaybe)
 import Data.Bifunctor (second)
 import Data.Biapplicative (biliftA2)
+import Data.Either (isLeft)
 import Data.Text.Lazy (unpack)
 import Text.Pretty.Simple (pShowLightBg)
-import Debug.Trace (trace)
 
 -------------------------------------------------------------------------------
 -- [Pretty Printing] ----------------------------------------------------------
@@ -64,8 +64,7 @@ type Proc = ([String], SExp)
 type State = [(String, Either Proc Value)]
 
 isProc :: Either Proc Value -> Bool
-isProc (Left _) = True
-isProc (Right _) = False
+isProc = isLeft
 
 argOrProc :: [String] -> (String, Either Proc Value) -> Bool
 argOrProc args (x,v) = x `elem` args || isProc v
