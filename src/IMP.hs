@@ -1,6 +1,9 @@
 module IMP (module IMP) where
+
 import Data.Maybe (fromJust)
 import GHC.Data.Maybe (rightToMaybe)
+import Data.Bifunctor (second)
+import Data.Biapplicative (biliftA2)
 
 data AExp = Num Int 
            | VarA String 
@@ -43,6 +46,9 @@ isProc :: Either Proc Value -> Bool
 isProc (Left _) = True
 isProc (Right _) = False
 
+argOrProc :: [String] -> (String, Either Proc Value) -> Bool
+argOrProc args (x,v) = x `elem` args || isProc v
+
 fromRight :: Either a b -> b
 fromRight = fromJust . rightToMaybe
 
@@ -57,6 +63,70 @@ subs [] y v2 = [(y,Right v2)]
 subs ((x,_) : xs) y v2 
    | x == y = (x,Right v2) : xs 
    | otherwise = subs xs y v2
+
+fvA :: [String] -> AExp -> [String]
+fvA = undefined
+
+fv :: SExp -> [String]
+fv = snd . fv' [] where
+  fv' :: [String] -> SExp -> ([String], [String])
+  fv' env (Assign x v) = (x : env, fvA (x : env) v)
+  fv' env Skip = (env, [])
+  fv' env (Seq s k) = let (env', xs) = fv' env s in second (xs ++) (fv' env' k)
+  fv' env (If _ tt ff) = biliftA2 (++) (++) (fv' env tt) (fv' env ff)
+  fv' env (While _ k) = fv' env k
+  fv' env (Call f xs) = (f : env, filter (`notElem` env) xs)
+
+replace :: String -> String -> [String] -> [String]
+replace x y = map (\z -> if x == z then y else z) 
+
+type EitherOr a = Either a a
+fromEitherOr :: EitherOr a -> a
+fromEitherOr (Left x) = x
+fromEitherOr (Right x) = x
+
+fmap :: (a -> b) -> EitherOr a -> EitherOr b
+fmap f (Left x) = Left (f x)
+fmap f (Right x) = Right (f x)
+
+subsA :: String -> String -> AExp -> AExp
+subsA _ _ a@(Num _) = a
+subsA src dst a@(VarA x)
+  | src == x = VarA dst
+  | otherwise = a
+subsA src dst (Add x y) = Add (subsA src dst x) (subsA src dst y)
+subsA src dst (Mul x y) = Mul (subsA src dst x) (subsA src dst y)
+subsA src dst (Sub x y) = Sub (subsA src dst x) (subsA src dst y)
+
+subsB :: String -> String -> BExp -> BExp
+subsB _ _ = id
+
+subsS :: String -> String -> SExp -> SExp
+subsS src dst = fromEitherOr . subsS' where
+  subsS' :: SExp -> EitherOr SExp
+  subsS' s0@(Assign x e)
+    | src == x = Left s0
+    | otherwise = Right (Assign x (subsA src dst e))
+  subsS' Skip = Right Skip
+  subsS' (Seq s k) =
+    case subsS' s of
+      Left s' -> Left (Seq s' k)
+      Right s' -> IMP.fmap (Seq s') (subsS' k)
+  subsS' (If e tt ff) =
+    case (subsS' tt, subsS' ff) of
+      (Left tt', ff') -> Left (If (subsB src dst e) tt' (fromEitherOr ff'))
+      (tt', Left ff') -> Left (If (subsB src dst e) (fromEitherOr tt') ff')
+      (tt',ff') ->
+        Right (If (subsB src dst e) (fromEitherOr tt') (fromEitherOr ff'))
+  subsS' (While e k) = IMP.fmap (While (subsB src dst e)) (subsS' k)
+  subsS' (Call f xs) = Right (Call f (replace src dst xs))
+
+type Find = [String]
+type Replace = [String]
+subsAllS :: Find -> Replace -> SExp -> SExp
+subsAllS src dst stmt
+  | any (`elem` fv stmt) dst = error "variable capture"
+  | otherwise = foldr (uncurry subsS) stmt (zip src dst)
 
 evalA :: AExp -> State -> Int
 evalA (Num n) s     = n 
@@ -97,7 +167,12 @@ evalBS (While b ss) s
                  s'' = evalBS (While b ss) s' 
              in s''
    | otherwise       = s 
-evalBS (Call f xs) s = undefined
+evalBS (Call f xs) s =
+  case look s f of
+    Right _ -> error "type error: found value, expecting procedure"
+    Left (args,body) ->
+      let body' = subsAllS args xs body
+      in evalBS body' (filter (argOrProc xs) s)
 
 evalBP :: DExp -> State -> State
 evalBP (DCons f xs b k) s = evalBP k ((f,Left (xs, b)) : s)
