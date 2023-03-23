@@ -1,22 +1,22 @@
-module IMP where
+module IMP (module IMP) where
 
-data Aexp = Num Int 
+data AExp = Num Int 
            | VarA String 
-           | Add Aexp Aexp 
-           | Mul Aexp Aexp 
-           | Sub Aexp Aexp 
+           | Add AExp AExp 
+           | Mul AExp AExp 
+           | Sub AExp AExp 
 
-data Bexp = T | F 
-           | Equal Bexp Bexp 
-           | LTE Bexp Bexp 
-           | Not Bexp 
-           | And Bexp Bexp 
+data BExp = T | F 
+           | Equal BExp BExp 
+           | LTE BExp BExp 
+           | Not BExp 
+           | And BExp BExp 
 
-data Sexp = Assign String Aexp 
+data SExp = Assign String AExp 
            | Skip 
-           | Seq Sexp Sexp 
-           | If Bexp Sexp Sexp 
-           | While Bexp Sexp
+           | Seq SExp SExp 
+           | If BExp SExp SExp 
+           | While BExp SExp
 
 --------------------------------
 -- Semantic functions ----------
@@ -38,7 +38,7 @@ subs ((x,v) : xs) y v2
    | x == y = (x,v2) : xs 
    | otherwise = subs xs y v2
 
-evalA :: Aexp -> State -> Int
+evalA :: AExp -> State -> Int
 evalA (Num n) s     = n 
 evalA (VarA x) s    = case look s x of
                          I n' -> n' 
@@ -46,7 +46,7 @@ evalA (Add a1 a2) s = (evalA a1 s) + (evalA a2 s)
 evalA (Mul a1 a2) s = (evalA a1 s) * (evalA a2 s)
 evalA (Sub a1 a2) s = (evalA a1 s) - (evalA a2 s)
 
-evalB :: Bexp -> State -> Bool
+evalB :: BExp -> State -> Bool
 evalB T s = True 
 evalB F s = False 
 evalB (Equal a1 a2) s = (evalB a1 s) == (evalB a2 s)
@@ -58,7 +58,7 @@ evalB (And a1 a2) s = (evalB a1 s) && (evalB a2 s)
 --- big-step, natural, operational semantics
 ---------------------------------------------
 
-evalBS :: Sexp -> State -> State  
+evalBS :: SExp -> State -> State  
 evalBS (Assign x a) s = subs s x $ I (evalA a s)
 evalBS Skip s = s 
 evalBS (Seq s1 s2) s =
