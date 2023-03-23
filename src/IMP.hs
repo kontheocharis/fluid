@@ -6,6 +6,7 @@ import Data.Bifunctor (second)
 import Data.Biapplicative (biliftA2)
 import Data.Text.Lazy (unpack)
 import Text.Pretty.Simple (pShowLightBg)
+import Debug.Trace (trace)
 
 -------------------------------------------------------------------------------
 -- [Pretty Printing] ----------------------------------------------------------
@@ -199,7 +200,10 @@ evalBS (Call f xs) s =
     Right _ -> error "type error: found value, expecting procedure"
     Left (args,body) ->
       let body' = subsAllS args xs body
-      in evalBS body' (filter (argOrProc xs) s)
+          s' = evalBS body' (filter (argOrProc xs) s)
+          -- s'' = filter (argOrProc xs) s'
+          -- FIXME: we do not properly revert the state following a proc call
+      in s'
 
 evalBP :: DExp -> State -> State
 evalBP (DCons f xs b k) s = evalBP k ((f,Left (xs, b)) : s)

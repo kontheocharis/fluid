@@ -42,9 +42,11 @@ eg0Bfe :: DExp
 eg0Bfe = times main where
   times = DCons "times" ["x", "y", "z", "res"] body where
     body = If (LTE (VarA "y") (Num 0)) tt ff
-    tt = Assign "res" (VarA "z")
+    tt = Seq (Assign "randBase" (Num 42))
+       $ Assign "res" (VarA "z")
     ff = Seq (Assign "v" (Sub (VarA "y") (Num 1)))  
        $ Seq (Assign "w" (Add (VarA "z") (VarA "x")))
+       $ Seq (Assign "rand" (Num 42))
        $ Call "times" ["x", "v", "w", "res"]
   main = DMain
        $ Seq (Assign "x" (Num 2))
