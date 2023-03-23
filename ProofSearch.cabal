@@ -27,6 +27,7 @@ library
   exposed-modules:
       IMP
       Lib
+      Test
   other-modules:
       Paths_ProofSearch
   hs-source-dirs:
