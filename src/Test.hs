@@ -21,8 +21,8 @@ import IMP
 
 {- -- simple(?) API update
   def times(x, y, z, res) {
-    if (y == 0) {
-      res = z + x
+    if (y <= 0) {
+      res = z
     } else {
       v = y - 1
       w = z + x
@@ -33,13 +33,25 @@ import IMP
   def main() {
     x = 2
     y = 3
-    z = x
+    z = 0
     res = 0
     times(x, y, z, res)
   }
 -}
 eg0Bfe :: DExp
-eg0Bfe = undefined
+eg0Bfe = times main where
+  times = DCons "times" ["x", "y", "z", "res"] body where
+    body = If (LTE (VarA "y") (Num 0)) tt ff
+    tt = Assign "res" (VarA "z")
+    ff = Seq (Assign "v" (Sub (VarA "y") (Num 1)))  
+       $ Seq (Assign "w" (Add (VarA "z") (VarA "x")))
+       $ Call "times" ["x", "v", "w", "res"]
+  main = DMain
+       $ Seq (Assign "x" (Num 2))
+       $ Seq (Assign "y" (Num 3))
+       $ Seq (Assign "z" (Num 0))
+       $ Seq (Assign "res" (Num 0))
+       $ Call "times" ["x", "y", "z", "res"]
 
 {-
   def mul(x, y, r) {

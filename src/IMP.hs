@@ -30,7 +30,7 @@ data AExp = Num Int
 
 data BExp = T | F 
           | Equal BExp BExp 
-          | LTE BExp BExp 
+          | LTE AExp AExp 
           | Not BExp 
           | And BExp BExp 
           deriving (Show)
@@ -125,7 +125,8 @@ subsA src dst (Mul x y) = Mul (subsA src dst x) (subsA src dst y)
 subsA src dst (Sub x y) = Sub (subsA src dst x) (subsA src dst y)
 
 subsB :: String -> String -> BExp -> BExp
-subsB _ _ = id
+subsB src dst (LTE x y) = LTE (subsA src dst x) (subsA src dst y)
+subsB _ _ b = b
 
 subsS :: String -> String -> SExp -> SExp
 subsS src dst = fromEitherOr . subsS' where
@@ -169,7 +170,7 @@ evalB :: BExp -> State -> Bool
 evalB T s = True 
 evalB F s = False 
 evalB (Equal a1 a2) s = (evalB a1 s) == (evalB a2 s)
-evalB (LTE a1 a2) s = (evalB a1 s) <= (evalB a2 s)
+evalB (LTE a1 a2) s = evalA a1 s <= evalA a2 s
 evalB (Not a1) s = not (evalB a1 s) 
 evalB (And a1 a2) s = (evalB a1 s) && (evalB a2 s)
 
