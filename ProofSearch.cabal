@@ -37,6 +37,8 @@ library
       base >=4.7 && <5
     , bifunctors
     , ghc
+    , pretty-simple
+    , text
   default-language: Haskell2010
 
 executable ProofSearch-exe
@@ -49,6 +51,8 @@ executable ProofSearch-exe
     , base >=4.7 && <5
     , bifunctors
     , ghc
+    , pretty-simple
+    , text
   default-language: Haskell2010
 
 test-suite ProofSearch-test
@@ -64,4 +68,6 @@ test-suite ProofSearch-test
     , base >=4.7 && <5
     , bifunctors
     , ghc
+    , pretty-simple
+    , text
   default-language: Haskell2010

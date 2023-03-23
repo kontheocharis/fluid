@@ -4,28 +4,48 @@ import Data.Maybe (fromJust)
 import GHC.Data.Maybe (rightToMaybe)
 import Data.Bifunctor (second)
 import Data.Biapplicative (biliftA2)
+import Data.Text.Lazy (unpack)
+import Text.Pretty.Simple (pShowLightBg)
+
+-------------------------------------------------------------------------------
+-- [Pretty Printing] ----------------------------------------------------------
+-------------------------------------------------------------------------------
+
+ppShow :: Show a => a -> String
+ppShow = unpack . pShowLightBg
+
+ppPrint :: Show a => a -> IO ()
+ppPrint = putStrLn . unpack . pShowLightBg
+
+-------------------------------------------------------------------------------
+-- [Syntax] -------------------------------------------------------------------
+-------------------------------------------------------------------------------
 
 data AExp = Num Int 
-           | VarA String 
-           | Add AExp AExp 
-           | Mul AExp AExp 
-           | Sub AExp AExp 
+          | VarA String 
+          | Add AExp AExp 
+          | Mul AExp AExp 
+          | Sub AExp AExp 
+          deriving (Show)
 
 data BExp = T | F 
-           | Equal BExp BExp 
-           | LTE BExp BExp 
-           | Not BExp 
-           | And BExp BExp 
+          | Equal BExp BExp 
+          | LTE BExp BExp 
+          | Not BExp 
+          | And BExp BExp 
+          deriving (Show)
 
 data SExp = Assign String AExp 
-           | Skip 
-           | Seq SExp SExp 
-           | If BExp SExp SExp 
-           | While BExp SExp
-           | Call String [String]
+          | Skip 
+          | Seq SExp SExp 
+          | If BExp SExp SExp 
+          | While BExp SExp
+          | Call String [String]
+          deriving (Show)
 
 data DExp = DCons String [String] SExp DExp
           | DMain SExp
+          deriving (Show)
 
 {-
   Procedures are only side-effecting: they can define local variables, but
@@ -60,15 +80,21 @@ look ((x,v) : xs) y
 
 subs :: State -> String -> Value -> State 
 subs [] y v2 = [(y,Right v2)]
-subs ((x,_) : xs) y v2 
+subs ((x,v1) : xs) y v2 
    | x == y = (x,Right v2) : xs 
-   | otherwise = subs xs y v2
+   | otherwise = (x,v1) : subs xs y v2
 
 fvA :: [String] -> AExp -> [String]
-fvA = undefined
+fvA _   (Num _) = []
+fvA env (VarA x)
+  | x `elem` env = []
+  | otherwise = [x]
+fvA env (Add x y) = fvA env x ++ fvA env y
+fvA env (Mul x y) = fvA env x ++ fvA env y
+fvA env (Sub x y) = fvA env x ++ fvA env y
 
-fv :: SExp -> [String]
-fv = snd . fv' [] where
+fv :: [String] -> SExp -> [String]
+fv env0 = snd . fv' env0 where
   fv' :: [String] -> SExp -> ([String], [String])
   fv' env (Assign x v) = (x : env, fvA (x : env) v)
   fv' env Skip = (env, [])
@@ -125,7 +151,7 @@ type Find = [String]
 type Replace = [String]
 subsAllS :: Find -> Replace -> SExp -> SExp
 subsAllS src dst stmt
-  | any (`elem` fv stmt) dst = error "variable capture"
+  | any (`elem` fv src stmt) dst = error "variable capture"
   | otherwise = foldr (uncurry subsS) stmt (zip src dst)
 
 evalA :: AExp -> State -> Int
@@ -177,4 +203,7 @@ evalBS (Call f xs) s =
 evalBP :: DExp -> State -> State
 evalBP (DCons f xs b k) s = evalBP k ((f,Left (xs, b)) : s)
 evalBP (DMain k) s = evalBS k s
+
+ppEvalBP :: DExp -> IO ()
+ppEvalBP p = ppPrint (evalBP p [])
 
