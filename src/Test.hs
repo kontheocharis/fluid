@@ -76,6 +76,19 @@ eg0Aft = mul main where
        $ Seq (Assign "res" (Num 0))
        $ Call "mul" ["x","y","res"]
 
+{-
+  In order to demonstrate that eg0Bfe == eg1Aft, we need:
+  1. to demonstrate that forall x,y,z . mul(x,y,z) = times(x,y,0,z)
+  2. to demonstrate that z can be safely removed
+
+  For 2, this is simple: an assignment followed by no occurrences means it's
+  equivalent to no assignment
+  > seq (assign x v) k -> k when x \not\in k
+
+  For 1, this is not so simple...
+
+-}
+
 -------------------------------------------------------------------------------
 
 -- To test for correct treatment of a the state following a procedure call
