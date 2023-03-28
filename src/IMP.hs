@@ -7,7 +7,6 @@ import Data.Biapplicative (biliftA2)
 import Data.Either (isLeft)
 import Data.Text.Lazy (unpack)
 import Text.Pretty.Simple (pShowLightBg)
-import Debug.Trace (trace)
 
 -------------------------------------------------------------------------------
 -- [Pretty Printing] ----------------------------------------------------------
