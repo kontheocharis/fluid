@@ -7,6 +7,7 @@ import Data.Biapplicative (biliftA2)
 import Data.Either (isLeft)
 import Data.Text.Lazy (unpack)
 import Text.Pretty.Simple (pShowLightBg)
+import Debug.Trace (trace)
 
 -------------------------------------------------------------------------------
 -- [Pretty Printing] ----------------------------------------------------------
@@ -106,6 +107,9 @@ fv env0 = snd . fv' env0 where
 replace :: String -> String -> [String] -> [String]
 replace x y = map (\z -> if x == z then y else z) 
 
+replaceV :: Eq a => a -> b -> [(a,b)] -> [(a,b)]
+replaceV k v = map (\(k',v') -> if k == k' then (k',v) else (k',v'))
+
 type EitherOr a = Either a a
 fromEitherOr :: EitherOr a -> a
 fromEitherOr (Left x) = x
@@ -200,9 +204,9 @@ evalBS (Call f xs) s =
     Left (args,body) ->
       let body' = subsAllS args xs body
           s' = evalBS body' (filter (argOrProc xs) s)
-          -- s'' = filter (argOrProc xs) s'
-          -- FIXME: we do not properly revert the state following a proc call
-      in s'
+          g x z = subs z x (fromRight (look s' x))
+                  -- you can only apply values to procs.
+      in foldr g s xs
 
 evalBP :: DExp -> State -> State
 evalBP (DCons f xs b k) s = evalBP k ((f,Left (xs, b)) : s)

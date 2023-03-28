@@ -74,5 +74,25 @@ eg0Aft = mul main where
        $ Seq (Assign "x" (Num 2))
        $ Seq (Assign "y" (Num 3))
        $ Seq (Assign "res" (Num 0))
-       $ Call "mul" ["x","y","z"]
+       $ Call "mul" ["x","y","res"]
+
+-------------------------------------------------------------------------------
+
+-- To test for correct treatment of a the state following a procedure call
+eg1 :: DExp
+eg1 = mul main where
+  mul = DCons "mul" ["x","y","res"] body where
+    body = Seq (Assign "local" (VarA "x"))
+         $ Assign "res" (Mul (VarA "x") (VarA "y"))
+  main = DMain
+       $ Seq (Assign "x" (Num 2))
+       $ Seq (Assign "y" (Num 3))
+       $ Seq (Assign "res" (Num 0))
+       -- {x:2, y:3, res:0}
+       $ Seq (Call "mul" ["x", "y", "res"])
+       -- {x:2, y:3, res:6}
+       $ Seq (Assign "z" (Num 2))
+       -- {x:2, y:3, res:6, z:2}
+       $ Call "mul" ["res", "z", "res"]
+       -- {x:2, y:3, res:12, z:2}
 
