@@ -17,7 +17,7 @@ free x = Inf (Free (Global x))
 
 printType t = case t of 
                     Left s -> putStrLn s
-                    Right t' -> putStrLn $ show $ quote0 t'
+                    Right t' -> putStrLn $ Parser.print $ quote0 t'
 
 term1T = 
   do
@@ -44,8 +44,26 @@ term2E = do
      Just x <- parse "" (parseITerm_ 0 [""]) "((\\x y -> x) :: (b -> b) -> a -> b -> b) (\\x -> x) y"
      putStrLn $ show $ quote0 (evalInf x [])
 
+term3T = 
+  do
+    Just x <- parse "" (parseITerm_ 0 [""]) "(\\a x -> x) :: forall(a :: *). a -> a"
+    printType $ typeInf0 [] x
+
+term4T = 
+  do
+     Just x <- parse "" (parseITerm_ 0 [""]) "((\\a x -> x) :: forall(a :: *). a -> a) Bool"
+     printType $ typeInf0 env3 x
+
+term5T = 
+  do 
+     Just x <- parse "" (parseITerm_ 0 [""]) "(((\\a x -> x) :: forall(a :: *). a -> a) Bool) False"
+     printType $ typeInf0 env3 x
+
+id2 = "(\\a x -> x) :: forall(a :: *). a -> a"
 
 env1 = [(Global "y", vfree (Global "a")), (Global "a", VStar)]
 
 env2 = [(Global "b", VStar)] ++ env1
+
+env3 = [(Global "Bool", VStar), (Global "False", vfree (Global "Bool"))]
 
