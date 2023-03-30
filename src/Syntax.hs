@@ -2,10 +2,12 @@ module Syntax where
 
 -- Inferrable Terms
 data TermInf = 
-   Ann TermChk Type     -- ANN
- | Bound Int            -- VAR
- | Free Name            -- VAR
- | TermInf :@: TermChk  -- APP
+   Ann TermChk TermChk     -- ANN
+ | Star
+ | Pi TermChk TermChk      -- Dependent Pi types
+ | Bound Int               -- VAR
+ | Free Name               -- VAR
+ | TermInf :@: TermChk     -- APP
       deriving (Show, Eq)
 
 -- Checkable Terms
@@ -38,6 +40,8 @@ data Type =
 data Value = 
    VNeutral Neutral
  | VLam (Value -> Value)
+ | VStar 
+ | VPi Value (Value -> Value)
 
 -- n ::= x         variable
 --   |   n v       application  

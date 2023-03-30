@@ -13,6 +13,8 @@ evalInf (Ann e _) d = evalChk e d
 evalInf (Bound i) d = d !! i 
 evalInf (Free x) d  = vfree x
 evalInf (e :@: e') d = vapp (evalInf e d) (evalChk e' d)
+evalInf Star d = VStar
+evalInf (Pi t t') d = VPi (evalChk t d) (\x -> evalChk t' (x:d))
 
 vapp :: Value -> Value -> Value
 vapp (VLam f) v = f v 
