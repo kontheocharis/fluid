@@ -31,117 +31,130 @@ data Stmt i tinf = Let String i           --  let x = t
                  | Out String             --  more lhs2TeX hacking, allow to print to files
     deriving (Show)
 
-parseBindings :: CharParser () ([String], [Info])
-parseBindings = 
-                     (let rec :: [String] -> [Info] -> CharParser () ([String], [Info])
+{-
+toNat_ :: Integer -> TermInf
+toNat_ n = Ann (toNat_' n) (Inf Nat)
+
+toNat_' :: Integer -> TermChk
+toNat_' 0  =  Zero
+toNat_' n  =  Succ (toNat_' (n - 1))
+-}
+
+
+parseStmt_ :: [String] -> CharParser () (Stmt TermInf TermChk)
+parseStmt_ e =
+        do
+          reserved lambdaPi "let"
+          x <- identifier lambdaPi
+          reserved lambdaPi "="
+          t <- parseITerm_ 0 e
+          return (Let x t)
+    <|> do
+          reserved lambdaPi "assume"
+          (xs, ts) <- parseBindings_ False [] 
+          return (Assume (reverse (zip xs ts)))
+    <|> do
+          reserved lambdaPi "putStrLn"
+          x <- stringLiteral lambdaPi
+          return (PutStrLn x)
+    <|> do
+          reserved lambdaPi "out"
+          x <- option "" (stringLiteral lambdaPi)
+          return (Out x)
+    <|> fmap Eval (parseITerm_ 0 e)
+
+parseBindings_ :: Bool -> [String] -> CharParser () ([String], [TermChk])
+parseBindings_ b e = 
+                     (let rec :: [String] -> [TermChk] -> CharParser () ([String], [TermChk])
                           rec e ts =
                             do
                              (x,t) <- parens lambdaPi
                                         (do
-                                           x <- identifier simplyTyped 
-                                           reserved simplyTyped "::"
-                                           t <- pInfo
+                                           x <- identifier lambdaPi
+                                           reserved lambdaPi "::"
+                                           t <- parseCTerm_ 0 (if b then e else [])
                                            return (x,t))
                              (rec (x : e) (t : ts) <|> return (x : e, t : ts))
-                      in rec [] [])
+                      in rec e [])
                      <|>
-                     do  x <- identifier simplyTyped 
-                         reserved simplyTyped "::"
-                         t <- pInfo
-                         return ([x], [t])
+                     do  x <- identifier lambdaPi
+                         reserved lambdaPi "::"
+                         t <- parseCTerm_ 0 e
+                         return (x : e, [t])
+
+
+
+parseITerm_ :: Int -> [String] -> CharParser () TermInf
+parseITerm_ 0 e =
+        do
+          reserved lambdaPi "forall"
+          (fe,t:ts) <- parseBindings_ True e
+          reserved lambdaPi "."
+          t' <- parseCTerm_ 0 fe
+          return (foldl (\ p t -> Pi t (Inf p)) (Pi t t') ts)
+    <|>
+    try
+       (do
+          t <- parseITerm_ 1 e
+          rest (Inf t) <|> return t)
+    <|> do
+          t <- parens lambdaPi (parseLam_ e)
+          rest t
     where
-      pInfo = fmap HasType (parseType 0 []) <|> fmap (const (HasKind Star)) (reserved simplyTyped "*")
-
-parseStmt :: [String] -> CharParser () (Stmt TermInf Info)
-parseStmt e =
+      rest t =
         do
-          reserved simplyTyped "let"
-          x <- identifier simplyTyped
-          reserved simplyTyped "="
-          t <- parseTermInf 0 e
-          return (Let x t)
+          reserved lambdaPi "->"
+          t' <- parseCTerm_ 0 ([]:e)
+          return (Pi t t')
+parseITerm_ 1 e =
+    try
+       (do
+          t <- parseITerm_ 2 e
+          rest (Inf t) <|> return t)
     <|> do
-          reserved simplyTyped "assume"
-          (xs, ts) <- parseBindings
-          return (Assume (reverse (zip xs ts)))
-    <|> do
-          reserved simplyTyped "putStrLn"
-          x <- stringLiteral simplyTyped
-          return (PutStrLn x)
-    <|> do
-          reserved lambdaPi "out"
-          x <- option "" (stringLiteral simplyTyped)
-          return (Out x)
-    <|> fmap Eval (parseTermInf 0 e)
-
-
-
-parseType :: Int -> [String] -> CharParser () Type
-parseType 0 e = 
-   try
-      ( do
-            t <- parseType 1 e 
-            rest t <|> return t)
- where
-   rest t = 
-      do 
-         reserved simplyTyped "->"
-         t' <- parseType 0 e 
-         return (Fun t t')
-parseType 1 e = 
-     do
-         x <- identifier simplyTyped 
-         return (TFree (Global x))
- <|> parens simplyTyped (parseType 0 e)
-
-
-parseTermInf :: Int -> [String] -> CharParser () TermInf
-parseTermInf 0 e = 
-   try (do 
-           t <- parseTermInf 1 e 
-           return t)
-parseTermInf 1 e = 
-   try (do
-           t <- parseTermInf 2 e
-           rest (Inf t) <|> return t)
-   <|>
-       (do 
-           t <- parens simplyTyped (parseLam e) 
-           rest t)
-  where
-    rest t = 
-      do
-       reserved simplyTyped "::"
-       t' <- parseType 0 e 
-       return (Ann t t')
-parseTermInf 2 e =
+          t <- parens lambdaPi (parseLam_ e)
+          rest t
+    where
+      rest t =
         do
-          t <- parseTermInf 3 e
-          ts <- many (parseTermChk 3 e)
+          reserved lambdaPi "::"
+          t' <- parseCTerm_ 0 e
+          return (Ann t t')
+parseITerm_ 2 e =
+        do
+          t <- parseITerm_ 3 e
+          ts <- many (parseCTerm_ 3 e)
           return (foldl (:@:) t ts)
-parseTermInf 3 e =
-       do
-          x <- identifier simplyTyped
+parseITerm_ 3 e =
+        do
+          reserved lambdaPi "*"
+          return Star
+   {- <|> do
+          n <- natural lambdaPi
+          return (toNat_ n)
+   -}
+    <|> do
+          x <- identifier lambdaPi
           case findIndex (== x) e of
             Just n  -> return (Bound n)
             Nothing -> return (Free (Global x))
-   <|> parens simplyTyped (parseTermInf 0 e)
-
-parseTermChk :: Int -> [String] -> CharParser () TermChk
-parseTermChk 0 e =
-        parseLam e
-    <|> fmap Inf (parseTermInf 0 e)
-parseTermChk p e =
-        try (parens simplyTyped (parseLam e))
-    <|> fmap Inf (parseTermInf p e)
-
-parseLam :: [String] -> CharParser () TermChk
-parseLam e =
-        do reservedOp simplyTyped "\\"
-           xs <- many1 (identifier simplyTyped)
-           reservedOp simplyTyped "->"
-           t <- parseTermChk 0 (reverse xs ++ e)
-           --  reserved simplyTyped "."
+    <|> parens lambdaPi (parseITerm_ 0 e)
+  
+parseCTerm_ :: Int -> [String] -> CharParser () TermChk
+parseCTerm_ 0 e =
+        parseLam_ e
+    <|> fmap Inf (parseITerm_ 0 e)
+parseCTerm_ p e =
+        try (parens lambdaPi (parseLam_ e))
+    <|> fmap Inf (parseITerm_ p e)
+  
+parseLam_ :: [String] -> CharParser () TermChk
+parseLam_ e =
+        do reservedOp lambdaPi "\\"
+           xs <- many1 (identifier lambdaPi)
+           reservedOp lambdaPi "->"
+           t <- parseCTerm_ 0 (reverse xs ++ e)
+           --  reserved lambdaPi "."
            return (iterate Lam t !! length xs)
 
 
@@ -174,7 +187,7 @@ neutral terms:
 
 -}
 
-tfree a = TFree (Global a)
+-- tfree a = TFree (Global a)
 
 {-
 parseTFree :: Parser Type

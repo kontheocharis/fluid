@@ -29,10 +29,13 @@ data Name =
 -- Types
 -- t := a        base type
 --   |  t -> t'  function type
+
+{- 
 data Type = 
    TFree Name  
  | Fun Type Type
        deriving (Show, Eq)
+-}
 
 -- Terms are evaluated to values
 -- v ::= n         neutral term
