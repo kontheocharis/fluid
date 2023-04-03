@@ -62,6 +62,21 @@ typeInf i env (e :@: e')
             VPi t t' -> do typeChk i env e' t
                            return (t'  (evalChk e' []))
             _        -> throwError "illegal application"
+typeInf i env Nat = return VStar
+typeInf i env Zero = return VNat 
+typeInf i env (Succ k) = 
+   do
+        typeChk i env k VNat 
+        return VNat
+typeInf i env (NatElim m mz ms k) = 
+   do
+      typeChk i env m (VPi VNat (const VStar))
+      let mVal = evalChk m []
+      typeChk i env mz (mVal `vapp` VZero)
+      typeChk i env ms (VPi VNat (\l -> VPi (mVal `vapp` l) (\_ -> mVal `vapp` VSucc l)))
+      typeChk i env k VNat 
+      let kVal = evalChk k [] 
+      return (mVal `vapp` k)
 
 typeChk :: Int -> Context -> TermChk -> Value -> Result ()
 typeChk i env (Inf e) t

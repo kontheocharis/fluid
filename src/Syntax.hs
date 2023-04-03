@@ -8,6 +8,10 @@ data TermInf =
  | Bound Int               -- VAR
  | Free Name               -- VAR
  | TermInf :@: TermChk     -- APP
+ | Nat 
+ | NatElim TermChk TermChk TermChk TermChk
+ | Zero
+ | Succ TermChk
       deriving (Show, Eq)
 
 -- Checkable Terms
@@ -45,12 +49,16 @@ data Value =
  | VLam (Value -> Value)
  | VStar 
  | VPi Value (Value -> Value)
+ | VNat 
+ | VZero 
+ | VSucc Value
 
 -- n ::= x         variable
 --   |   n v       application  
 data Neutral = 
    NFree Name 
  | NApp Neutral Value
+ | NNatElim Value Value Value Neutral
 
 -- creates a value corrsponding to a free variable
 vfree :: Name -> Value
