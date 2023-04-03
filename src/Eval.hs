@@ -29,6 +29,20 @@ evalInf (NatElim m mz ms k) d =
                               (NNatElim (evalChk m d) mzVal msVal k)
               _           -> error "internal: eval natElim"
   in rec (evalChk k d)
+evalInf (Vec a n) d = VVec (evalChk a d) (evalChk n d)
+evalInf (Nil a) d = VNil (evalChk a d)
+evalInf (Cons a k x xs) d = VCons (evalChk a d) (evalChk k d) (evalChk x d) (evalChk xs d)
+evalInf (VecElim a m mn mc k xs) d = 
+    let mnVal = evalChk mn d
+        mcVal = evalChk mc d
+        rec kVal xsVal = 
+           case xsVal of
+             VNil _ -> mnVal 
+             VCons _ l x xs -> foldl vapp mcVal [l,x,xs,rec l xs]
+             VNeutral n -> VNeutral (NVecElim (evalChk a d) (evalChk m d) 
+                                               mnVal mcVal kVal n)
+             _ -> error "internal: eval vecElim"
+        in rec (evalChk k d) (evalChk xs d)
 
 vapp :: Value -> Value -> Value
 vapp (VLam f) v = f v 

@@ -76,7 +76,45 @@ typeInf i env (NatElim m mz ms k) =
       typeChk i env ms (VPi VNat (\l -> VPi (mVal `vapp` l) (\_ -> mVal `vapp` VSucc l)))
       typeChk i env k VNat 
       let kVal = evalChk k [] 
-      return (mVal `vapp` k)
+      return (mVal `vapp` kVal)
+typeInf i env (Vec a k) = 
+   do
+      typeChk i env a VStar 
+      typeChk i env k VNat
+      return VStar
+typeInf i env (Nil a) = 
+   do
+      typeChk i env a VStar
+      let aVal = evalChk a [] 
+      return (VVec aVal VZero)
+typeInf i env (Cons a k x xs) =
+   do
+      typeChk i env a VStar
+      let aVal = evalChk a []
+      typeChk i env k VNat
+      let kVal = evalChk k []
+      typeChk i env x aVal
+      typeChk i env xs (VVec aVal kVal)
+      return (VVec aVal (VSucc kVal))
+typeInf i env (VecElim a m mn mc k vs) =
+   do
+      typeChk i env a VStar
+      let aVal = evalChk a []
+      typeChk i env m
+         (VPi VNat (\k -> VPi (VVec aVal k) (\_ -> VStar)))
+      let mVal = evalChk m []
+      typeChk i env mn (foldl vapp mVal [VZero, VNil aVal])
+      typeChk i env mc
+         (VPi VNat (\l ->
+            VPi aVal (\y ->
+               VPi (VVec aVal l) (\ys ->
+                  VPi (foldl vapp mVal [l,ys]) (\_ ->
+                     (foldl vapp mVal [VSucc l, VCons aVal l y ys]))))))
+      typeChk i env k VNat
+      let kVal = evalChk k []
+      typeChk i env vs (VVec aVal kVal)
+      let vsVal = evalChk vs []
+      return (foldl vapp mVal [kVal, vsVal])
 
 typeChk :: Int -> Context -> TermChk -> Value -> Result ()
 typeChk i env (Inf e) t

@@ -12,6 +12,10 @@ data TermInf =
  | NatElim TermChk TermChk TermChk TermChk
  | Zero
  | Succ TermChk
+ | Vec TermChk TermChk 
+ | Nil TermChk
+ | Cons TermChk TermChk TermChk TermChk
+ | VecElim TermChk TermChk TermChk TermChk TermChk TermChk 
       deriving (Show, Eq)
 
 -- Checkable Terms
@@ -52,6 +56,9 @@ data Value =
  | VNat 
  | VZero 
  | VSucc Value
+ | VNil Value
+ | VCons Value Value Value Value
+ | VVec Value Value
 
 -- n ::= x         variable
 --   |   n v       application  
@@ -59,6 +66,7 @@ data Neutral =
    NFree Name 
  | NApp Neutral Value
  | NNatElim Value Value Value Neutral
+ | NVecElim Value Value Value Value Value Neutral
 
 -- creates a value corrsponding to a free variable
 vfree :: Name -> Value
