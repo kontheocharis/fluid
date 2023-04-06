@@ -10,18 +10,20 @@ data TermInf =
  | TermInf :@: TermChk     -- APP
  | Nat 
  | NatElim TermChk TermChk TermChk TermChk
- | Zero
- | Succ TermChk
  | Vec TermChk TermChk 
+ | VecElim TermChk TermChk TermChk TermChk TermChk TermChk
  | Nil TermChk
  | Cons TermChk TermChk TermChk TermChk
- | VecElim TermChk TermChk TermChk TermChk TermChk TermChk 
+
       deriving (Show, Eq)
 
 -- Checkable Terms
 data TermChk =         
    Inf TermInf          -- CHK
  | Lam TermChk          -- LAM
+ | Zero
+ | Succ TermChk 
+
       deriving (Show, Eq)
 
 -- Locally nameless representation

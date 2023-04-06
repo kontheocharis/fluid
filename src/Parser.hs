@@ -33,14 +33,14 @@ data Stmt i tinf = Let String i           --  let x = t
                  | Out String             --  more lhs2TeX hacking, allow to print to files
     deriving (Show)
 
-{-
+
 toNat_ :: Integer -> TermInf
 toNat_ n = Ann (toNat_' n) (Inf Nat)
 
 toNat_' :: Integer -> TermChk
 toNat_' 0  =  Zero
-toNat_' n  =  Succ (toNat_' (n - 1))
--}
+toNat_' n  =  Succ ((toNat_' (n - 1)))
+
 
 
 parseStmt_ :: [String] -> CharParser () (Stmt TermInf TermChk)
@@ -131,10 +131,9 @@ parseITerm_ 3 e =
         do
           reserved lambdaPi "*"
           return Star
-   {- <|> do
+    <|> do
           n <- natural lambdaPi
           return (toNat_ n)
-   -}
     <|> do
           x <- identifier lambdaPi
           case findIndex (== x) e of
@@ -211,11 +210,14 @@ iPrint_ p ii (Pi d r)         =  parensIf (p > 0) (sep [text "forall " PP.<> tex
 iPrint_ p ii (Bound k)        =  text (vars !! (ii - k - 1))
 iPrint_ p ii (Free (Global s))=  text s
 iPrint_ p ii (i :@: c)         =  parensIf (p > 2) (sep [iPrint_ 2 ii i, nest 2 (cPrint_ 3 ii c)])
--- iPrint_ p ii Nat_              =  text "Nat"
--- iPrint_ p ii (NatElim_ m z s n)=  iPrint_ p ii (Free_ (Global "natElim") :$: m :$: z :$: s :$: n)
--- iPrint_ p ii (Vec_ a n)        =  iPrint_ p ii (Free_ (Global "Vec") :$: a :$: n)
--- iPrint_ p ii (VecElim_ a m mn mc n xs)
---                                 =  iPrint_ p ii (Free_ (Global "vecElim") :$: a :$: m :$: mn :$: mc :$: n :$: xs)
+iPrint_ p ii Nat              =  text "Nat"
+iPrint_ p ii (NatElim m z s n)=  iPrint_ p ii (Free (Global "natElim") :@: m :@: z :@: s :@: n)
+iPrint_ p ii (Vec a n)        =  iPrint_ p ii (Free (Global "Vec") :@: a :@: n)
+iPrint_ p ii (VecElim a m mn mc n xs)
+                                 =  iPrint_ p ii (Free (Global "vecElim") :@: a :@: m :@: mn :@: mc :@: n :@: xs)
+iPrint_ p ii (Nil a)    = iPrint_ p ii (Free (Global "Nil") :@: a)
+iPrint_ p ii (Cons a n x xs) =
+                             iPrint_ p ii (Free (Global "Cons") :@: a :@: n :@: x :@: xs)
 -- iPrint_ p ii (Eq_ a x y)       =  iPrint_ p ii (Free_ (Global "Eq") :$: a :$: x :$: y)
 -- iPrint_ p ii (EqElim_ a m mr x y eq)
 --                                 =  iPrint_ p ii (Free_ (Global "eqElim") :$: a :$: m :$: mr :$: x :$: y :$: eq)
@@ -227,13 +229,18 @@ iPrint_ p ii x                 =  text ("[" ++ show x ++ "]")
 cPrint_ :: Int -> Int -> TermChk -> Doc
 cPrint_ p ii (Inf i)    = iPrint_ p ii i
 cPrint_ p ii (Lam c)    = parensIf (p > 0) (text "\\ " PP.<> text (vars !! ii) PP.<> text " -> " PP.<> cPrint_ 0 (ii + 1) c)
--- cPrint_ p ii Zero_       = fromNat_ 0 ii Zero_     --  text "Zero"
--- cPrint_ p ii (Succ_ n)   = fromNat_ 0 ii (Succ_ n) --  iPrint_ p ii (Free_ (Global "Succ") :$: n)
+cPrint_ p ii Zero       = fromNat_ 0 ii Zero     --  text "Zero"
+cPrint_ p ii (Succ n)   = fromNat_ 0 ii (Succ n) --  iPrint_ p ii (Free_ (Global "Succ") :$: n)
 -- cPrint_ p ii (Nil_ a)    = iPrint_ p ii (Free_ (Global "Nil") :$: a)
 -- cPrint_ p ii (Cons_ a n x xs) =
 --                             iPrint_ p ii (Free_ (Global "Cons") :$: a :$: n :$: x :$: xs)
 --  cPrint_ p ii (Refl_ a x) = iPrint_ p ii (Free_ (Global "Refl") :$: a :$: x)
 --  cPrint_ p ii (FZero_ n)  = iPrint_ p ii (Free_ (Global "FZero") :$: n)
 --  cPrint_ p ii (FSucc_ n f)= iPrint_ p ii (Free_ (Global "FSucc") :$: n :$: f)
+
+fromNat_ :: Int -> Int -> TermChk -> Doc
+fromNat_ n ii Zero = int n
+fromNat_ n ii (Succ k) = fromNat_ (n + 1) ii k
+fromNat_ n ii t = parensIf True (int n PP.<> text " + " PP.<> cPrint_ 0 ii t)
 
 print = render . cPrint_ 0 0

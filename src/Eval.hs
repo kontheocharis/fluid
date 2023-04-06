@@ -16,8 +16,7 @@ evalInf (e :@: e') d = vapp (evalInf e d) (evalChk e' d)
 evalInf Star d = VStar
 evalInf (Pi t t') d = VPi (evalChk t d) (\x -> evalChk t' (x:d))
 evalInf Nat d = VNat 
-evalInf Zero d = VZero 
-evalInf (Succ k) d = VSucc (evalChk k d)
+
 evalInf (NatElim m mz ms k) d =
   let mzVal = evalChk mz d
       msVal = evalChk ms d
@@ -30,8 +29,6 @@ evalInf (NatElim m mz ms k) d =
               _           -> error "internal: eval natElim"
   in rec (evalChk k d)
 evalInf (Vec a n) d = VVec (evalChk a d) (evalChk n d)
-evalInf (Nil a) d = VNil (evalChk a d)
-evalInf (Cons a k x xs) d = VCons (evalChk a d) (evalChk k d) (evalChk x d) (evalChk xs d)
 evalInf (VecElim a m mn mc k xs) d = 
     let mnVal = evalChk mn d
         mcVal = evalChk mc d
@@ -43,6 +40,9 @@ evalInf (VecElim a m mn mc k xs) d =
                                                mnVal mcVal kVal n)
              _ -> error "internal: eval vecElim"
         in rec (evalChk k d) (evalChk xs d)
+evalInf (Nil a) d = VNil (evalChk a d)
+evalInf (Cons a k x xs) d = VCons (evalChk a d) (evalChk k d) (evalChk x d) (evalChk xs d)
+
 
 vapp :: Value -> Value -> Value
 vapp (VLam f) v = f v 
@@ -51,3 +51,6 @@ vapp (VNeutral n) v = VNeutral (NApp n v)
 evalChk :: TermChk -> Env -> Value
 evalChk (Inf i) d = evalInf i d
 evalChk (Lam e) d = VLam (\x -> evalChk e (x:d))
+evalChk Zero d = VZero 
+evalChk (Succ k) d = VSucc (evalChk k d)
+

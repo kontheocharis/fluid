@@ -63,11 +63,6 @@ typeInf i env (e :@: e')
                            return (t'  (evalChk e' []))
             _        -> throwError "illegal application"
 typeInf i env Nat = return VStar
-typeInf i env Zero = return VNat 
-typeInf i env (Succ k) = 
-   do
-        typeChk i env k VNat 
-        return VNat
 typeInf i env (NatElim m mz ms k) = 
    do
       typeChk i env m (VPi VNat (const VStar))
@@ -123,6 +118,10 @@ typeChk i env (Inf e) t
         if (quote0 t == quote0 t') then return () else throwError "type mismatch"
 typeChk i env (Lam e) (VPi t t') 
    = typeChk (i+1) ((Local i, t):env) (subsChk 0 (Free (Local i)) e) (t' (vfree (Local i)))
+typeChk i env Zero VNat = return ()
+typeChk i env (Succ k) VNat = typeChk i env k VNat 
+
+
 typeChk i env _ _ = throwError "type mismatch"
 
 subsInf :: Int -> TermInf -> TermInf -> TermInf 
