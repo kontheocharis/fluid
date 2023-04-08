@@ -12,8 +12,7 @@ data TermInf =
  | NatElim TermChk TermChk TermChk TermChk
  | Vec TermChk TermChk 
  | VecElim TermChk TermChk TermChk TermChk TermChk TermChk
- | Nil TermChk
- | Cons TermChk TermChk TermChk TermChk
+
 
       deriving (Show, Eq)
 
@@ -23,6 +22,8 @@ data TermChk =
  | Lam TermChk          -- LAM
  | Zero
  | Succ TermChk 
+ | Nil TermChk
+ | Cons TermChk TermChk TermChk TermChk
 
       deriving (Show, Eq)
 
@@ -61,6 +62,7 @@ data Value =
  | VNil Value
  | VCons Value Value Value Value
  | VVec Value Value
+
 
 -- n ::= x         variable
 --   |   n v       application  

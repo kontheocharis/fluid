@@ -2,6 +2,8 @@ module Typecheck where
 
 import Syntax
 import Eval
+import Pretty
+import Text.PrettyPrint.HughesPJ hiding (parens)
 
 {-
 data Kind = Star
@@ -54,7 +56,7 @@ typeInf i env (Pi p p')
 typeInf i env (Free x) 
     = case lookup x env of 
            Just t -> return t 
-           Nothing          -> throwError "unknown identifier"
+           Nothing          -> throwError ("unknown identifier" ++ (show x) ++ (show (map (fst) env)))
 typeInf i env (e :@: e')
     = do 
          s <- typeInf i env e 
@@ -77,20 +79,6 @@ typeInf i env (Vec a k) =
       typeChk i env a VStar 
       typeChk i env k VNat
       return VStar
-typeInf i env (Nil a) = 
-   do
-      typeChk i env a VStar
-      let aVal = evalChk a [] 
-      return (VVec aVal VZero)
-typeInf i env (Cons a k x xs) =
-   do
-      typeChk i env a VStar
-      let aVal = evalChk a []
-      typeChk i env k VNat
-      let kVal = evalChk k []
-      typeChk i env x aVal
-      typeChk i env xs (VVec aVal kVal)
-      return (VVec aVal (VSucc kVal))
 typeInf i env (VecElim a m mn mc k vs) =
    do
       typeChk i env a VStar
@@ -110,19 +98,43 @@ typeInf i env (VecElim a m mn mc k vs) =
       typeChk i env vs (VVec aVal kVal)
       let vsVal = evalChk vs []
       return (foldl vapp mVal [kVal, vsVal])
+typeInf _ _ tm = throwError $ "No type match for " ++ render (iPrint_ 0 0 tm)
+
 
 typeChk :: Int -> Context -> TermChk -> Value -> Result ()
 typeChk i env (Inf e) t
    = do 
         t' <- typeInf i env e 
-        if (quote0 t == quote0 t') then return () else throwError "type mismatch"
+        if (quote0 t == quote0 t') then return () else throwError "type mismatch1"
 typeChk i env (Lam e) (VPi t t') 
    = typeChk (i+1) ((Local i, t):env) (subsChk 0 (Free (Local i)) e) (t' (vfree (Local i)))
 typeChk i env Zero VNat = return ()
 typeChk i env (Succ k) VNat = typeChk i env k VNat 
+typeChk i env (Nil a) (VVec bVal VZero) = 
+   do
+      typeChk i env a VStar
+      let aVal = evalChk a [] 
+      if (quote0 aVal /= quote0 bVal) then throwError "type mismatch2"
+                                      else return ()
+      return ()
+typeChk i env (Cons a k x xs) (VVec bVal (VSucc k2)) =
+   do
+      typeChk i env a VStar
+      let aVal = evalChk a []
+      if (quote0 aVal /= quote0 bVal) 
+            then throwError "type mismatch3"
+            else do
+               typeChk i env k VNat
+               let kVal = evalChk k []
+               if (quote0 kVal /= quote0 k2) 
+                  then throwError "type mismatch4"
+                  else do
+                     typeChk i env x aVal
+                     typeChk i env xs (VVec aVal kVal)
+                     return ()
 
 
-typeChk i env _ _ = throwError "type mismatch"
+typeChk i env _ _ = throwError "type mismatch5"
 
 subsInf :: Int -> TermInf -> TermInf -> TermInf 
 subsInf i r (Ann e t) = Ann (subsChk i r e) t
@@ -145,10 +157,21 @@ quote i (VLam f)     = Lam (quote (i+1) (f (vfree (Quote i))))
 quote i (VStar)      = Inf Star
 quote i (VPi v f)
   = Inf (Pi (quote i v) (quote (i+1) (f (vfree (Quote i)))))
+quote i (VNat) = Inf Nat
+quote i VZero = Zero
+quote i (VSucc n) = Succ (quote i n)
+quote i (VNil a) = Nil (quote i a)
+quote i (VCons a n x xs) = Cons (quote i a) (quote i n) (quote i x) (quote i xs)
+quote i (VVec a n) = Inf (Vec (quote i a) (quote i n))
 
 neutralQuote :: Int -> Neutral -> TermInf
 neutralQuote i (NFree x) = boundFree i x
 neutralQuote i (NApp n v) = neutralQuote i n :@: quote i v
+neutralQuote i (NNatElim m z s n) = NatElim (quote i m) (quote i z) (quote i s) (Inf (neutralQuote i n))
+neutralQuote i (NVecElim a m mn mc n xs) =
+         VecElim (quote i a) (quote i m)
+                 (quote i mn) (quote i mc)
+                 (quote i n) (Inf (neutralQuote i xs))
 
 boundFree :: Int -> Name -> TermInf 
 boundFree i (Quote k) = Bound (i-k-1)

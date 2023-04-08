@@ -40,8 +40,7 @@ evalInf (VecElim a m mn mc k xs) d =
                                                mnVal mcVal kVal n)
              _ -> error "internal: eval vecElim"
         in rec (evalChk k d) (evalChk xs d)
-evalInf (Nil a) d = VNil (evalChk a d)
-evalInf (Cons a k x xs) d = VCons (evalChk a d) (evalChk k d) (evalChk x d) (evalChk xs d)
+
 
 
 vapp :: Value -> Value -> Value
@@ -53,4 +52,5 @@ evalChk (Inf i) d = evalInf i d
 evalChk (Lam e) d = VLam (\x -> evalChk e (x:d))
 evalChk Zero d = VZero 
 evalChk (Succ k) d = VSucc (evalChk k d)
-
+evalChk (Nil a) d = VNil (evalChk a d)
+evalChk (Cons a k x xs) d = VCons (evalChk a d) (evalChk k d) (evalChk x d) (evalChk xs d)
