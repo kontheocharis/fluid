@@ -6,15 +6,15 @@ import Syntax
 -- evaluator, big-step
 ----------------------------------------------------
 
-type Env = [ Value ]
+type Env = [ (Name, Value) ]
 
-evalInf :: TermInf -> Env -> Value
+evalInf :: TermInf -> (Env, [Value])  -> Value
 evalInf (Ann e _) d = evalChk e d
-evalInf (Bound i) d = d !! i 
-evalInf (Free x) d  = vfree x
+evalInf (Bound i) d = (snd d !! i) 
+evalInf (Free x) d  = case lookup x (fst d) of Nothing -> (vfree x); Just v -> v
 evalInf (e :@: e') d = vapp (evalInf e d) (evalChk e' d)
 evalInf Star d = VStar
-evalInf (Pi t t') d = VPi (evalChk t d) (\x -> evalChk t' (x:d))
+evalInf (Pi t t') d = VPi (evalChk t d) (\ x -> evalChk t' (((\(e, d) -> (e,  (x : d))) d)))
 evalInf Nat d = VNat 
 
 evalInf (NatElim m mz ms k) d =
@@ -47,10 +47,12 @@ vapp :: Value -> Value -> Value
 vapp (VLam f) v = f v 
 vapp (VNeutral n) v = VNeutral (NApp n v)
 
-evalChk :: TermChk -> Env -> Value
+evalChk :: TermChk -> (Env, [Value]) -> Value
 evalChk (Inf i) d = evalInf i d
-evalChk (Lam e) d = VLam (\x -> evalChk e (x:d))
+evalChk (Lam e) d = VLam (\x -> evalChk e (((\(e2, d2) -> (e2,  (x : d2))) d)))
 evalChk Zero d = VZero 
 evalChk (Succ k) d = VSucc (evalChk k d)
 evalChk (Nil a) d = VNil (evalChk a d)
 evalChk (Cons a k x xs) d = VCons (evalChk a d) (evalChk k d) (evalChk x d) (evalChk xs d)
+
+
