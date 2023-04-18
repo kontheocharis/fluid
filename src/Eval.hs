@@ -40,7 +40,18 @@ evalInf (VecElim a m mn mc k xs) d =
                                                mnVal mcVal kVal n)
              _ -> error "internal: eval vecElim"
         in rec (evalChk k d) (evalChk xs d)
+evalInf (Fin n) d = VFin (evalChk n d)
+evalInf (FinElim m mz ms n f) d = 
+  let mzVal = evalChk mz d
+      msVal = evalChk ms d
+      rec fVal = 
+        case fVal of 
+          VFZero k -> mzVal `vapp` k
+          VFSucc k g -> foldl vapp msVal [k,g,rec g]
+          VNeutral n' -> VNeutral (NFinElim (evalChk m d) (evalChk mz d)
+                                            (evalChk ms d) (evalChk n d) n')
 
+  in rec (evalChk f d)
 
 
 vapp :: Value -> Value -> Value
@@ -54,5 +65,6 @@ evalChk Zero d = VZero
 evalChk (Succ k) d = VSucc (evalChk k d)
 evalChk (Nil a) d = VNil (evalChk a d)
 evalChk (Cons a k x xs) d = VCons (evalChk a d) (evalChk k d) (evalChk x d) (evalChk xs d)
-
+evalChk (FZero n) d = VFZero (evalChk n d)
+evalChk (FSucc n f) d = VFSucc (evalChk n d) (evalChk f d)
 

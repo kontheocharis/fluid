@@ -101,6 +101,23 @@ typeInf i env (VecElim a m mn mc k vs) =
       typeChk i env vs (VVec aVal kVal)
       let vsVal = evalChk vs (fst env, [])
       return (foldl vapp mVal [kVal, vsVal])
+typeInf i env (Fin n) = 
+   do typeChk i env n VNat 
+      return VStar
+typeInf i env (FinElim m mz ms n f) =
+   do typeChk i env m (VPi VNat (\k -> VPi (VFin k) (const VStar)))
+      let mVal = evalChk m (fst env, [])
+      typeChk i env n VNat
+      let nVal = evalChk n (fst env, [])
+      typeChk i env mz (VPi VNat (\k -> mVal `vapp` VSucc k `vapp` VFZero k))
+      typeChk i env ms (VPi VNat (\k -> 
+          VPi (VFin k) (\fk -> 
+              VPi (mVal `vapp` k `vapp` fk) (\_ -> 
+                  mVal `vapp` VSucc k `vapp` VFSucc k fk))))
+      typeChk i env f (VFin nVal)
+      let fVal = evalChk f (fst env, [])
+      return (mVal `vapp` nVal `vapp` fVal)
+
 typeInf _ _ tm = throwError $ "No type match for " ++ (show tm) -- render (iPrint_ 0 0 tm)
 
 
@@ -135,7 +152,19 @@ typeChk i env (Cons a k x xs) (VVec bVal (VSucc k2)) =
                      typeChk i env x aVal
                      typeChk i env xs (VVec aVal kVal)
                      return ()
-
+typeChk i env@(v,t) (FZero n) (VFin (VSucc mVal)) =
+ do
+    typeChk i env n VNat
+    let nVal = evalChk n (v, [])
+    unless  (quote0 nVal == quote0 mVal)
+            (throwError "number mismatch FZero")
+typeChk i env@(v,t) (FSucc n f') (VFin (VSucc mVal)) =
+  do
+    typeChk i env n VNat
+    let nVal = evalChk n (v,[])
+    unless  (quote0 nVal == quote0 mVal)
+            (throwError "number mismatch FSucc")
+    typeChk i env f' (VFin mVal)
 
 typeChk i env _ _ = throwError "type mismatch5"
 
@@ -155,6 +184,11 @@ subsInf i r (VecElim a m mn mc n xs) =
                 VecElim (subsChk i r a) (subsChk i r m)
                         (subsChk i r mn) (subsChk i r mc)
                         (subsChk i r n)  (subsChk i r xs)
+subsInf i r  (Fin n)        =  Fin (subsChk i r n)
+subsInf i r  (FinElim m mz ms n f)
+                              =  FinElim (subsChk i r m)
+                                         (subsChk i r mz) (subsChk i r ms)
+                                         (subsChk i r n) (subsChk i r f)
 
 subsChk :: Int -> TermInf -> TermChk -> TermChk 
 subsChk i r (Inf e) = Inf (subsInf i r e) 
@@ -165,6 +199,8 @@ subsChk i r (Nil a) = Nil (subsChk i r a)
 subsChk i r (Cons a n x xs) = 
          Cons (subsChk i r a) (subsChk i r n)
               (subsChk i r x) (subsChk i r xs)
+subsChk i r  (FZero n)    =  FZero (subsChk i r n)
+subsChk i r  (FSucc n k)  =  FSucc (subsChk i r n) (subsChk i r k)
 
 quote0 :: Value -> TermChk
 quote0 = quote 0 
@@ -181,6 +217,9 @@ quote i (VSucc n) = Succ (quote i n)
 quote i (VNil a) = Nil (quote i a)
 quote i (VCons a n x xs) = Cons (quote i a) (quote i n) (quote i x) (quote i xs)
 quote i (VVec a n) = Inf (Vec (quote i a) (quote i n))
+quote i (VFin n)           =  Inf (Fin (quote i n))
+quote i (VFZero n)         =  FZero (quote i n)
+quote i (VFSucc n f)       =  FSucc  (quote i n) (quote i f)
 
 neutralQuote :: Int -> Neutral -> TermInf
 neutralQuote i (NFree x) = boundFree i x
@@ -190,6 +229,10 @@ neutralQuote i (NVecElim a m mn mc n xs) =
          VecElim (quote i a) (quote i m)
                  (quote i mn) (quote i mc)
                  (quote i n) (Inf (neutralQuote i xs))
+neutralQuote i (NFinElim m mz ms n f)
+   =  FinElim (quote i m)
+               (quote i mz) (quote i ms)
+               (quote i n) (Inf (neutralQuote i f))
 
 boundFree :: Int -> Name -> TermInf 
 boundFree i (Quote k) = Bound (i-k-1)

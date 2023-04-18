@@ -42,9 +42,9 @@ iPrint_ p ii (VecElim a m mn mc n xs)
 -- iPrint_ p ii (Eq_ a x y)       =  iPrint_ p ii (Free_ (Global "Eq") :$: a :$: x :$: y)
 -- iPrint_ p ii (EqElim_ a m mr x y eq)
 --                                 =  iPrint_ p ii (Free_ (Global "eqElim") :$: a :$: m :$: mr :$: x :$: y :$: eq)
--- iPrint_ p ii (Fin_ n)          =  iPrint_ p ii (Free_ (Global "Fin") :$: n)
--- iPrint_ p ii (FinElim_ m mz ms n f)
---                                 =  iPrint_ p ii (Free_ (Global "finElim") :$: m :$: mz :$: ms :$: n :$: f)
+iPrint_ p ii (Fin n)          =  iPrint_ p ii (Free (Global "Fin") :@: n)
+iPrint_ p ii (FinElim m mz ms n f)
+                                 =  iPrint_ p ii (Free (Global "finElim") :@: m :@: mz :@: ms :@: n :@: f)
 iPrint_ p ii x                 =  text ("[" ++ show x ++ "]")
 
 cPrint_ :: Int -> Int -> TermChk -> Doc
@@ -56,8 +56,8 @@ cPrint_ p ii (Nil a)    = iPrint_ p ii (Free (Global "Nil") :@: a)
 cPrint_ p ii (Cons a n x xs) =
                              iPrint_ p ii (Free (Global "Cons") :@: a :@: n :@: x :@: xs)
 --  cPrint_ p ii (Refl_ a x) = iPrint_ p ii (Free_ (Global "Refl") :$: a :$: x)
---  cPrint_ p ii (FZero_ n)  = iPrint_ p ii (Free_ (Global "FZero") :$: n)
---  cPrint_ p ii (FSucc_ n f)= iPrint_ p ii (Free_ (Global "FSucc") :$: n :$: f)
+cPrint_ p ii (FZero n)  = iPrint_ p ii (Free (Global "FZero") :@: n)
+cPrint_ p ii (FSucc n f)= iPrint_ p ii (Free (Global "FSucc") :@: n :@: f)
 
 fromNat_ :: Int -> Int -> TermChk -> Doc
 fromNat_ n ii Zero = int n
