@@ -52,7 +52,15 @@ evalInf (FinElim m mz ms n f) d =
                                             (evalChk ms d) (evalChk n d) n')
 
   in rec (evalChk f d)
-
+evalInf (Eq a x y) d = VEq (evalChk a d) (evalChk x d) (evalChk y d)
+evalInf (EqElim a m mr x y eq) d = 
+  let mrVal = evalChk mr d 
+      rec eqVal = 
+        case eqVal of 
+          VRefl _ z -> mrVal `vapp` z
+          VNeutral n-> VNeutral (NEqElim (evalChk a d) (evalChk m d) mrVal (evalChk x d) (evalChk y d) n)
+          _ -> error "internal: eval eqElim"
+  in rec (evalChk eq d)
 
 vapp :: Value -> Value -> Value
 vapp (VLam f) v = f v 
@@ -67,4 +75,4 @@ evalChk (Nil a) d = VNil (evalChk a d)
 evalChk (Cons a k x xs) d = VCons (evalChk a d) (evalChk k d) (evalChk x d) (evalChk xs d)
 evalChk (FZero n) d = VFZero (evalChk n d)
 evalChk (FSucc n f) d = VFSucc (evalChk n d) (evalChk f d)
-
+evalChk (Refl a x) d = VRefl (evalChk a d) (evalChk x d)

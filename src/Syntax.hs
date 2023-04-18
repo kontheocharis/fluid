@@ -14,6 +14,8 @@ data TermInf =
  | VecElim TermChk TermChk TermChk TermChk TermChk TermChk
  | Fin TermChk 
  | FinElim TermChk TermChk TermChk TermChk TermChk
+ | Eq TermChk TermChk TermChk
+ | EqElim TermChk TermChk TermChk TermChk TermChk TermChk
 
 
       deriving (Show, Eq)
@@ -28,6 +30,7 @@ data TermChk =
  | Cons TermChk TermChk TermChk TermChk
  | FZero TermChk
  | FSucc TermChk TermChk
+ | Refl TermChk TermChk
 
       deriving (Show, Eq)
 
@@ -69,6 +72,8 @@ data Value =
  | VFZero Value
  | VFSucc Value Value
  | VFin Value
+ | VRefl Value Value
+ | VEq Value Value Value
 
 
 -- n ::= x         variable
@@ -79,6 +84,7 @@ data Neutral =
  | NNatElim Value Value Value Neutral
  | NVecElim Value Value Value Value Value Neutral
  | NFinElim Value Value Value Value Neutral
+ | NEqElim Value Value Value Value Value Neutral
 
 -- creates a value corrsponding to a free variable
 vfree :: Name -> Value

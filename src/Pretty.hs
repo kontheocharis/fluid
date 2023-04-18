@@ -36,12 +36,12 @@ iPrint_ p ii (NatElim m z s n)=  iPrint_ p ii (Free (Global "natElim") :@: m :@:
 iPrint_ p ii (Vec a n)        =  iPrint_ p ii (Free (Global "Vec") :@: a :@: n)
 iPrint_ p ii (VecElim a m mn mc n xs)
                                  =  iPrint_ p ii (Free (Global "vecElim") :@: a :@: m :@: mn :@: mc :@: n :@: xs)
---iPrint_ p ii (Nil a)    = iPrint_ p ii (Free (Global "Nil") :@: a)
---iPrint_ p ii (Cons a n x xs) =
+-- iPrint_ p ii (Nil a)    = iPrint_ p ii (Free (Global "Nil") :@: a)
+-- iPrint_ p ii (Cons a n x xs) =
 --                             iPrint_ p ii (Free (Global "Cons") :@: a :@: n :@: x :@: xs)
--- iPrint_ p ii (Eq_ a x y)       =  iPrint_ p ii (Free_ (Global "Eq") :$: a :$: x :$: y)
--- iPrint_ p ii (EqElim_ a m mr x y eq)
---                                 =  iPrint_ p ii (Free_ (Global "eqElim") :$: a :$: m :$: mr :$: x :$: y :$: eq)
+iPrint_ p ii (Eq a x y)       =  iPrint_ p ii (Free (Global "Eq") :@: a :@: x :@: y)
+iPrint_ p ii (EqElim a m mr x y eq)
+                                 =  iPrint_ p ii (Free (Global "eqElim") :@: a :@: m :@: mr :@: x :@: y :@: eq)
 iPrint_ p ii (Fin n)          =  iPrint_ p ii (Free (Global "Fin") :@: n)
 iPrint_ p ii (FinElim m mz ms n f)
                                  =  iPrint_ p ii (Free (Global "finElim") :@: m :@: mz :@: ms :@: n :@: f)
@@ -55,7 +55,7 @@ cPrint_ p ii (Succ n)   = fromNat_ 0 ii (Succ n) --  iPrint_ p ii (Free_ (Global
 cPrint_ p ii (Nil a)    = iPrint_ p ii (Free (Global "Nil") :@: a)
 cPrint_ p ii (Cons a n x xs) =
                              iPrint_ p ii (Free (Global "Cons") :@: a :@: n :@: x :@: xs)
---  cPrint_ p ii (Refl_ a x) = iPrint_ p ii (Free_ (Global "Refl") :$: a :$: x)
+cPrint_ p ii (Refl a x) = iPrint_ p ii (Free (Global "Refl") :@: a :@: x)
 cPrint_ p ii (FZero n)  = iPrint_ p ii (Free (Global "FZero") :@: n)
 cPrint_ p ii (FSucc n f)= iPrint_ p ii (Free (Global "FSucc") :@: n :@: f)
 
