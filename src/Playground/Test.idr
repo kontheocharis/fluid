@@ -63,6 +63,17 @@ True = FS FZ
 
 
 ------------------------------------------------------------------------
+listElim : ( x : Type) 
+       -> (y : ((z : List x) -> Type))
+       -> (z : y []) 
+       -> ((b : x) -> (c : List x) -> (d : y c) -> y (b :: c))
+       -> (c : List x) 
+       -> y c
+listElim t y n c [] = n
+listElim t y n c (x :: xs) = 
+    let rec = listElim t y n c xs
+    in c x xs rec
+
 
 vecElim : ( x : Type) 
        -> (y : ((n : Nat) -> (z : Vect n x) -> Type))
@@ -71,3 +82,7 @@ vecElim : ( x : Type)
        -> (b : Nat)
        -> (c : Vect b x) 
        -> y b c
+vecElim t y n c Z [] = n
+vecElim t y n c (S bn) (x :: xs) = 
+   let rec = vecElim t y n c bn xs
+   in c bn x xs rec
