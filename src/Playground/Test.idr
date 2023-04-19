@@ -2,6 +2,7 @@ module Test
 
 import Data.Nat
 import Data.Fin
+import Data.Vect
 
 natElim : (x : Nat -> Type) 
        -> (y : x Z)
@@ -59,3 +60,14 @@ False = FZ
 
 True : Test.Bool
 True = FS FZ
+
+
+------------------------------------------------------------------------
+
+vecElim : ( x : Type) 
+       -> (y : ((n : Nat) -> (z : Vect n x) -> Type))
+       -> (z : y Z []) 
+       -> ((a : Nat) -> (b : x) -> ( c : Vect a x) -> (d : y a c) -> y (S a) (b :: c))
+       -> (b : Nat)
+       -> (c : Vect b x) 
+       -> y b c
