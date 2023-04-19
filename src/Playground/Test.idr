@@ -86,3 +86,12 @@ vecElim t y n c Z [] = n
 vecElim t y n c (S bn) (x :: xs) = 
    let rec = vecElim t y n c bn xs
    in c bn x xs rec
+
+----------------------------------------------------------------------------
+
+listMap : (a : Type) -> (b : Type) -> (f : a -> b) -> List a -> List b 
+listMap a b f xs = listElim a (\xs => List b) [] (\x,xs,rec => f x :: rec) xs
+   
+vecMap : (a : Type) -> (b : Type) -> (n : Nat) -> (f : a -> b) -> Vect n a -> Vect n b 
+vecMap a b n f xs = vecElim a (\n, _ => Vect n b) [] (\n,x,xs,rec => f x :: rec) n xs
+    
