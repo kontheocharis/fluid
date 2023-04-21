@@ -146,3 +146,95 @@ listHead a xs =
         let elim = listElim a (\l => Maybe a) Nothing (\x, xs, rec => Just x) xs
         in elim
 
+listTail : (a : Type) -> List a -> List a 
+listTail a xs =
+        let elim = listElim a (\l => List a) [] (\x,xs,rec => xs) xs 
+        in elim
+
+{-
+||| Append two lists
+(++) : List a -> List a -> List a
+(++) []      right = right
+(++) (x::xs) right = x :: (xs ++ right)
+-}
+
+listAppend : (a : Type) -> List a -> List a -> List a 
+listAppend a xs ys = 
+        let elim = listElim a (\l => List a -> List a) (\ys => ys) (\x,xs,rec,ys => x :: (rec ys)) xs
+        in elim ys
+
+{-
+||| Construct a list with `n` copies of `x`
+||| @ n how many copies
+||| @ x the element to replicate
+replicate : (n : Nat) -> (x : a) -> List a
+replicate Z     x = []
+replicate (S n) x = x :: replicate n x
+-}
+
+listReplicate  : (a : Type) -> (n : Nat) -> (x : a) -> List a 
+listReplicate a n x = 
+        let elim = natElim (\n => a -> List a) (\x => []) (\n,rec,x => x :: rec x) n x
+        in elim
+
+
+{-
+||| Compute the length of a list.
+|||
+||| Runs in linear time
+length : List a -> Nat
+length []      = Z
+length (x::xs) = S (length xs)
+-}
+
+listLength : (a : Type) -> List a -> Nat
+listLength a xs = 
+        let elim = listElim a (\l => Nat) Z (\x,xs,rec => S rec) xs 
+        in elim
+
+{-
+||| Take the first `n` elements of `xs`
+|||
+||| If there are not enough elements, return the whole list.
+||| @ n how many elements to take
+||| @ xs the list to take them from
+take : (n : Nat) -> (xs : List a) -> List a
+take Z     xs      = []
+take (S n) []      = []
+take (S n) (x::xs) = x :: take n xs
+-}
+
+listTake : (a : Type) -> (n : Nat) -> (xs : List a) -> List a 
+listTake a n xs = 
+        let elim = natElim (\l => List a -> List a) 
+                    (\xs => []) 
+                    (\sn,rec,xs => listElim a (\l => List a) 
+                           [] 
+                           (\x',xs',rec' => x' :: rec xs' ) 
+                      xs) 
+                   n xs
+        in elim
+
+{-
+||| Drop the first `n` elements of `xs`
+|||
+||| If there are not enough elements, return the empty list.
+||| @ n how many elements to drop
+||| @ xs the list to drop them from
+drop : (n : Nat) -> (xs : List a) -> List a
+drop Z     xs      = xs
+drop (S n) []      = []
+drop (S n) (x::xs) = drop n xs
+-}
+
+listDrop : (a : Type) -> (n : Nat) -> (xs : List a) -> List a 
+listDrop a n xs = 
+        let elim = natElim (\n => List a -> List a) 
+                        (\xs => xs) 
+                        (\sn,rec,xs => 
+                             listElim a (\l => List a) 
+                                []
+                                (\x',xs',rec' => rec xs')
+                              xs )
+                        n xs
+        in elim
