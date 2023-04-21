@@ -87,7 +87,28 @@ vecElim t y n c (S bn) (x :: xs) =
    let rec = vecElim t y n c bn xs
    in c bn x xs rec
 
+finElim :  (x : ((x : Nat) -> (y : Fin x) -> Type))
+        -> ((y : Nat) -> x (S y) FZ)
+        -> ((z : Nat) -> (a : Fin z) -> (b : x z a) -> x (S z) (FS a))
+        -> (a : Nat)
+        -> (b : Fin a) 
+        -> x a b
+finElim y n c (S bn) FZ = n bn
+finElim y n c (S bn) (FS b) = 
+        let rec = finElim y n c bn b 
+        in c bn b rec
+
 ----------------------------------------------------------------------------
+Void2   : Type
+Void2   = Fin 0
+
+Unit2 : Type
+Unit2 = Fin 1
+
+voidElim : (m : Void2 -> Type) -> (v : Void2) -> m v
+voidElim m v = 
+   let elimF = finElim (natElim (\n => Fin n -> Type) m (\z, fu, fi => Unit2)) (\n => FZ) (\j,a,el => FZ) Z
+   in elimF v
 
 listMap : (a : Type) -> (b : Type) -> (f : a -> b) -> List a -> List b 
 listMap a b f xs = listElim a (\xs => List b) [] (\x,xs,rec => f x :: rec) xs
@@ -95,3 +116,33 @@ listMap a b f xs = listElim a (\xs => List b) [] (\x,xs,rec => f x :: rec) xs
 vecMap : (a : Type) -> (b : Type) -> (n : Nat) -> (f : a -> b) -> Vect n a -> Vect n b 
 vecMap a b n f xs = vecElim a (\n, _ => Vect n b) [] (\n,x,xs,rec => f x :: rec) n xs
     
+
+elimF : (n : Nat) 
+     -> (fn : Fin n)
+     -> (a : Type)
+     -> (xs : Vect n a) 
+     -> (n' : Nat)
+     -> (v : a)
+     -> (vs : Vect n' a)
+     -> (rec_n' : Fin n' -> a)
+     -> (f_succN' : Fin (S n'))
+     -> a
+elimF n gn a xs n' v vs rec_n' f_succN' = 
+      let elimF = finElim (\x, f => a) ?q
+      in ?k
+
+-- Projection out of a Vector. Head with a Finite set as the constraint.
+vecAt : (a : Type) -> (n : Nat) -> Vect n a -> Fin n -> a
+vecAt a n xs fn = 
+        let elim = vecElim a (\n, v => Fin n -> a) (\v => voidElim (\v => a) v) 
+                             (\n', v, vs, rec_n', f_succN' => 
+                              ?p
+                             )
+        in ?body
+
+
+listHead : (a : Type) -> List a -> Maybe a 
+listHead a xs = 
+        let elim = listElim a (\l => Maybe a) Nothing (\x, xs, rec => Just x) xs
+        in elim
+
