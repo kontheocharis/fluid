@@ -131,20 +131,75 @@ elimF n gn a xs n' v vs rec_n' f_succN' =
       let elimF = finElim (\x, f => a) ?q
       in ?k
 
--- Projection out of a Vector. Head with a Finite set as the constraint.
-vecAt : (a : Type) -> (n : Nat) -> Vect n a -> Fin n -> a
-vecAt a n xs fn = 
-        let elim = vecElim a (\n, v => Fin n -> a) (\v => voidElim (\v => a) v) 
-                             (\n', v, vs, rec_n', f_succN' => 
-                              ?p
-                             )
-        in ?body
-
 
 listHead : (a : Type) -> List a -> Maybe a 
 listHead a xs = 
         let elim = listElim a (\l => Maybe a) Nothing (\x, xs, rec => Just x) xs
         in elim
+
+{-
+||| Only the first element of the vector
+|||
+||| ```idris example
+||| head [1,2,3,4]
+||| ```
+head : Vect (S len) elem -> elem
+head (x::xs) = x
+-}
+
+-- at : forall (x :: *) (y :: Nat) (z :: Vec x y) (a :: Fin y) . x
+
+-- vec projection using finite sets
+-- defined using standard recursion
+at : (t : Type) -> (y : Nat) -> (z : Vect y t) -> (a : Fin y) -> t
+at t Z [] a = 
+     let elim =  voidElim (\f => t) a
+     in elim
+at t (S n) (v::vs) FZ = v
+at t (S n) (v::vs) (FS fn) = at t n vs fn
+
+{-
+eqElim : forall (x :: *)
+       (y :: forall (y :: x) (z :: x) (a :: Eq x y z) . *)
+       (z :: forall z :: x . y z z (Refl x z))
+       (a :: x)
+       (b :: x)
+       (c :: Eq x a b) .
+y a b c
+-}
+
+eqElim : (x : Type)
+      -> (y : ((y : x) -> (z : x) -> (a : y = z) -> Type))
+      -> (z : ((z : x) -> y z z Refl))
+      -> (a : x)
+      -> (b : x) 
+      -> (c : a = b) 
+      -> y a b c 
+eqElim t y z a a Refl = z a
+
+
+vecAt : (t : Type) -> (y : Nat) -> (z : Vect y t) -> (a : Fin y) -> t 
+vecAt t y z a = 
+        let elimN = vecElim t (\n, vs => Fin n -> t) 
+                          (\f => voidElim (\f' => t) f) -- empty case
+                          (\n', v, vs, rec, f => 
+                                 finElim (\n,f => n = (S n') -> t) 
+                                         (\n,e => v) 
+                                         (\n,fn,rec',e => 
+                                               ---  ?fff
+                                               rec (eqElim Nat 
+                                                           (\y,z,e => Fin y -> Fin z) 
+                                                           (\z, fn2 => fn2)
+                                                           n n'
+                                                           (cong pred e) fn))
+                                         (S n')
+                                         f 
+                                         Refl)
+
+                             -- cons case
+        in elimN y z a
+
+
 
 listTail : (a : Type) -> List a -> List a 
 listTail a xs =
