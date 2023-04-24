@@ -199,12 +199,76 @@ vecAt t y z a =
                              -- cons case
         in elimN y z a
 
+vecHead : (a : Type) -> (n : Nat) -> Vect (S n) a -> a 
+vecHead a n v = vecAt a (S n) v FZ
+
 
 
 listTail : (a : Type) -> List a -> List a 
 listTail a xs =
         let elim = listElim a (\l => List a) [] (\x,xs,rec => xs) xs 
         in elim
+
+-- with Eliminators we cannot discard the empty vector case, so we cannot use
+-- vecTail, below. THis means we need another helper function, allowing us
+-- to pattern match on []. 
+-- We pass a proof as arugment, to allow us to return a vector that is at least 1 in length.
+
+-- vecTail' : (a : Type) -> (n : Nat) -> Vect n a -> (prf : n = (S m)) -> Vect m a
+-- vecTail' a Z [] Refl impossible
+-- vecTail' a (S n) (x::xs) Refl = xs
+
+apply : (a : Type) -> (b : Type) -> (a = b) -> a -> b
+
+Not : Type -> Type 
+Not t = t -> Fin 0
+
+p0isNot1 : (y : Z = (S Z)) -> Fin 0
+p0isNot1 y = 
+        let elim = natElim (\n => Type) Void2 (\n,t => Fin 1)
+            con  = cong (natElim (\n => Type) Void2 (\n,t => Fin 1)) (sym y)
+        in Test.apply (Fin 1) Void2 con FZ
+
+
+p0IsNoSucc : (x : Nat) -> (y : 0 = (S x)) -> Fin 0 
+p0IsNoSucc Z     y = p0isNot1 y
+p0IsNoSucc (S n) y = p0IsNoSucc n (cong pred y) 
+
+
+helpElim : (a : Type)
+        -> (n : Nat)
+        -> (v : Vect n a)
+        -> (a' : Nat)
+        -> (x : a)
+        -> (xs : Vect a' a)
+        -> (rec : (m : Nat) -> a' = S m -> Vect m a)
+        -> (m : Nat)
+        -> (p : S a' = S m)
+        -> Vect m a 
+helpElim a n v a' x xs rec m p = 
+        let elim = eqElim Nat (\n',m',p => Vect n' a -> Vect m' a) (\z,zv => zv) a' m (cong pred p) xs
+        in elim
+
+vecTail' : (a : Type) -> (n : Nat) -> Vect n a -> (m : Nat) -> (prf : n = (S m)) -> Vect m a 
+vecTail' a n v m p = 
+        let elimE = eqElim Nat (\n,m,p => Vect n a -> Vect m a) (\z,zv => zv) n m ?pp
+            elim = vecElim a (\n,v => (m : Nat) -> n = (S m) -> Vect m a) 
+                             (\m,absPrf => voidElim (\f => Vect m a) (p0IsNoSucc m absPrf))  -- case where we have a proof 0 = S m 
+                             (\a',x,xs,rec,m',p' =>  -- we need to effectively case on cong pred p  
+                                                  -- meaning an eqElim...
+                                -- helpElim a n v a' x xs rec m' p'
+                                eqElim Nat 
+                                       (\n',m',p => Vect n' a -> Vect m' a) 
+                                       (\z,zv => zv) 
+                                       a' m' 
+                                       (cong pred p') xs
+                             )
+
+        in elim n v m p
+
+vecTail : (a : Type) -> (n : Nat) -> Vect (S n) a -> Vect n a 
+vecTail a n v = vecTail' a (S n) v n Refl
+
 
 {-
 ||| Append two lists
