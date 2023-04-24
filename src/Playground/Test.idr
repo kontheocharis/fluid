@@ -282,6 +282,20 @@ listAppend a xs ys =
         let elim = listElim a (\l => List a -> List a) (\ys => ys) (\x,xs,rec,ys => x :: (rec ys)) xs
         in elim ys
 
+
+-- vecAppend' : (a : Type) -> (n : Nat) -> Vect n a -> (m : Nat) -> Vect m a -> Vect (n+m) a
+-- vecAppend' a Z [] m v2 = v2
+-- vecAppend' a (S n) (x :: xs) m v2 = x :: (vecAppend' a n xs m v2)
+
+vecAppend : (a : Type) -> (n : Nat) -> Vect n a -> (m : Nat) -> Vect m a -> Vect (n+m) a
+vecAppend a n v1 m v2 = 
+        let elim = vecElim a (\n,ve => (m:Nat) -> Vect m a -> Vect (n+m) a) 
+                              -- empty vec case
+                              (\n,v2' => v2')
+                              -- cons case 
+                              (\t,x,xs,rec,m',v2' => x :: rec m' v2')
+        in elim n v1 m v2
+
 {-
 ||| Construct a list with `n` copies of `x`
 ||| @ n how many copies
@@ -294,6 +308,17 @@ replicate (S n) x = x :: replicate n x
 listReplicate  : (a : Type) -> (n : Nat) -> (x : a) -> List a 
 listReplicate a n x = 
         let elim = natElim (\n => a -> List a) (\x => []) (\n,rec,x => x :: rec x) n x
+        in elim
+
+-- vecReplicate : (a : Type) -> (n : Nat) -> (x : a) -> Vect n a 
+-- vecReplicate a Z x = []
+-- vecReplicate a (S n) x = x :: vecReplicate a n x
+
+vecReplicate : (a : Type) -> (n : Nat) -> (x : a) -> Vect n a 
+vecReplicate a n x = 
+        let elim = natElim (\n => a -> Vect n a) 
+                                (\x => []) 
+                                (\n,rec,x => x :: rec x ) n x
         in elim
 
 
@@ -310,6 +335,11 @@ listLength : (a : Type) -> List a -> Nat
 listLength a xs = 
         let elim = listElim a (\l => Nat) Z (\x,xs,rec => S rec) xs 
         in elim
+
+vecLength : (a : Type) -> (n: Nat) -> Vect n a -> Nat 
+vecLength a n v = 
+        let elim = vecElim a (\n,v => Nat) Z (\n,x,xs,rec => S rec) n v
+        in elim -- kind of pointless, as we need to make n explicit.
 
 {-
 ||| Take the first `n` elements of `xs`
