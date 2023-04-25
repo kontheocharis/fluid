@@ -364,6 +364,59 @@ listTake a n xs =
                    n xs
         in elim
 
+-- vecTake : (a : Type) -> (n : Nat) -> (m : Nat) -> (xs : Vect (n+m) a) -> Vect m a 
+-- vecTake a Z m xs = xs 
+-- vecTake a (S n) m (x::xs) = vecTake a n m 
+
+{-
+p0isNot1 : (y : Z = (S Z)) -> Fin 0
+p0isNot1 y = 
+        let elim = natElim (\n => Type) Void2 (\n,t => Fin 1)
+            con  = cong (natElim (\n => Type) Void2 (\n,t => Fin 1)) (sym y)
+        in Test.apply (Fin 1) Void2 con FZ
+-}
+
+vecLengthEq : (Vect a n = Vect b n) -> a = b 
+vecLengthEq Refl = Refl
+
+vecLengthEq2 : (a : Type) -> (n1 : Nat) -> (n2 : Nat) -> (Vect n1 a = Vect n2 a) -> n1 = n2
+vecLengthEq2 a n1 n2 prf = 
+        let elim = eqElim (Vect n1 a) (\y,z,prf => n1 = n2) (\a => ?t )
+        in ?bo
+
+
+v0IsNo1 : (a : Type) -> (Vect 0 a = Vect 1 a) -> Fin 0 
+v0IsNo1 a prf = p0isNot1 (vecLengthEq prf)
+
+vIsNoSucc : (m : Nat) -> (y : Vect m a = (Vect (S m) a)) -> Fin 0 
+vIsNoSucc Z prf = ?h
+vIsNoSucc (S n) prf = ?h2
+
+takeHelper :    (m : Nat)
+          ->    (n : Nat)
+          ->    (a : Type)
+          ->    (m' : Nat)
+          ->    (rec : Vect (m' + m) a -> Vect m a)
+          ->    (xs : Vect (S (m' + m)) a)
+          ->     Vect m a
+takeHelper m n a m' rec xs = 
+        let elimV = voidElim (\v => Vect m a) ?v
+            elim = vecElim a (\n,vec => Vect m a) 
+                        elimV 
+                        (\a,x,xs,rec => rec)
+        in ?body2
+
+
+
+
+vecTake : (a : Type) -> (n : Nat) -> (m : Nat) -> (xs : Vect (n+m) a) -> Vect m a
+vecTake a n m xs = 
+        let elim = natElim (\n => Vect (n+m) a -> Vect m a) 
+                                -- Z case
+                                (\xs => xs)
+                                (\m',rec,xs => ?g)
+        in ?body
+
 {-
 ||| Drop the first `n` elements of `xs`
 |||
