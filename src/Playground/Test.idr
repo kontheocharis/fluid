@@ -546,3 +546,25 @@ listDrop a n xs =
                         n xs
         in elim
 
+vecDropE :   (n : Nat)
+        ->   (a : Type)
+        ->   (z : Nat)
+        ->   (rec : (m : Nat) -> Vect (z + m) a -> Vect m a)
+        ->   (m : Nat)
+        ->   (xs : Vect (S (z + m)) a)
+------------------------------
+        -> Vect m a
+vecDropE n a z rec m xs = 
+        let elim = vecElim a (\n,v => Vect m a) ?vd2
+        in ?vdEBody
+
+
+vecDrop : (a : Type) -> (n : Nat) -> (m : Nat) -> (xs : Vect (n+m) a) -> Vect m a 
+vecDrop a n m xs = 
+        let elim = natElim (\n => (m : Nat) -> Vect (n+m) a -> Vect m a) 
+                        (\m,vm => vm)
+                        (\z,rec,m,xs => rec m (vecTail a (z+m) xs))
+                        n
+                        m
+                        xs
+        in elim
