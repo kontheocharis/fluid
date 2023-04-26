@@ -519,7 +519,7 @@ vecTake : (a : Type)
 vecTake a n m xs = 
         let elim = natElim (\n => (m : Nat) -> Vect (n+m) a -> Vect n a) 
                         (\m,v => []) 
-                        (\z,f,m,rec => vecHead a (z+m) rec :: f m (vecTail a (z+m) rec)) n
+                        (\z,rec,m,xs => vecHead a (z+m) xs :: rec m (vecTail a (z+m) xs)) n
         in elim m xs
 
 {-
