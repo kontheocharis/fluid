@@ -113,6 +113,55 @@ voidElim m v =
 listMap : (a : Type) -> (b : Type) -> (f : a -> b) -> List a -> List b 
 listMap a b f xs = listElim a (\xs => List b) [] (\x,xs,rec => f x :: rec) xs
    
+vectToList : Vect n a -> List a 
+vectToList xs = toList xs
+
+-- change input parameter to vect, introduce fresh bound. 
+-- gives type error: unifying vect with list.
+-- listMap2 : (a : Type) -> (b : Type) -> (f : a -> b) -> (n : Nat) -> Vect n a -> List b 
+-- listMap2 a b f n xs = listElim a (\xs => List b) [] (\x,xs,rec => f x :: rec) xs
+
+
+-- change all occurrences of bounded xs with a converter wrapper.
+listMap3 : (a : Type) -> (b : Type) -> (f : a -> b) -> (n : Nat) -> Vect n a -> List b 
+listMap3 a b f n xs = listElim a (\xs => List b) [] (\x,xs,rec => f x :: rec) (vectToList xs)
+
+
+listMap4 : (a : Type) -> (b : Type) -> (f : a -> b) -> (n : Nat) -> Vect n a -> List b 
+listMap4 a b f n xs = vecElim a (\n,xs => List b) [] (\n,x,xs,rec => f x :: rec) n xs
+
+
+mapHelp : (n : Nat)
+        ->  (a : Type)
+        ->  (xs : Vect n a)
+        ->  (b : Type)
+        ->  (f : a -> b)
+        ->  (m : Nat)
+        -> Vect m b
+mapHelp n a xs b f m = 
+        let elim = natElim (\m => Vect m b) [] (\m,rec => ?qq)
+        in ?bodyQQ
+
+sigElim  : (a : Type)
+        -> (f : a -> Type) 
+        -> (x : (a  ** f a) -> Type)
+        -> ((w : a) -> (g : f w) -> x (w ** g))
+        -> (k : (y ** f y))
+        -> x k 
+sigElim a f x w (y ** g) = w y g
+
+-- change the output type.
+listMap5 : (a : Type) -> (b : Type) -> (f : a -> b) 
+        -> (n : Nat) -> Vect n a 
+        -> (m ** Vect m b) 
+listMap5 a b f n xs = 
+        let elim = vecElim a (\n,xs => (m ** Vect m b)) 
+                             (Z ** [])
+                             (\n,x,xs,rec => ?ss)
+                             --      (\m => []) 
+                             --      (\n,x,xs,rec => ?ss{-f x :: rec-}) n xs m
+        in ?body88
+
 vecMap : (a : Type) -> (b : Type) -> (n : Nat) -> (f : a -> b) -> Vect n a -> Vect n b 
 vecMap a b n f xs = vecElim a (\n, _ => Vect n b) [] (\n,x,xs,rec => f x :: rec) n xs
     
@@ -176,6 +225,21 @@ eqElim : (x : Type)
       -> (c : a = b) 
       -> y a b c 
 eqElim t y z a a Refl = z a
+
+{-
+eq2Elim : (t : Type)
+       -> (n1 : t)
+       -> (n2 : t)
+       -> (x : t -> Type -> Type)
+       -> (a : Type)
+       -> (y : ((y : x n1 a) -> (z : x n2 a) -> (p : y = z) -> Type))
+       -> (z : ((n1 = n2) -> (z : x n1 a) -> y z z Refl)) 
+       -> (d : x n1 a)
+       -> (e : x n1 a)
+       -> (c : d = e) 
+       -> y d e c 
+eq2Elim n1 a t y z d e prf = ?ppp
+-}
 
 
 vecAt : (t : Type) -> (y : Nat) -> (z : Vect y t) -> (a : Fin y) -> t 
@@ -251,8 +315,7 @@ helpElim a n v a' x xs rec m p =
 
 vecTail' : (a : Type) -> (n : Nat) -> Vect n a -> (m : Nat) -> (prf : n = (S m)) -> Vect m a 
 vecTail' a n v m p = 
-        let elimE = eqElim Nat (\n,m,p => Vect n a -> Vect m a) (\z,zv => zv) n m ?pp
-            elim = vecElim a (\n,v => (m : Nat) -> n = (S m) -> Vect m a) 
+        let elim = vecElim a (\n,v => (m : Nat) -> n = (S m) -> Vect m a) 
                              (\m,absPrf => voidElim (\f => Vect m a) (p0IsNoSucc m absPrf))  -- case where we have a proof 0 = S m 
                              (\a',x,xs,rec,m',p' =>  -- we need to effectively case on cong pred p  
                                                   -- meaning an eqElim...
@@ -366,7 +429,7 @@ listTake a n xs =
 
 -- vecTake : (a : Type) -> (n : Nat) -> (m : Nat) -> (xs : Vect (n+m) a) -> Vect m a 
 -- vecTake a Z m xs = xs 
--- vecTake a (S n) m (x::xs) = vecTake a n m 
+-- vecTake a (S n) m (x::xs) = x :: vecTake a n m 
 
 {-
 p0isNot1 : (y : Z = (S Z)) -> Fin 0
@@ -381,7 +444,9 @@ vecLengthEq Refl = Refl
 
 vecLengthEq2 : (a : Type) -> (n1 : Nat) -> (n2 : Nat) -> (Vect n1 a = Vect n2 a) -> n1 = n2
 vecLengthEq2 a n1 n2 prf = 
-        let elim = eqElim (Vect n1 a) (\y,z,prf => n1 = n2) (\a => ?t )
+        let elim = ?kkkk
+            app = apply (Vect n1 a) (Vect n2 a) prf 
+            con = vecLengthEq prf
         in ?bo
 
 
@@ -393,29 +458,69 @@ vIsNoSucc Z prf = ?h
 vIsNoSucc (S n) prf = ?h2
 
 takeHelper :    (m : Nat)
-          ->    (n : Nat)
-          ->    (a : Type)
-          ->    (m' : Nat)
-          ->    (rec : Vect (m' + m) a -> Vect m a)
-          ->    (xs : Vect (S (m' + m)) a)
-          ->     Vect m a
-takeHelper m n a m' rec xs = 
-        let elimV = voidElim (\v => Vect m a) ?v
-            elim = vecElim a (\n,vec => Vect m a) 
-                        elimV 
-                        (\a,x,xs,rec => rec)
-        in ?body2
+        ->      (n : Nat)
+        ->      (a : Type)
+        ->      (z : Nat)
+        ->      (f : (m : Nat) -> Vect (z + m) a -> Vect z a)
+        ->      (rec : Nat)
+        ->      (xs : Vect (S (z + rec)) a)
+------------------------------
+        ->      Vect (S z) a
+takeHelper m n a z f rec xs = 
+        let elim = vecElim a (\n,v => Vect (S z) a) ?th 
+        in ?takeBody
 
 
+{-
+vecTake : (a : Type) -> (n : Nat) -> (m : Nat) -> (s : Vect (n+m) a) -> Vect n a 
+vecTake a n xs = 
+        let elim = natElim (\n => Vect (n+m) a -> Vect n a 
 
 
-vecTake : (a : Type) -> (n : Nat) -> (m : Nat) -> (xs : Vect (n+m) a) -> Vect m a
+take : (n : Nat) -> Vect (n + m) elem -> Vect n elem
+take Z     xs        = []
+take (S k) (x :: xs) = x :: take k xs
+-}                              
+
+
+vecTake' :   (m : Nat)
+    ->        (    n : Nat)
+    ->        (    a : Type)
+    ->        (    m' : Nat)
+    ->        (    rec : Vect (m' + m) a -> Vect m' a)
+    ->        (    xs : Vect (S (m' + m)) a)
+    ->         Vect (S m') a
+vecTake' m n a m' rec xs = 
+        let vecElim = vecElim a (\n,v => Vect (S m') a)  (?take) (\a,x,xs,rec => rec) {-rec (vecTail a (m'+m) xs)) (\a,x,xs,rec => rec) (m'+m)-}
+        in ?vecBody -- vecElim (vecTail a (m'+m) xs)
+
+finTheorem : (n : Nat) -> (p : Fin n) -> finToNat (weaken p) = finToNat p
+finTheorem (S n) (FZ) = Refl
+finTheorem (S n) (FS p) = rewrite finTheorem n p in Refl
+
+vecn0Eqn : (a : Type) -> (n' : Nat) -> (xs : Vect (n' + 0) a)  -> Vect n' a
+vecn0Eqn a Z xs = []
+vecn0Eqn a (S n) (x::xs) = x :: (vecn0Eqn a n xs)
+
+take2 : (a : Type) 
+        -> (n : Nat) 
+        -> (m : Nat)
+        -> (xs : Vect (n+m) a)
+        -> Vect n a 
+take2 a Z m xs = []
+take2 a (S n) m xs = vecHead a (n+m) xs :: take2 a n m (vecTail a (n+m) xs)
+
+
+vecTake : (a : Type) 
+        -> (n : Nat) 
+        -> (m : Nat)
+        -> (xs : Vect (n+m) a)
+        -> Vect n a 
 vecTake a n m xs = 
-        let elim = natElim (\n => Vect (n+m) a -> Vect m a) 
-                                -- Z case
-                                (\xs => xs)
-                                (\m',rec,xs => ?g)
-        in ?body
+        let elim = natElim (\n => (m : Nat) -> Vect (n+m) a -> Vect n a) 
+                        (\m,v => []) 
+                        (\z,f,m,rec => vecHead a (z+m) rec :: f m (vecTail a (z+m) rec)) n
+        in elim m xs
 
 {-
 ||| Drop the first `n` elements of `xs`
@@ -440,3 +545,4 @@ listDrop a n xs =
                               xs )
                         n xs
         in elim
+
