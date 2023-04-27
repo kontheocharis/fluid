@@ -150,6 +150,32 @@ sigElim  : (a : Type)
         -> x k 
 sigElim a f x w (y ** g) = w y g
 
+
+listMap5' : (a : Type)
+         -> (b : Type)
+         -> (f : a -> b)
+         -> (n : Nat)
+         -> (x : a)
+         -> (xs : Vect n a)
+         -> (rec : (m ** Vect m b))
+         -> (m  ** Vect m b)
+listMap5' a b f n x xs rec = 
+        let elim = sigElim Nat (\m => Vect m b) (\a => (m : Nat ** Vect m b)) 
+                        (\m,vm => (S m ** f x :: vm))
+                        rec
+                        
+        in elim
+
+
+mapFV : (a : Type) -> (b : Type) -> (f : a -> b) 
+     -> (n : Nat) -> Vect n a 
+     -> (m ** Vect m b)
+mapFV a b f Z [] = (0 ** [])
+mapFV a b f (S n) (x::xs) = 
+        case mapFV a b f n xs of 
+                (m' ** vm') => (S m' ** f x :: vm')
+-- mapFV a b f n (x:xs) = ?mapV
+
 -- change the output type.
 listMap5 : (a : Type) -> (b : Type) -> (f : a -> b) 
         -> (n : Nat) -> Vect n a 
@@ -157,14 +183,29 @@ listMap5 : (a : Type) -> (b : Type) -> (f : a -> b)
 listMap5 a b f n xs = 
         let elim = vecElim a (\n,xs => (m ** Vect m b)) 
                              (Z ** [])
-                             (\n,x,xs,rec => ?ss)
-                             --      (\m => []) 
-                             --      (\n,x,xs,rec => ?ss{-f x :: rec-}) n xs m
-        in ?body88
+                             (\n,x,xs,rec => sigElim Nat (\m => Vect m b) (\a => (m : Nat ** Vect m b)) 
+                                                         (\m,vm => (S m ** f x :: vm))
+                                                         rec)
+                             n 
+                             xs
+        in elim
+
+-- remove DP and unify.
+listMap6 : (a : Type) -> (b : Type) -> (f : a -> b) 
+        -> (n : Nat) -> Vect n a 
+        -> Vect n b
+listMap6 a b f n xs = 
+        let elim = vecElim a (\n,xs => Vect n b) 
+                             []
+                             (\n,x,xs,rec => f x :: rec)
+                             n 
+                             xs
+        in elim
 
 vecMap : (a : Type) -> (b : Type) -> (n : Nat) -> (f : a -> b) -> Vect n a -> Vect n b 
 vecMap a b n f xs = vecElim a (\n, _ => Vect n b) [] (\n,x,xs,rec => f x :: rec) n xs
     
+--------------------------------------------------------------------------------------------------------------------
 
 elimF : (n : Nat) 
      -> (fn : Fin n)
@@ -546,17 +587,6 @@ listDrop a n xs =
                         n xs
         in elim
 
-vecDropE :   (n : Nat)
-        ->   (a : Type)
-        ->   (z : Nat)
-        ->   (rec : (m : Nat) -> Vect (z + m) a -> Vect m a)
-        ->   (m : Nat)
-        ->   (xs : Vect (S (z + m)) a)
-------------------------------
-        -> Vect m a
-vecDropE n a z rec m xs = 
-        let elim = vecElim a (\n,v => Vect m a) ?vd2
-        in ?vdEBody
 
 
 vecDrop : (a : Type) -> (n : Nat) -> (m : Nat) -> (xs : Vect (n+m) a) -> Vect m a 
