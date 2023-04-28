@@ -71,6 +71,16 @@ listAppend6 a n xs m ys =
              n xs
         in elim m ys
 
+
+-- 6. Remove DP and replace with a constraint
+listAppend7 : (a : Type) -> (n : Nat) -> Vect n a -> (m : Nat) -> Vect m a ->  (Vect (n+m) a) 
+listAppend7 a n xs m ys = 
+        let elim = vecElim a (\n,l => (m : Nat) -> Vect m a -> Vect (n+m) a) 
+                                (\m,ys =>  ys)
+                                (\a',x,xs,rec,m,ys => x :: rec m ys)
+                                n xs
+        in elim m ys
+
 -- vecAppend' : (a : Type) -> (n : Nat) -> Vect n a -> (m : Nat) -> Vect m a -> Vect (n+m) a
 -- vecAppend' a Z [] m v2 = v2
 -- vecAppend' a (S n) (x :: xs) m v2 = x :: (vecAppend' a n xs m v2)
