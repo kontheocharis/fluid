@@ -131,3 +131,12 @@ sigElim  : (a : Type)
 sigElim a f x w (y ** g) = w y g
 
 
+public export 
+eqElim : (x : Type)
+      -> (y : ((y : x) -> (z : x) -> (a : y = z) -> Type))
+      -> (z : ((z : x) -> y z z Refl))
+      -> (a : x)
+      -> (b : x) 
+      -> (c : a = b) 
+      -> y a b c 
+eqElim t y z a a Refl = z a

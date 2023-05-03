@@ -27,17 +27,6 @@ listMap4 : (a : Type) -> (b : Type) -> (f : a -> b) -> (n : Nat) -> Vect n a -> 
 listMap4 a b f n xs = vecElim a (\n,xs => List b) [] (\n,x,xs,rec => f x :: rec) n xs
 
 
-mapHelp : (n : Nat)
-        ->  (a : Type)
-        ->  (xs : Vect n a)
-        ->  (b : Type)
-        ->  (f : a -> b)
-        ->  (m : Nat)
-        -> Vect m b
-mapHelp n a xs b f m = 
-        let elim = natElim (\m => Vect m b) [] (\m,rec => ?qq)
-        in ?bodyQQ
-
 
 listMap5' : (a : Type)
          -> (b : Type)
@@ -71,7 +60,8 @@ listMap5 : (a : Type) -> (b : Type) -> (f : a -> b)
 listMap5 a b f n xs = 
         let elim = vecElim a (\n,xs => (m ** Vect m b)) 
                              (Z ** [])
-                             (\n,x,xs,rec => sigElim Nat (\m => Vect m b) (\a => (m : Nat ** Vect m b)) 
+                             (\n,x,xs,rec => sigElim Nat (\m => Vect m b) 
+                                                         (\a => (m : Nat ** Vect m b)) 
                                                          (\m,vm => (S m ** f x :: vm))
                                                          rec)
                              n 
@@ -89,6 +79,49 @@ listMap6 a b f n xs =
                              n 
                              xs
         in elim
+
+
+listMap7' : (n : Nat)
+         -> (a : Type)
+         -> (b : Type)
+         -> (f : a -> b)
+         -> (n' : Nat)
+         -> (x : a)
+         -> (xs : Vect n' a)
+         -> (rec : (m : Nat ** (n' = m, Vect m b)))
+         -> (m : Nat)
+         -> (vm : (n' = m, Vect m b))
+------------------------------
+        -> (S n' = S m, Vect (S m) b)
+listMap7' n a b f n' x xs rec m vm = 
+    let elim = eqElim Nat (\y, z, prf => S y = S z) (\z => Refl) n' m (fst vm) 
+    in (elim, (f x :: (snd vm)))
+
+
+-- Q: How do we know how to unify?
+-- could add a returning proof that n = m?
+listMap7 : (a : Type) -> (b : Type) -> (f : a -> b) 
+        -> (n : Nat) -> Vect n a 
+        -> (m ** (n = m, Vect m b))
+listMap7 a b f n xs = 
+        let elim = vecElim a (\n,xs => (m ** (n = m, Vect m b))) -- (m ** (Refl, Vect m b)))
+                            (Z ** (Refl, []))
+                         --   ?k
+                             (\n',x,xs,rec => -- ?pp )
+                                sigElim Nat 
+                                    (\m => (n' = m, Vect m b))
+                                    (\a => (m : Nat ** (S n' = m, Vect m b)))
+                                    (\m,vm => 
+                                        (S m ** 
+                                          --  listMap7' n a b f n' x xs rec m vm
+                                          (eqElim Nat (\y, z, prf => S y = S z) (\z => Refl) n' m (fst vm), f x :: (snd vm))
+                                        )) -- f x :: vm))
+                                    rec)
+                             n 
+                             xs 
+        in elim
+
+
 
 vecMap : (a : Type) -> (b : Type) -> (n : Nat) -> (f : a -> b) -> Vect n a -> Vect n b 
 vecMap a b n f xs = vecElim a (\n, _ => Vect n b) [] (\n,x,xs,rec => f x :: rec) n xs
