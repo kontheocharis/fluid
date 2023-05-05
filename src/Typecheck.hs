@@ -82,6 +82,24 @@ typeInf i env (Vec a k) =
       typeChk i env a VStar 
       typeChk i env k VNat
       return VStar
+typeInf i env (ListElim a mn mc vs) =
+   do
+      typeChk i env a VStar
+      let aVal = evalChk a (fst env, [])
+      -- typeChk i env m
+      --   (VPi VNat (\k -> VPi (VVec aVal k) (\_ -> VStar)))
+      -- let mVal = evalChk m (fst env, [])
+      typeChk i env mn (VLNil aVal `lapp` aVal)
+      typeChk i env mc
+         (VPi aVal (\y ->
+               VPi (VList aVal) (\ys ->
+                  VPi ys (\_ ->
+                     VLCons aVal y ys))))
+      -- typeChk i env k VNat
+      -- let kVal = evalChk k (fst env, [])
+      typeChk i env vs (VList aVal)
+      let vsVal = evalChk vs (fst env, [])
+      return (vsVal)
 typeInf i env (VecElim a m mn mc k vs) =
    do
       typeChk i env a VStar
@@ -176,6 +194,28 @@ typeChk i env (Cons a k x xs) (VVec bVal (VSucc k2)) =
                      typeChk i env x aVal
                      typeChk i env xs (VVec aVal kVal)
                      return ()
+typeChk i env (LNil a) (VList bVal) = 
+   do
+      typeChk i env a VStar
+      let aVal = evalChk a (fst env, [])
+      if (quote0 aVal /= quote0 bVal) then throwError "type mismatch2"
+                                      else return ()
+      return ()
+typeChk i env (LCons a x xs) (VList bVal) =
+   do
+      typeChk i env a VStar
+      let aVal = evalChk a (fst env, [])
+      if (quote0 aVal /= quote0 bVal) 
+            then throwError "type mismatch3"
+            else do
+               -- typeChk i env k VNat
+               -- let kVal = evalChk k (fst env, [])
+               -- if (quote0 kVal /= quote0 k2) 
+               --   then throwError "type mismatch4"
+               --   else do
+               typeChk i env x aVal
+               typeChk i env xs (VList aVal)
+               return ()
 typeChk i env@(v,t) (FZero n) (VFin (VSucc mVal)) =
  do
     typeChk i env n VNat
@@ -215,6 +255,8 @@ subsInf i r (VecElim a m mn mc n xs) =
                 VecElim (subsChk i r a) (subsChk i r m)
                         (subsChk i r mn) (subsChk i r mc)
                         (subsChk i r n)  (subsChk i r xs)
+subsInf i r (ListElim a mn mc xs) = 
+                ListElim (subsChk i r a) (subsChk i r mn) (subsChk i r mc) (subsChk i r xs)
 subsInf i r  (Fin n)        =  Fin (subsChk i r n)
 subsInf i r  (FinElim m mz ms n f)
                               =  FinElim (subsChk i r m)
@@ -231,6 +273,9 @@ subsChk i r (Nil a) = Nil (subsChk i r a)
 subsChk i r (Cons a n x xs) = 
          Cons (subsChk i r a) (subsChk i r n)
               (subsChk i r x) (subsChk i r xs)
+subsChk i r (LNil a) = LNil (subsChk i r a)
+subsChk i r (LCons a x xs) = 
+         LCons (subsChk i r a) (subsChk i r x) (subsChk i r xs)
 subsChk i r  (FZero n)    =  FZero (subsChk i r n)
 subsChk i r  (FSucc n k)  =  FSucc (subsChk i r n) (subsChk i r k)
 subsChk i r (Refl a x) = Refl (subsChk i r a) (subsChk i r x)
@@ -250,6 +295,9 @@ quote i (VSucc n) = Succ (quote i n)
 quote i (VNil a) = Nil (quote i a)
 quote i (VCons a n x xs) = Cons (quote i a) (quote i n) (quote i x) (quote i xs)
 quote i (VVec a n) = Inf (Vec (quote i a) (quote i n))
+quote i (VLNil a) = LNil (quote i a)
+quote i (VLCons a x xs) = LCons (quote i a) (quote i x) (quote i xs)
+quote i (VList a) = Inf (List (quote i a))
 quote i (VFin n)           =  Inf (Fin (quote i n))
 quote i (VFZero n)         =  FZero (quote i n)
 quote i (VFSucc n f)       =  FSucc  (quote i n) (quote i f)
@@ -264,6 +312,10 @@ neutralQuote i (NVecElim a m mn mc n xs) =
          VecElim (quote i a) (quote i m)
                  (quote i mn) (quote i mc)
                  (quote i n) (Inf (neutralQuote i xs))
+neutralQuote i (NListElim a mn mc xs) =
+         ListElim (quote i a)
+                 (quote i mn) (quote i mc)
+                 (Inf (neutralQuote i xs))
 neutralQuote i (NFinElim m mz ms n f)
    =  FinElim (quote i m)
                (quote i mz) (quote i ms)

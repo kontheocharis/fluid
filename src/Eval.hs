@@ -29,6 +29,7 @@ evalInf (NatElim m mz ms k) d =
               _           -> error "internal: eval natElim"
   in rec (evalChk k d)
 evalInf (Vec a n) d = VVec (evalChk a d) (evalChk n d)
+evalInf (List a) d = VList (evalChk a d)
 evalInf (VecElim a m mn mc k xs) d = 
     let mnVal = evalChk mn d
         mcVal = evalChk mc d
@@ -40,6 +41,16 @@ evalInf (VecElim a m mn mc k xs) d =
                                                mnVal mcVal kVal n)
              _ -> error "internal: eval vecElim"
         in rec (evalChk k d) (evalChk xs d)
+evalInf (ListElim a mn mc xs) d = 
+    let mnVal = evalChk mn d
+        mcVal = evalChk mc d
+        rec xsVal = 
+           case xsVal of
+             VLNil _ -> mnVal 
+             VLCons _ x xs -> foldl lapp mcVal [x,xs,rec xs]
+             VNeutral n -> VNeutral (NListElim (evalChk a d) mnVal mcVal n)
+             _ -> error "internal: eval listElim"
+        in rec (evalChk xs d)
 evalInf (Fin n) d = VFin (evalChk n d)
 evalInf (FinElim m mz ms n f) d = 
   let mzVal = evalChk mz d
@@ -66,6 +77,11 @@ vapp :: Value -> Value -> Value
 vapp (VLam f) v = f v 
 vapp (VNeutral n) v = VNeutral (NApp n v)
 
+lapp :: Value -> Value -> Value
+lapp (VLam f) v = f v 
+lapp (VNeutral n) v = VNeutral (NApp n v)
+
+
 evalChk :: TermChk -> (Env, [Value]) -> Value
 evalChk (Inf i) d = evalInf i d
 evalChk (Lam e) d = VLam (\x -> evalChk e (((\(e2, d2) -> (e2,  (x : d2))) d)))
@@ -73,6 +89,8 @@ evalChk Zero d = VZero
 evalChk (Succ k) d = VSucc (evalChk k d)
 evalChk (Nil a) d = VNil (evalChk a d)
 evalChk (Cons a k x xs) d = VCons (evalChk a d) (evalChk k d) (evalChk x d) (evalChk xs d)
+evalChk (LNil a) d = VLNil (evalChk a d)
+evalChk (LCons a x xs) d = VLCons (evalChk a d) (evalChk x d) (evalChk xs d)
 evalChk (FZero n) d = VFZero (evalChk n d)
 evalChk (FSucc n f) d = VFSucc (evalChk n d) (evalChk f d)
 evalChk (Refl a x) d = VRefl (evalChk a d) (evalChk x d)

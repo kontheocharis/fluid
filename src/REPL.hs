@@ -20,6 +20,10 @@ import Typecheck
 import Parser
 import Eval
 
+import Refactoring
+
+-- data RefacCommand = Refac String 
+
 data Command = TypeOf String
              | Compile CompileForm
              | Browse
@@ -31,6 +35,8 @@ data CompileForm = CompileInteractive  String
                  | CompileFile         String
 
 data InteractiveCommand = Cmd [String] String (String -> Command) String
+
+-- data RefactoringCommand = RefCmd [String] String String (String -> RefacCommand) String  
 
 -- type Ctx inf = [(Name, inf)]
 type State = (String, Env, Context)
@@ -58,6 +64,16 @@ helpTxt cs
      ++
      unlines (map (\ (Cmd cs a _ d) -> let  ct = concat (intersperse ", " (map (++ if null a then "" else " " ++ a) cs))
                                        in   ct ++ replicate ((24 - length ct) `max` 2) ' ' ++ d) cs)
+   --  ++
+   --  unlines (map (\ (RefCmd rs a b _ d) -> let  ct = concat (intersperse ", " (map (++ if null a then "" else " " ++ a ++ " " ++ b) rs))
+   --                                    in   ct ++ replicate ((24 - length ct) `max` 2) ' ' ++ d) rs)
+
+
+-- refactoringCommands :: [RefactoringCommand]
+-- refactoringCommands = 
+--  [
+--    RefCmd [":refac"] "<refactoring>" "<name>" Refac "runs refactoring"
+--  ]
 
 commands :: [InteractiveCommand]
 commands
@@ -160,11 +176,12 @@ handleStmt :: Interpreter i c t tinf
 handleStmt int state@(out, ve, te) stmt =
   do
     case stmt of
-        Assume ass -> foldM (iassume int) state ass
-        Let x e    -> checkEval x e
-        Eval e     -> checkEval it e
-        PutStrLn x -> putStrLn x >> return state
-        Out f      -> return (f, ve, te)
+        Assume ass   -> foldM (iassume int) state ass
+        Let x e      -> checkEval x e
+        Eval e       -> checkEval it e
+        PutStrLn x   -> putStrLn x >> return state
+        Out f        -> return (f, ve, te)
+        Refac r args -> runRefac r args  state
   where
     --  checkEval :: String -> i -> IO (State v inf)
     checkEval i t =
@@ -178,6 +195,14 @@ handleStmt int state@(out, ve, te) stmt =
                        putStrLn outtext
                        unless (null out) (writeFile out (process outtext)))
         (\ (y, v) -> ("", (Global i, v) : ve, (Global i, ihastype int y) : te))
+
+runRefac :: String -> [String] -> State -> IO State
+runRefac r args state@(out, ve, te) = 
+  case r of 
+    "changeFstParam" -> 
+      do  -- result <- changeFirstParam args ve te
+          return (undefined)
+    _ -> error "Refactoring not defined!"
 
 check :: Interpreter i c t tinf -> State -> String -> i
          -> ((t, Value) -> IO ()) -> ((t, Value) -> State) -> IO State

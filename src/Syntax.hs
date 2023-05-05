@@ -12,6 +12,8 @@ data TermInf =
  | NatElim TermChk TermChk TermChk TermChk
  | Vec TermChk TermChk 
  | VecElim TermChk TermChk TermChk TermChk TermChk TermChk
+ | List TermChk
+ | ListElim TermChk TermChk TermChk TermChk 
  | Fin TermChk 
  | FinElim TermChk TermChk TermChk TermChk TermChk
  | Eq TermChk TermChk TermChk
@@ -28,6 +30,8 @@ data TermChk =
  | Succ TermChk 
  | Nil TermChk
  | Cons TermChk TermChk TermChk TermChk
+ | LNil TermChk         -- List Nil
+ | LCons TermChk TermChk TermChk -- List Cons
  | FZero TermChk
  | FSucc TermChk TermChk
  | Refl TermChk TermChk
@@ -69,6 +73,9 @@ data Value =
  | VNil Value
  | VCons Value Value Value Value
  | VVec Value Value
+ | VList Value
+ | VLNil Value 
+ | VLCons Value Value Value 
  | VFZero Value
  | VFSucc Value Value
  | VFin Value
@@ -83,6 +90,7 @@ data Neutral =
  | NApp Neutral Value
  | NNatElim Value Value Value Neutral
  | NVecElim Value Value Value Value Value Neutral
+ | NListElim Value Value Value Neutral
  | NFinElim Value Value Value Value Neutral
  | NEqElim Value Value Value Value Value Neutral
 

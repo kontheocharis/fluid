@@ -33,6 +33,7 @@ data Stmt i tinf = Let String i           --  let x = t
                  | Eval i
                  | PutStrLn String        --  lhs2TeX hacking, allow to print "magic" string
                  | Out String             --  more lhs2TeX hacking, allow to print to files
+                 | Refac String [String]
     deriving (Show)
 
 
@@ -65,6 +66,12 @@ parseStmt_ e =
           reserved lambdaPi "out"
           x <- option "" (stringLiteral lambdaPi)
           return (Out x)
+    <|> do
+          reserved lambdaPi "refac"
+          x <- identifier lambdaPi
+          args <- many (stringLiteral lambdaPi)
+          return (Refac x args)
+
     <|> fmap Eval (parseITerm_ 0 e)
 
 parseBindings_ :: Bool -> [String] -> CharParser () ([String], [TermChk])
