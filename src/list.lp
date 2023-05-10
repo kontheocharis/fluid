@@ -1,1 +1,28 @@
-let append = (\a xs ys -> listElim a (\l -> List a -> List a) (\ys -> ys) (\x xs rec ys -> LCons a x (rec ys)) xs ys) :: forall (a :: *) (xs :: List a) (ys :: List a). List a
+let listAppend = 
+   (\a xs ys -> 
+        listElim a 
+                 (\l -> List a -> List a) 
+                 (\ys -> ys) 
+                 (\x xs rec ys -> LCons a x (rec ys)) xs ys
+   ) :: forall (a :: *) (xs :: List a) (ys :: List a). List a
+
+
+
+let listAppend3 = 
+    (\a n xs ys ->
+        vecElim a 
+                (\n l -> List a -> List a)
+                (\ys -> ys)
+                (\m x xs rec ys ->  LCons a x (rec ys))
+                n xs ys
+    ) :: forall (a :: *) (n :: Nat) (xs :: Vec a n) (ys :: List a) . List a
+
+
+let listAppend5 = 
+    (\a n xs m ys ->
+        vecElim a
+                (\n l -> forall (m :: Nat) . Vec a m -> List a)
+                (\m ys -> vecToList a m ys)
+                (\m x xs rec m ys -> LCons a x (rec m ys))
+                n xs m ys
+    ) :: forall (a :: *) (n :: Nat) (xs :: Vec a n) (m :: Nat) (ys :: Vec a m) . List a

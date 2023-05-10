@@ -85,7 +85,7 @@ listAppend7 a n xs m ys =
 -- vecAppend' a Z [] m v2 = v2
 -- vecAppend' a (S n) (x :: xs) m v2 = x :: (vecAppend' a n xs m v2)
 
-vecAppend : (a : Type) -> (n : Nat) -> Vect n a -> (m : Nat) -> Vect m a -> Vect (n+m) a
+vecAppend : (a : Type) -> (n : Nat) -> V
 vecAppend a n v1 m v2 = 
         let elim = vecElim a (\n,ve => (m:Nat) -> Vect m a -> Vect (n+m) a) 
                               -- empty vec case

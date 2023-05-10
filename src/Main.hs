@@ -47,6 +47,8 @@ lpte =      [(Global "Zero", VNat),
                                      m `vapp` VLCons a x xs)))) (\ _ ->
                                VPi (VList a) (\ xs -> m `vapp` xs)))))),
 
+             (Global "vecToList", VPi VStar ( \ a -> (VPi VNat ( \n -> (VPi (VVec a n) (\v -> VList a))))))  ,
+
              (Global "Refl", VPi VStar (\ a -> VPi a (\ x ->
                             VEq a x x))),
              (Global "Eq", VPi VStar (\ a -> VPi a (\ x -> VPi a (\ y -> VStar)))),
@@ -80,6 +82,7 @@ lpve =      [(Global "Zero", VZero),
                             VLCons a x xs)))),
              (Global "Vec", VLam (\ a -> VLam (\ n -> VVec a n))),
              (Global "List", VLam (\ a -> VList a )),
+             (Global "vecToList", VLam (\a -> VLam (\ n -> VLam (\v -> VList a)))),
              (Global "vecElim", evalChk (Lam (Lam (Lam (Lam (Lam (Lam (Inf (VecElim (Inf (Bound 5)) (Inf (Bound 4)) (Inf (Bound 3)) (Inf (Bound 2)) (Inf (Bound 1)) (Inf (Bound 0)))))))))) ([],[])),
              (Global "listElim", evalChk (Lam (Lam (Lam (Lam (Lam (Inf (ListElim (Inf (Bound 4)) (Inf (Bound 3)) (Inf (Bound 2)) (Inf (Bound 1)) (Inf (Bound 0))))))))) ([],[])),
              (Global "Refl", VLam (\ a -> VLam (\ x -> VRefl a x))),

@@ -108,7 +108,6 @@ typeInf i env (ListElim a m mn mc vs) =
       
       -- return (VList aVal)
 
-
 typeInf i env (VecElim a m mn mc k vs) =
    do
       typeChk i env a VStar
@@ -259,6 +258,15 @@ typeChk i env@(v,t) (Refl a z) (VEq bVal xVal yVal) =
      typeChk i env z aVal 
      let zVal = evalChk z (fst env, []) 
      unless (quote0 zVal == quote0 xVal && quote0 zVal == quote0 yVal) (throwError "type mismatch")
+typeChk i env@(v,t) (VecToList a n ve) (VList bVal) =
+  do typeChk i env a VStar
+     let aVal = evalChk a (fst env, [])
+     unless (quote0 aVal == quote0 bVal) (throwError "type mismatch")
+     typeChk i env n VNat
+     let nVal = evalChk n (fst env, [])
+     typeChk i env ve (VVec aVal nVal)
+     return ()
+
 
 typeChk i env _ _ = throwError "type mismatch5"
 

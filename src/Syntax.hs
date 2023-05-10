@@ -32,6 +32,7 @@ data TermChk =
  | Cons TermChk TermChk TermChk TermChk
  | LNil TermChk         -- List Nil
  | LCons TermChk TermChk TermChk -- List Cons
+ | VecToList TermChk TermChk TermChk
  | FZero TermChk
  | FSucc TermChk TermChk
  | Refl TermChk TermChk
@@ -93,6 +94,7 @@ data Neutral =
  | NListElim Value Value Value Value Neutral
  | NFinElim Value Value Value Value Neutral
  | NEqElim Value Value Value Value Value Neutral
+ | NVecToList Value Neutral
 
 -- creates a value corrsponding to a free variable
 vfree :: Name -> Value
