@@ -28,6 +28,7 @@ iPrint_ p ii Star             =  text "*"
 iPrint_ p ii (Pi d (Inf (Pi d' r)))
                                  =  parensIf (p > 0) (nestedForall_ (ii + 2) [(ii + 1, d'), (ii, d)] r)
 iPrint_ p ii (Pi d r)         =  parensIf (p > 0) (sep [text "forall " PP.<> text (vars !! ii) PP.<> text " :: " PP.<> cPrint_ 0 ii d PP.<> text " .", cPrint_ 0 (ii + 1) r])
+iPrint_ p ii (Sigma d r)      =  text "Sigma " PP.<> cPrint_ 0 ii d PP.<> text " " PP.<> cPrint_ 0 ii r
 iPrint_ p ii (Bound k)        =  text (vars !! (ii - k - 1))
 iPrint_ p ii (Free (Global s))=  text s
 iPrint_ p ii (i :@: c)         =  parensIf (p > 2) (sep [iPrint_ 2 ii i, nest 2 (cPrint_ 3 ii c)])

@@ -56,6 +56,8 @@ typeInf i env t1@(Pi p p')
                        (subsChk 0 (Free (Local i)) p') VStar  
          return VStar
 
+
+
 typeInf i env (Free x) 
     = case lookup x (snd env) of 
            Just t -> return t 
@@ -107,6 +109,15 @@ typeInf i env (ListElim a m mn mc vs) =
       return (foldl vapp mVal [vsVal])
       
       -- return (VList aVal)
+{-
+typeInf i env t1@(Sigma a b)
+   = do
+         typeChk i env a VStar
+         let x = evalChk a (fst env, [])
+         typeChk (i+1) ((\ (d,g) -> (d, ((Local i, x) : g))) env)
+                       (subsChk 0 (Free (Local i)) b) VStar
+         return VStar
+-}
 
 typeInf i env (VecElim a m mn mc k vs) =
    do
@@ -192,6 +203,18 @@ typeChk i env (Inf e) t
                     ++ (show (quote0 t)))) -- expected
 typeChk i env t1@(Lam e) (VPi t t') 
    = typeChk  (i + 1) ((\ (d,g) -> (d,  ((Local i, t ) : g))) env) (subsChk 0 (Free (Local i)) e) ( t' (vfree (Local i))) 
+
+{-
+typeChk i env t1@(Pair a b) (VSigma aT bT)
+   = do
+         typeChk i env a aT
+         let atVal = evalChk a (fst env, [])
+         typeChk i env b (VPi aT (\x -> VStar)) -- B : A -> Type ?
+         -- let bVal = evalChk b (fst env, [])
+         -- check b : B(a) 
+         typeChk (i + 1) ((\ (d,g) -> (d, ((Local i, atVal) : g))) env) (subsChk 0 (Free (Local i)) b) (bT (vfree (Local i)))
+-}
+
 typeChk i env Zero VNat = return ()
 typeChk i env (Succ k) VNat = typeChk i env k VNat 
 typeChk i env (Nil a) (VVec bVal VZero) = 
@@ -334,6 +357,7 @@ quote i (VFZero n)         =  FZero (quote i n)
 quote i (VFSucc n f)       =  FSucc  (quote i n) (quote i f)
 quote i (VEq a x y)  =  Inf (Eq (quote i a) (quote i x) (quote i y))
 quote i (VRefl a x)  =  Refl (quote i a) (quote i x)
+quote i (VSigma a f) = Inf (Sigma (quote i a) (quote i f))
 
 neutralQuote :: Int -> Neutral -> TermInf
 neutralQuote i (NFree x) = boundFree i x

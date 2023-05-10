@@ -38,6 +38,13 @@ lpte =      [(Global "Zero", VNat),
                             VPi a (\ _ -> VPi (VList a) (\ _ -> VList a )))),
              (Global "List", VPi VStar (\ _ -> VStar)),
 
+             (Global "Sigma", VPi VStar (\a -> VPi a (\_ -> VStar))), 
+
+             (Global "Pair", VPi VStar (\a -> 
+                                          VPi a (\x -> 
+                                                  VPi (VPi a (\_ -> VStar)) (\p ->
+                                                   VPi (p `vapp` x) (\_ -> VSigma x p))))),
+
              (Global "listElim", VPi VStar (\ a ->
                                VPi (VPi (VList a) (\ _ -> VStar)) (\ m ->
                                VPi (m `vapp` (VLNil a)) (\ _ ->

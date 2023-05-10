@@ -5,6 +5,7 @@ data TermInf =
    Ann TermChk TermChk     -- ANN
  | Star
  | Pi TermChk TermChk      -- Dependent Pi types
+ | Sigma TermChk TermChk   -- Sigma Types
  | Bound Int               -- VAR
  | Free Name               -- VAR
  | TermInf :@: TermChk     -- APP
@@ -26,6 +27,7 @@ data TermInf =
 data TermChk =         
    Inf TermInf          -- CHK
  | Lam TermChk          -- LAM
+ | Pair TermChk TermChk  -- Pairs
  | Zero
  | Succ TermChk 
  | Nil TermChk
@@ -68,6 +70,7 @@ data Value =
  | VLam (Value -> Value)
  | VStar 
  | VPi Value (Value -> Value)
+ | VSigma Value Value -- (Value -> Value)
  | VNat 
  | VZero 
  | VSucc Value
