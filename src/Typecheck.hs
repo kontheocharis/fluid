@@ -77,29 +77,38 @@ typeInf i env (NatElim m mz ms k) =
       typeChk i env k VNat 
       let kVal = evalChk k (fst env, []) 
       return (mVal `vapp` kVal)
+typeInf i env (List a) = 
+   do 
+      typeChk i env a VStar
+      return VStar
 typeInf i env (Vec a k) = 
    do
       typeChk i env a VStar 
       typeChk i env k VNat
       return VStar
-typeInf i env (ListElim a mn mc vs) =
+typeInf i env (ListElim a m mn mc vs) =
    do
       typeChk i env a VStar
       let aVal = evalChk a (fst env, [])
-      -- typeChk i env m
-      --   (VPi VNat (\k -> VPi (VVec aVal k) (\_ -> VStar)))
-      -- let mVal = evalChk m (fst env, [])
-      typeChk i env mn (VLNil aVal `lapp` aVal)
+      typeChk i env m
+         ( VPi (VList aVal) (\_ -> VStar))
+      let mVal = evalChk m (fst env, [])
+      typeChk i env mn (foldl vapp mVal [VLNil aVal])
       typeChk i env mc
          (VPi aVal (\y ->
                VPi (VList aVal) (\ys ->
-                  VPi ys (\_ ->
-                     VLCons aVal y ys))))
+                  VPi (foldl vapp mVal [ys]) (\_ ->
+                     (foldl vapp mVal [VLCons aVal  y ys])))))
       -- typeChk i env k VNat
       -- let kVal = evalChk k (fst env, [])
       typeChk i env vs (VList aVal)
       let vsVal = evalChk vs (fst env, [])
-      return (vsVal)
+      error (show $ quote0 vsVal)
+      return (foldl vapp mVal [vsVal])
+      
+      -- return (VList aVal)
+
+
 typeInf i env (VecElim a m mn mc k vs) =
    do
       typeChk i env a VStar
@@ -167,7 +176,21 @@ typeChk :: Int -> ([(Name, Value)], Context) -> TermChk -> Value -> Result ()
 typeChk i env (Inf e) t
    = do 
         t' <- typeInf i env e 
-        unless ( quote0 t == quote0 t') (throwError ("type mismatch:\n" ++ "type inferred:  " ++ render (cPrint_ 0 0 (quote0 t')) ++ "\n" ++ "type expected:  " ++ render (cPrint_ 0 0 (quote0 t)) ++ "\n" ++ "for expression: " ++ render (iPrint_ 0 0 e) ++ " " ++ (show (map (\(x,y) -> (x, (quote0 y))) (snd env)))))
+        unless ( quote0 t == quote0 t') 
+         (throwError ("type mismatch:\n" ++ "type inferred:  " 
+                    ++ render (cPrint_ 0 0 (quote0 t')) 
+                    ++ "\n" 
+                    ++ "type expected:  " 
+                    ++ render (cPrint_ 0 0 (quote0 t)) 
+                    ++ "\n" 
+                    ++ "for expression: " 
+                    ++ render (iPrint_ 0 0 e) 
+                    ++ "\n\n" 
+                    ++ (show (map (\(x,y) -> (x, (quote0 y))) (snd env))) 
+                    ++ "\n" 
+                    ++ (show (quote0 t')) -- inferred
+                    ++ "\n"  
+                    ++ (show (quote0 t)))) -- expected
 typeChk i env t1@(Lam e) (VPi t t') 
    = typeChk  (i + 1) ((\ (d,g) -> (d,  ((Local i, t ) : g))) env) (subsChk 0 (Free (Local i)) e) ( t' (vfree (Local i))) 
 typeChk i env Zero VNat = return ()
@@ -255,8 +278,8 @@ subsInf i r (VecElim a m mn mc n xs) =
                 VecElim (subsChk i r a) (subsChk i r m)
                         (subsChk i r mn) (subsChk i r mc)
                         (subsChk i r n)  (subsChk i r xs)
-subsInf i r (ListElim a mn mc xs) = 
-                ListElim (subsChk i r a) (subsChk i r mn) (subsChk i r mc) (subsChk i r xs)
+subsInf i r (ListElim a m mn mc xs) = 
+                ListElim (subsChk i r a) (subsChk i r m) (subsChk i r mn) (subsChk i r mc) (subsChk i r xs)
 subsInf i r  (Fin n)        =  Fin (subsChk i r n)
 subsInf i r  (FinElim m mz ms n f)
                               =  FinElim (subsChk i r m)
@@ -312,8 +335,9 @@ neutralQuote i (NVecElim a m mn mc n xs) =
          VecElim (quote i a) (quote i m)
                  (quote i mn) (quote i mc)
                  (quote i n) (Inf (neutralQuote i xs))
-neutralQuote i (NListElim a mn mc xs) =
+neutralQuote i (NListElim a m mn mc xs) =
          ListElim (quote i a)
+                  (quote i m)
                  (quote i mn) (quote i mc)
                  (Inf (neutralQuote i xs))
 neutralQuote i (NFinElim m mz ms n f)

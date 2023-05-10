@@ -37,6 +37,7 @@ lpte =      [(Global "Zero", VNat),
              (Global "LCons", VPi VStar (\ a ->
                             VPi a (\ _ -> VPi (VList a) (\ _ -> VList a )))),
              (Global "List", VPi VStar (\ _ -> VStar)),
+
              (Global "listElim", VPi VStar (\ a ->
                                VPi (VPi (VList a) (\ _ -> VStar)) (\ m ->
                                VPi (m `vapp` (VLNil a)) (\ _ ->
@@ -45,6 +46,7 @@ lpte =      [(Global "Zero", VNat),
                                      VPi (m `vapp` xs) (\ _ ->
                                      m `vapp` VLCons a x xs)))) (\ _ ->
                                VPi (VList a) (\ xs -> m `vapp` xs)))))),
+
              (Global "Refl", VPi VStar (\ a -> VPi a (\ x ->
                             VEq a x x))),
              (Global "Eq", VPi VStar (\ a -> VPi a (\ x -> VPi a (\ y -> VStar)))),
@@ -71,10 +73,15 @@ lpve =      [(Global "Zero", VZero),
              (Global "Nat", VNat),
              (Global "natElim", evalChk (Lam (Lam (Lam (Lam (Inf (NatElim (Inf (Bound 3)) (Inf (Bound 2)) (Inf (Bound 1)) (Inf (Bound 0)))))))) ([],[])),
              (Global "Nil", VLam (\ a -> VNil a)),
+             (Global "LNil", VLam (\ a -> VLNil a)),
              (Global "Cons", VLam (\ a -> VLam (\ n -> VLam (\ x -> VLam (\ xs ->
                             VCons a n x xs))))),
+             (Global "LCons", VLam (\ a -> VLam (\ x -> VLam (\ xs ->
+                            VLCons a x xs)))),
              (Global "Vec", VLam (\ a -> VLam (\ n -> VVec a n))),
+             (Global "List", VLam (\ a -> VList a )),
              (Global "vecElim", evalChk (Lam (Lam (Lam (Lam (Lam (Lam (Inf (VecElim (Inf (Bound 5)) (Inf (Bound 4)) (Inf (Bound 3)) (Inf (Bound 2)) (Inf (Bound 1)) (Inf (Bound 0)))))))))) ([],[])),
+             (Global "listElim", evalChk (Lam (Lam (Lam (Lam (Lam (Inf (ListElim (Inf (Bound 4)) (Inf (Bound 3)) (Inf (Bound 2)) (Inf (Bound 1)) (Inf (Bound 0))))))))) ([],[])),
              (Global "Refl", VLam (\ a -> VLam (\ x -> VRefl a x))),
              (Global "Eq", VLam (\ a -> VLam (\ x -> VLam (\ y -> VEq a x y)))),
              (Global "eqElim", evalChk (Lam (Lam (Lam (Lam (Lam (Lam (Inf (EqElim (Inf (Bound 5)) (Inf (Bound 4)) (Inf (Bound 3)) (Inf (Bound 2)) (Inf (Bound 1)) (Inf (Bound 0)))))))))) ([],[])),

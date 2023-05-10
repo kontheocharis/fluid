@@ -34,6 +34,7 @@ iPrint_ p ii (i :@: c)         =  parensIf (p > 2) (sep [iPrint_ 2 ii i, nest 2 
 iPrint_ p ii Nat              =  text "Nat"
 iPrint_ p ii (NatElim m z s n)=  iPrint_ p ii (Free (Global "natElim") :@: m :@: z :@: s :@: n)
 iPrint_ p ii (Vec a n)        =  iPrint_ p ii (Free (Global "Vec") :@: a :@: n)
+iPrint_ p ii (List a)        =  iPrint_ p ii (Free (Global "List") :@: a )
 iPrint_ p ii (VecElim a m mn mc n xs)
                                  =  iPrint_ p ii (Free (Global "vecElim") :@: a :@: m :@: mn :@: mc :@: n :@: xs)
 -- iPrint_ p ii (Nil a)    = iPrint_ p ii (Free (Global "Nil") :@: a)
@@ -53,8 +54,11 @@ cPrint_ p ii (Lam c)    = parensIf (p > 0) (text "\\ " PP.<> text (vars !! ii) P
 cPrint_ p ii Zero       = fromNat_ 0 ii Zero     --  text "Zero"
 cPrint_ p ii (Succ n)   = fromNat_ 0 ii (Succ n) --  iPrint_ p ii (Free_ (Global "Succ") :$: n)
 cPrint_ p ii (Nil a)    = iPrint_ p ii (Free (Global "Nil") :@: a)
+cPrint_ p ii (LNil a)   = iPrint_ p ii (Free (Global "LNil") :@: a)
 cPrint_ p ii (Cons a n x xs) =
                              iPrint_ p ii (Free (Global "Cons") :@: a :@: n :@: x :@: xs)
+cPrint_ p ii (LCons a x xs) =
+                             iPrint_ p ii (Free (Global "LCons") :@: a :@: x :@: xs)
 cPrint_ p ii (Refl a x) = iPrint_ p ii (Free (Global "Refl") :@: a :@: x)
 cPrint_ p ii (FZero n)  = iPrint_ p ii (Free (Global "FZero") :@: n)
 cPrint_ p ii (FSucc n f)= iPrint_ p ii (Free (Global "FSucc") :@: n :@: f)

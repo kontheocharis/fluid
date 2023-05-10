@@ -41,14 +41,14 @@ evalInf (VecElim a m mn mc k xs) d =
                                                mnVal mcVal kVal n)
              _ -> error "internal: eval vecElim"
         in rec (evalChk k d) (evalChk xs d)
-evalInf (ListElim a mn mc xs) d = 
+evalInf (ListElim a m mn mc xs) d = 
     let mnVal = evalChk mn d
         mcVal = evalChk mc d
         rec xsVal = 
            case xsVal of
              VLNil _ -> mnVal 
              VLCons _ x xs -> foldl lapp mcVal [x,xs,rec xs]
-             VNeutral n -> VNeutral (NListElim (evalChk a d) mnVal mcVal n)
+             VNeutral n -> VNeutral (NListElim (evalChk a d) (evalChk m d) mnVal mcVal n)
              _ -> error "internal: eval listElim"
         in rec (evalChk xs d)
 evalInf (Fin n) d = VFin (evalChk n d)

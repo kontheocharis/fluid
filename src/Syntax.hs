@@ -13,7 +13,7 @@ data TermInf =
  | Vec TermChk TermChk 
  | VecElim TermChk TermChk TermChk TermChk TermChk TermChk
  | List TermChk
- | ListElim TermChk TermChk TermChk TermChk 
+ | ListElim TermChk TermChk TermChk TermChk TermChk 
  | Fin TermChk 
  | FinElim TermChk TermChk TermChk TermChk TermChk
  | Eq TermChk TermChk TermChk
@@ -90,7 +90,7 @@ data Neutral =
  | NApp Neutral Value
  | NNatElim Value Value Value Neutral
  | NVecElim Value Value Value Value Value Neutral
- | NListElim Value Value Value Neutral
+ | NListElim Value Value Value Value Neutral
  | NFinElim Value Value Value Value Neutral
  | NEqElim Value Value Value Value Value Neutral
 
