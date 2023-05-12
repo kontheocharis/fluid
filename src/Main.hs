@@ -38,12 +38,14 @@ lpte =      [(Global "Zero", VNat),
                             VPi a (\ _ -> VPi (VList a) (\ _ -> VList a )))),
              (Global "List", VPi VStar (\ _ -> VStar)),
 
-             (Global "Sigma", VPi VStar (\a -> VPi a (\_ -> VStar))), 
+             -- (Global "Sigma", VPi VStar (\a -> VPi a (\_ -> VStar))), 
+
+             (Global "Sigma", VPi VStar (\a -> (VPi (VPi a (\_ -> VStar)) (\_ -> VStar)))),
 
              (Global "Pair", VPi VStar (\a -> 
                                           VPi a (\x -> 
                                                   VPi (VPi a (\_ -> VStar)) (\p ->
-                                                   VPi (p `vapp` x) (\_ -> VSigma x p))))),
+                                                   VPi (p `vapp` x) (\_ -> VSigma a p))))),
 
              (Global "listElim", VPi VStar (\ a ->
                                VPi (VPi (VList a) (\ _ -> VStar)) (\ m ->
@@ -53,6 +55,17 @@ lpte =      [(Global "Zero", VNat),
                                      VPi (m `vapp` xs) (\ _ ->
                                      m `vapp` VLCons a x xs)))) (\ _ ->
                                VPi (VList a) (\ xs -> m `vapp` xs)))))),
+
+
+             (Global "sigElim", VPi VStar (\a -> 
+                               VPi (VPi a (\_ -> VStar)) (\f ->
+                                 VPi (VPi (VSigma a (f `vapp` a)) (\_ -> VStar)) (\z ->
+                                    VPi (VPi a (\w -> VPi (f `vapp` w) (\g -> z `vapp` (VSigma w g))))
+                                           (\_ ->
+                                            VPi 
+                                             (VSigma a (f `vapp` a)) 
+                                                  (\k -> z `vapp` k)))))),
+
 
              (Global "vecToList", VPi VStar ( \ a -> (VPi VNat ( \n -> (VPi (VVec a n) (\v -> VList a))))))  ,
 
@@ -89,6 +102,8 @@ lpve =      [(Global "Zero", VZero),
                             VLCons a x xs)))),
              (Global "Vec", VLam (\ a -> VLam (\ n -> VVec a n))),
              (Global "List", VLam (\ a -> VList a )),
+             (Global "Sigma", VLam (\ a -> VLam (\f -> VSigma a f))),
+             (Global "Pair", VLam (\x -> VLam (\y -> VLam (\z -> VLam (\a -> VSigma x z))))), 
              (Global "vecToList", VLam (\a -> VLam (\ n -> VLam (\v -> VList a)))),
              (Global "vecElim", evalChk (Lam (Lam (Lam (Lam (Lam (Lam (Inf (VecElim (Inf (Bound 5)) (Inf (Bound 4)) (Inf (Bound 3)) (Inf (Bound 2)) (Inf (Bound 1)) (Inf (Bound 0)))))))))) ([],[])),
              (Global "listElim", evalChk (Lam (Lam (Lam (Lam (Lam (Inf (ListElim (Inf (Bound 4)) (Inf (Bound 3)) (Inf (Bound 2)) (Inf (Bound 1)) (Inf (Bound 0))))))))) ([],[])),

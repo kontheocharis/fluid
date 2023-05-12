@@ -85,6 +85,7 @@ listAppend7 a n xs m ys =
 -- vecAppend' a Z [] m v2 = v2
 -- vecAppend' a (S n) (x :: xs) m v2 = x :: (vecAppend' a n xs m v2)
 
+{-
 vecAppend : (a : Type) -> (n : Nat) -> V
 vecAppend a n v1 m v2 = 
         let elim = vecElim a (\n,ve => (m:Nat) -> Vect m a -> Vect (n+m) a) 
@@ -93,3 +94,9 @@ vecAppend a n v1 m v2 =
                               -- cons case 
                               (\t,x,xs,rec,m',v2' => x :: rec m' v2')
         in elim n v1 m v2
+-}
+
+drop : (n : Nat) -> (m : Nat) -> Vect m a -> (LTE m n) -> (k ** Vect k a) 
+drop Z m xs prf            = (m ** xs)
+drop (S n') Z [] prf       = (Z ** [])
+drop (S n') (S m') (x :: xs) (LTESucc p) = drop n' m' xs p
