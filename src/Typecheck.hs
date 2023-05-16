@@ -195,12 +195,13 @@ typeChk i env (Inf e) t
                     ++ "\n" 
                     ++ "for expression: " 
                     ++ render (iPrint_ 0 0 e) 
-                    ++ "\n\n" 
-                    ++ (show (map (\(x,y) -> (x, (quote0 y))) (snd env))) 
-                    ++ "\n" 
-                    ++ (show (quote0 t')) -- inferred
-                    ++ "\n"  
-                    ++ (show (quote0 t)))) -- expected
+                --    ++ "\n\n" 
+                --    ++ (show (map (\(x,y) -> (x, (quote0 y))) (snd env))) 
+                --    ++ "\n" 
+                --    ++ (show (quote0 t')) -- inferred
+                --    ++ "\n"  
+                --    ++ (show (quote0 t)))) -- expected
+         ))
 typeChk i env t1@(Lam e) (VPi t t') 
    = typeChk  (i + 1) ((\ (d,g) -> (d,  ((Local i, t ) : g))) env) (subsChk 0 (Free (Local i)) e) ( t' (vfree (Local i))) 
 
