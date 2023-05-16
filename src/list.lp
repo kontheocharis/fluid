@@ -1,3 +1,10 @@
+-- addition of natural numbers
+let plus =
+  natElim
+    ( \ _ -> Nat -> Nat )           -- motive
+    ( \ n -> n )                    -- case for Zero
+    ( \ p rec n -> Succ (rec n) )   -- case for Succ
+
 let listAppend = 
    (\a xs ys -> 
         listElim a 
@@ -5,8 +12,6 @@ let listAppend =
                  (\ys -> ys) 
                  (\x xs rec ys -> LCons a x (rec ys)) xs ys
    ) :: forall (a :: *) (xs :: List a) (ys :: List a). List a
-
-
 
 let listAppend3 = 
     (\a n xs ys ->
@@ -44,3 +49,11 @@ let listAppend6 =
 
     ) :: forall (a :: *) (n :: Nat) (xs :: Vec a n) (m :: Nat) (ys :: Vec a m) . Sigma Nat (\o -> Vec a o)
 
+let listAppend7 = 
+    ( \a n xs m ys ->
+        vecElim a
+                (\n  l -> forall (m :: Nat) . Vec a m -> Vec a (plus n m))
+                (\m ys -> ys)
+                (\a' x xs rec m ys -> Cons a (plus a' m) x (rec m ys))
+                n xs m ys
+    ) :: forall (a :: *) (n :: Nat) (xs :: Vec a n) (m :: Nat) (ys :: Vec a m) . Vec a (plus n m)
