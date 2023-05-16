@@ -34,14 +34,13 @@ let listAppend6 =
     ( \a n xs m ys ->
         vecElim a 
                 (\n l -> forall (m :: Nat) . Vec a m -> Sigma Nat (\o -> Vec a o))
-                (\m ys -> Pair Nat m (\n -> Vec a m) ys)                
+                (\m ys -> Pair Nat m (\n -> Vec a n) ys)                
                 (\m x xs rec m ys -> sigElim Nat 
-                                             (\o -> Vect a o)
-                                             (\a' -> Sigma Nat (\o -> Vect a o))
-                                             (\o vo -> Pair Nat (S o) (\o -> Vect a (S o)) (Cons a x vo)) 
+                                             (\o -> Vec a o)
+                                             (\a' -> Sigma Nat (\o -> Vec a o))
+                                             (\o vo -> Pair Nat (Succ o) (\o -> Vec a o) (Cons a o x vo)) 
                                              (rec m ys)
-                )
+                ) n xs m ys
 
     ) :: forall (a :: *) (n :: Nat) (xs :: Vec a n) (m :: Nat) (ys :: Vec a m) . Sigma Nat (\o -> Vec a o)
 
-    

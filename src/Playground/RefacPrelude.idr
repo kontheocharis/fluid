@@ -124,9 +124,9 @@ voidElim m v =
 public export
 sigElim  : (a : Type)
         -> (f : a -> Type) 
-        -> (x : (a  ** f a) -> Type)
+        -> (x : (y : a  ** f y) -> Type)
         -> ((w : a) -> (g : f w) -> x (w ** g))
-        -> (k : (y ** f y))
+        -> (k : (y : a ** f y))
         -> x k 
 sigElim a f x w (y ** g) = w y g
 
@@ -140,3 +140,11 @@ eqElim : (x : Type)
       -> (c : a = b) 
       -> y a b c 
 eqElim t y z a a Refl = z a
+
+public export
+fstS : (n ** Vect n Nat) -> Nat 
+fstS s = sigElim Nat 
+                (\n => Vect n Nat)   
+                (\s => Nat)
+                (\w, g =>  w)
+                s 

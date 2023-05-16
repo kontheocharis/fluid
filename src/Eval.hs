@@ -16,6 +16,14 @@ evalInf (e :@: e') d = vapp (evalInf e d) (evalChk e' d)
 evalInf Star d = VStar
 evalInf (Pi t t') d = VPi (evalChk t d) (\ x -> evalChk t' (((\(e, d) -> (e,  (x : d))) d)))
 evalInf Nat d = VNat 
+evalInf (SigElim a f x w s) d = 
+  case (evalChk s d) of 
+    -- VSigma y g -> (evalChk w d) `vapp` y `vapp` g
+    VPair x y z app -> (evalChk w d) `vapp` y `vapp` app
+    VNeutral k -> error "here!"
+
+evalInf (Pair a y z app) d =
+   VPair (evalChk a d) (evalChk y d) (evalChk z d) (evalChk app d) 
 
 evalInf (NatElim m mz ms k) d =
   let mzVal = evalChk mz d
@@ -76,6 +84,7 @@ evalInf (EqElim a m mr x y eq) d =
 vapp :: Value -> Value -> Value
 vapp (VLam f) v = f v 
 vapp (VNeutral n) v = VNeutral (NApp n v)
+
 
 lapp :: Value -> Value -> Value
 lapp (VLam f) v = f v 

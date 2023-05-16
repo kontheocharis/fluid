@@ -8,7 +8,9 @@ data TermInf =
  | Sigma TermChk TermChk   -- Sigma Types
  | Bound Int               -- VAR
  | Free Name               -- VAR
- | TermInf :@: TermChk     -- APP
+ | TermInf :@: TermChk     -- APP can be reduced. 
+ | App TermChk TermChk
+ | Pair TermChk TermChk TermChk TermChk -- Pairs
  | Nat 
  | NatElim TermChk TermChk TermChk TermChk
  | Vec TermChk TermChk 
@@ -19,6 +21,7 @@ data TermInf =
  | FinElim TermChk TermChk TermChk TermChk TermChk
  | Eq TermChk TermChk TermChk
  | EqElim TermChk TermChk TermChk TermChk TermChk TermChk
+ | SigElim TermChk TermChk TermChk TermChk TermChk
 
 
       deriving (Show, Eq)
@@ -27,7 +30,6 @@ data TermInf =
 data TermChk =         
    Inf TermInf          -- CHK
  | Lam TermChk          -- LAM
- | Pair TermChk TermChk  -- Pairs
  | Zero
  | Succ TermChk 
  | Nil TermChk
@@ -71,6 +73,8 @@ data Value =
  | VStar 
  | VPi Value (Value -> Value)
  | VSigma Value Value -- (Value -> Value)
+ | VPair Value Value Value Value
+ | VApp Value Value 
  | VNat 
  | VZero 
  | VSucc Value

@@ -47,6 +47,7 @@ iPrint_ p ii (EqElim a m mr x y eq)
 iPrint_ p ii (Fin n)          =  iPrint_ p ii (Free (Global "Fin") :@: n)
 iPrint_ p ii (FinElim m mz ms n f)
                                  =  iPrint_ p ii (Free (Global "finElim") :@: m :@: mz :@: ms :@: n :@: f)
+iPrint_ p ii (Pair a y z app) = text "Pair " PP.<> cPrint_ 0 ii a  PP.<> text " " PP.<> cPrint_ 0 ii y PP.<> text " " PP.<> text " (" PP.<> cPrint_ 0 ii z PP.<> text ") (" PP.<> cPrint_ 0 ii app PP.<> text " )"
 iPrint_ p ii x                 =  text ("[" ++ show x ++ "]")
 
 cPrint_ :: Int -> Int -> TermChk -> Doc

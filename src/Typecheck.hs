@@ -358,6 +358,8 @@ quote i (VFSucc n f)       =  FSucc  (quote i n) (quote i f)
 quote i (VEq a x y)  =  Inf (Eq (quote i a) (quote i x) (quote i y))
 quote i (VRefl a x)  =  Refl (quote i a) (quote i x)
 quote i (VSigma a f) = Inf (Sigma (quote i a) (quote i f))
+quote i (VApp f a) = Inf (App (quote i f) (quote i a))
+quote i (VPair a y z app) = Inf (Pair (quote i a) (quote i y) (quote i z) (quote i app))
 
 neutralQuote :: Int -> Neutral -> TermInf
 neutralQuote i (NFree x) = boundFree i x
