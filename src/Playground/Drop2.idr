@@ -39,7 +39,9 @@ drop4'V : (a : Type) -> (n' : Nat) -> (m' : Nat) -> Vect (S m') a -> (pSN'SZ : L
 drop4'V a n' m' xs pSN'SZ rec = 
     let vE = vecElim a (\m', xs => (pSN'SZ : LTE (S n') m') -> (k : Nat ** Vect k a))
                        (\pSM'1 => (Z ** []))
-                       (\xsTM, a', xs', vRec, pSN'SSxsTM => drop4PE a n' xsTM xs' pSN'SSxsTM rec)
+                       (\xsTM, a', xs', vRec, pSN'SSxsTM => lteElim (\l,r, pSN'SSxsTM => (k : Nat ** Vect k a))
+                                                                    (\r => ?hole11) -- what do we put here?
+                                                                    (\l,r,p, lTErec => rec xsTM xs' (fromLteSucc pSN'SSxsTM)) (S n') (S xsTM) pSN'SSxsTM)
     in vE (S m') xs pSN'SZ
 
 
@@ -49,7 +51,11 @@ drop4M'E : (a : Type) -> (n' : Nat) -> (m : Nat) -> Vect m a -> (pSN' : LTE (S n
 drop4M'E a n' m xs pSN' rec =
     let natEM = natElim (\m => Vect m a -> (pSN' : LTE (S n') m) -> (k : Nat ** Vect k a))
                         (\xsEmpty, pSN'Z => (Z ** []))
-                        (\m', m'Rec, xs, pSN'SZ => drop4'V a n' m' xs pSN'SZ rec)
+                        (\m', m'Rec, xs, pSN'SZ => vecElim a (\m', xs => (pSN'SZ : LTE (S n') m') -> (k : Nat ** Vect k a))
+                                                             (\pSM'1 => (Z ** []))
+                                                             (\xsTM, a', xs', vRec, pSN'SSxsTM => lteElim (\l,r, pSN'SSxsTM => (k : Nat ** Vect k a))
+                                                                                                          (\r => ?hole111) -- what do we put here?
+                                                                                                          (\l,r,p, lTErec => rec xsTM xs' (fromLteSucc pSN'SSxsTM)) (S n') (S xsTM) pSN'SSxsTM) (S m') xs pSN'SZ)
     in natEM m xs pSN'
 
 
@@ -58,5 +64,11 @@ drop4 : (a : Type) -> (n : Nat) -> (m : Nat) -> Vect m a -> (p : LTE n m)
 drop4 a n m xs p = 
     let natEN = natElim (\n => (m : Nat) -> Vect m a -> (p : LTE n m) -> (k : Nat ** Vect k a))  
                        (\m, xs, pLZ => (m ** xs) ) 
-                       (\n', rec, m, xs, pSN' => drop4M'E a n' m xs pSN' rec)
+                       (\n', rec, m, xs, pSN' => natElim (\m => Vect m a -> (pSN' : LTE (S n') m) -> (k : Nat ** Vect k a))
+                                                         (\xsEmpty, pSN'Z => (Z ** []))
+                                                         (\m', m'Rec, xs, pSN'SZ => vecElim a (\m', xs => (pSN'SZ : LTE (S n') m') -> (k : Nat ** Vect k a))
+                                                                                            (\pSM'1 => (Z ** []))
+                                                                                            (\xsTM, a', xs', vRec, pSN'SSxsTM => lteElim (\l,r, pSN'SSxsTM => (k : Nat ** Vect k a))
+                                                                                                                                         (\r => ?hole1111) -- what do we put here?
+                                                                                                                                         (\l,r,p, lTErec => rec xsTM xs' (fromLteSucc pSN'SSxsTM)) (S n') (S xsTM) pSN'SSxsTM) (S m') xs pSN'SZ) m xs pSN')
     in natEN n m xs p
