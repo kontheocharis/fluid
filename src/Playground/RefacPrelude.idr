@@ -82,6 +82,7 @@ listElim t y n c (x :: xs) =
     let rec = listElim t y n c xs
     in c x xs rec
 
+
 public export
 vecElim : ( x : Type) 
        -> (y : ((n : Nat) -> (z : Vect n x) -> Type))
@@ -94,6 +95,20 @@ vecElim t y n c Z [] = n
 vecElim t y n c (S bn) (x :: xs) = 
    let rec = vecElim t y n c bn xs
    in c bn x xs rec
+
+public export
+lteElim :   (x : (l : Nat) -> (r : Nat) -> LTE l r -> Type)
+       ->   (z : (r : Nat) -> x Z r LTEZero)
+       ->   (nz : ((left : Nat) -> (right : Nat) -> (l : LTE left right) -> (x left right l) ->  (x (S left) (S right) (LTESucc l))))
+       ->   (l : Nat) 
+       ->   (r : Nat)
+       ->   (lte : LTE l r)
+       ->  x l r lte
+lteElim x z nz Z ri (LTEZero) = z ri
+lteElim x z nz (S le) (S ri) (LTESucc l) = 
+        let rec = lteElim x z nz le ri l  
+        in nz le ri l rec
+
 
 public export
 finElim :  (x : ((x : Nat) -> (y : Fin x) -> Type))

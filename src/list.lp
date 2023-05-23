@@ -9,8 +9,8 @@ let listAppend =
    (\a xs ys -> 
         listElim a 
                  (\l -> List a -> List a) 
-                 (\ys -> ys) 
-                 (\x xs rec ys -> LCons a x (rec ys)) xs ys
+                 (\ys -> ys)
+                 (\x xs rec ys -> LCons a x (rec ys)) xs ys 
    ) :: forall (a :: *) (xs :: List a) (ys :: List a). List a
 
 let listAppend3 = 
