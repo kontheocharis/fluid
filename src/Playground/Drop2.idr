@@ -58,7 +58,6 @@ drop4M'E a n' m xs pSN' rec =
                                                                                                           (\l,r,p, lTErec => rec xsTM xs' (fromLteSucc pSN'SSxsTM)) (S n') (S xsTM) pSN'SSxsTM) (S m') xs pSN'SZ)
     in natEM m xs pSN'
 
-
 drop4 : (a : Type) -> (n : Nat) -> (m : Nat) -> Vect m a -> (p : LTE n m)
      -> (k : Nat ** Vect k a)
 drop4 a n m xs p = 
@@ -69,6 +68,95 @@ drop4 a n m xs p =
                                                          (\m', m'Rec, xs, pSN'SZ => vecElim a (\m', xs => (pSN'SZ : LTE (S n') m') -> (k : Nat ** Vect k a))
                                                                                             (\pSM'1 => (Z ** []))
                                                                                             (\xsTM, a', xs', vRec, pSN'SSxsTM => lteElim (\l,r, pSN'SSxsTM => (k : Nat ** Vect k a))
-                                                                                                                                         (\r => ?hole1111) -- what do we put here?
+                                                                                                                                         (\r => (xsTM ** xs')) -- what do we put here?, technically impossible
                                                                                                                                          (\l,r,p, lTErec => rec xsTM xs' (fromLteSucc pSN'SSxsTM)) (S n') (S xsTM) pSN'SSxsTM) (S m') xs pSN'SZ) m xs pSN')
     in natEN n m xs p
+
+---------------------------------------------------------------------------------------------
+
+drop5 : (n : Nat) -> (m : Nat) -> Vect m a -> (p : LTE n m)
+    -> (k : Nat) -> (q : k = m `minus` n)
+    -> Vect k a
+-- lift the witnesses to the lhs
+drop5 Z m xs p k q =
+ rewrite q in -- this is systematic, because we're given it
+   rewrite minusZeroRight m in -- but where does this come from?
+                               -- search the standard library?
+                               -- what if we fail?
+     xs
+drop5 (S n') Z [] p Z q = [] -- still technically impossible
+                            -- separate 'prune impossibilities' refac?
+drop5 (S n') (S m') (x :: xs) (LTESucc p') k q =
+ case q of
+   Refl => drop5 n' m' xs p' k Refl
+   -- Refl is a special case?
+   -- What if this were a more interesting relation?
+
+{-
+eqApply : (x : Type) -> (a : x) -> (b : x) -> (p : a = b) -> a -> b
+eqApply x = eqElim x (\a,b,_ => a -> b) (\_, x => x)
+
+drop4M'E : (a : Type) -> (n' : Nat) -> (m : Nat) -> Vect m a -> (pSN' : LTE (S n') m)
+     -> (rec : (m : Nat) -> Vect m a -> LTE n' m -> (k : Nat ** Vect k a))
+     -> (k : Nat ** Vect k a)
+drop4M'E a n' m xs pSN' rec =
+    let natEM = natElim (\m => Vect m a -> (pSN' : LTE (S n') m) -> (k : Nat ** Vect k a))
+                        (\xsEmpty, pSN'Z => (Z ** []))
+                        (\m', m'Rec, xs, pSN'SZ => vecElim a (\m', xs => (pSN'SZ : LTE (S n') m') -> (k : Nat ** Vect k a))
+                                                             (\pSM'1 => (Z ** []))
+                                                             (\xsTM, a', xs', vRec, pSN'SSxsTM => lteElim (\l,r, pSN'SSxsTM => (k : Nat ** Vect k a))
+                                                                                                          (\r => ?hole111) -- what do we put here?
+                                                                                                          (\l,r,p, lTErec => rec xsTM xs' (fromLteSucc pSN'SSxsTM)) (S n') (S xsTM) pSN'SSxsTM) (S m') xs pSN'SZ)
+    in natEM m xs pSN'
+
+
+-}
+
+
+drop6'V : (a : Type) -> (n' : Nat) -> (m' : Nat) -> Vect (S m') a -> (pSN'SZ : LTE (S n') (S m'))
+        -> (k : Nat)
+        -> (rec : (m : Nat) -> Vect m a -> LTE n' m -> (k : Nat) -> k = minus m n' -> Vect k a)
+        -> (p : k = minus m' n')
+        -> Vect k a
+drop6'V a n' m' xs pSN'SZ k rec p = 
+    let k0Vec = eqElim Nat (\k,z,p => Vect z a -> Vect k a)
+                                       (\k,v => v)
+        vE = vecElim a (\m', xs => (pSN'SZ : LTE (S n') m') -> (k : Nat) -> (q : k = minus m' n') -> Vect k a)
+                       (\pSM'1,k,q' => k0Vec k Z q' []) -- []) -- impossible case?
+                       (\xsTM, a', xs', vRec, pSN'SSxsTM, k, q' => ?ho2)
+    in ?body3 -- vE (S m') xs pSN'SZ
+
+drop6MEl :  (a : Type) -> (n' : Nat) -> (m : Nat) -> Vect m a -> (p : LTE (S n') m) 
+         -> (k : Nat) -> (q : k = m `minus` (S n')) ->  (rec : (m : Nat) -> Vect m a -> LTE n' m -> (k : Nat) -> k = minus m n' -> Vect k a)
+         -> Vect k a
+drop6MEl a n' m xs p k q rec = 
+        let k0Vec = eqElim Nat (\k,z,p => Vect z a -> Vect k a)
+                               (\k,v => v)
+            elimM = natElim (\m => Vect m a -> (p : LTE (S n') m) -> (k : Nat) -> (q : k = m `minus` (S n')) -> Vect k a)
+                            (\xsEmpty, pSN'Z, k, kEqZ => k0Vec k Z kEqZ [])
+                            (\m', m'Rec, xs, pSN'SZ, k, pkEqZMN' => ?ho)
+        in ?body2
+
+drop6EqE1 : (a : Type) -> (m : Nat) -> Vect m a -> (p : LTE Z m)
+         -> (k : Nat) -> (q : k = m `minus` Z)
+         -> Vect k a
+drop6EqE1 a m xs p k q = 
+    let p' = sym q
+        eqEl = eqElim Nat 
+                      (\mz, m, p => Vect m a -> Vect mz a)
+                      (\z, v => v)
+                      (m `minus` Z) m (minusZeroRight m) xs
+        eq1 = eqElim Nat 
+                     (\mz, k, p => Vect mz a -> Vect k a)
+                     (\k, v => v)
+                     (m `minus` Z) k p' eqEl
+    in eq1
+
+drop6 : (a : Type) -> (n : Nat) -> (m : Nat) -> Vect m a -> (p : LTE n m)
+    -> (k : Nat) -> (q : k = m `minus` n)
+    -> Vect k a
+drop6 a n m xs p k q = 
+    let natEn = natElim (\n => (m : Nat) -> Vect m a -> (p : LTE n m) -> (k : Nat) -> (q : k = m `minus` n) -> Vect k a) 
+                        (\m, xs, pnZm, k, pnZ => drop6EqE1 a m xs pnZm k pnZ)
+                        (\n', rec, m, xs, pSZM, k, pkEqSz => ?ho1)
+    in ?body
