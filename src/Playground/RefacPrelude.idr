@@ -131,6 +131,9 @@ public export
 Unit2 : Type
 Unit2 = Fin 1
 
+U : Unit2
+U = FZ
+
 public export
 Not2 : Type -> Type 
 Not2 = (\a => a -> Void2)
@@ -168,3 +171,43 @@ fstS s = sigElim Nat
                 (\s => Nat)
                 (\w, g =>  w)
                 s 
+
+
+-- Leibniz prinicple (look at the type signature)
+public export
+leibniz : (a : Type) -> (b : Type) -> (f : a -> b) -> (x : a) -> (y : a) -> x = y ->  (f x) = (f y)
+leibniz =
+  ( \ a, b, f => eqElim a
+                 (\ x, y, eq_x_y => (f x) = (f y))
+                 (\ x => Refl  ))
+  
+
+
+{-
+-- proof that 1 is not 0
+let p1IsNot0 =
+  (\ p -> apply Unit Void
+                (leibniz Nat *
+                         (natElim (\ _ -> *) Void (\ _ _ -> Unit))
+                         1 0 p)
+                U)
+  :: Not (Eq Nat 1 0)
+-}
+
+-- apply an equality proof on two types
+public export 
+apply2 : (a : Type) -> (b : Type) -> (p : a = b) -> a -> b
+apply2 =
+  eqElim Type (\ a, b, _ => a -> b) (\ _ , x => x)
+
+{-
+public export
+succNotLTEzero : (m : Nat) -> (S m `LTE` Z) -> Void2
+succNotLTEzero m p = 
+  let   ltEl = lteElim (\l,r,p => Type) 
+                       (\r => Void2)
+                       (\l,r,p,v => Unit) -- (S m) Z p 
+        le = leibniz (LTE (S m) Z) Type (ltEl (S m) Z) p p Refl -- (ltEl (S m) Z) ?l ))
+        help = apply2 Unit Void2
+  in help ()
+-}
