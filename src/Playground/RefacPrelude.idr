@@ -70,6 +70,7 @@ public export
 True : RefacPrelude.Bool
 True = FS FZ
 
+
 public export
 listElim : ( x : Type) 
        -> (y : ((z : List x) -> Type))
@@ -129,6 +130,10 @@ Void2   = Fin 0
 public export
 Unit2 : Type
 Unit2 = Fin 1
+
+public export
+Not2 : Type -> Type 
+Not2 = (\a => a -> Void2)
 
 public export
 voidElim : (m : Void2 -> Type) -> (v : Void2) -> m v

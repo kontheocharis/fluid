@@ -118,8 +118,9 @@ drop6PE : (a : Type) -> (n' : Nat) -> (xsTM : Nat) -> Vect xsTM a -> (pSN'SSxsTM
        -> (q' : k = minus xsTM n')
        -> Vect k a
 drop6PE a n' xsTM xs' pSN'SSxsTM k rec q' = 
-    let lteE = lteElim (\l,r, pSN'SSxsTM => (k : Nat) -> (q : k = minus xsTM n') -> Vect k a)
-                       (\r,k,p => ?hole12) -- what do we put here?
+    let voidE = voidElim (\_ => Vect k a) ?oo
+        lteE = lteElim (\l,r, pSN'SSxsTM => (k : Nat) -> (q : k = minus xsTM n') -> Vect k a)
+                       (\r,k,p => rec xsTM xs' (fromLteSucc pSN'SSxsTM) k p) -- what do we put here? Not sure if this is right.
                        (\l,r,p, lTErec,k,p2 => rec xsTM xs' (fromLteSucc pSN'SSxsTM) k p2) -- m' = S (xsTM)
     in lteE (S n') (S xsTM) pSN'SSxsTM k q'
 
