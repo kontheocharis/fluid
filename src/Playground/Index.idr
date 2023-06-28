@@ -100,12 +100,12 @@ index4 (x :: xs) (S i') (S n') (LTESucc p') = index4 i' n' xs p'
 
 -}
 
-lteToSuccZ : (LTE (S Z) Z) -> Void2 
-lteToSuccZ p = 
-    let lE = lteElim (\sz,z, p => Type)
-                     (\r => Void2)
-                     (\l,r,p, v => Void2)
-    in -- lE (S Z) Z p
+lteToSuccZ : (n : Nat) -> (LTE (S n) Z) -> Void2 
+lteToSuccZ n p = 
+    let lE = lteElim (\sz,z, p => Void2)
+                     (\r => ?ho11)
+                     (\l,r,p', v => ?ho22)
+    in ?body2 -- lE (S Z) Z p
 
 index4NatElimEmpty : (a : Type) -> (i : Nat) -> (p: LTE (S i) Z) -> Maybe a 
 index4NatElimEmpty a i p = 

@@ -3,6 +3,7 @@ module RefacPrelude
 import Data.Nat
 import Data.Fin
 import Data.Vect
+import Decidable.Equality
 
 public export
 natElim : (x : Nat -> Type) 
@@ -109,6 +110,8 @@ lteElim x z nz Z ri (LTEZero) = z ri
 lteElim x z nz (S le) (S ri) (LTESucc l) = 
         let rec = lteElim x z nz le ri l  
         in nz le ri l rec
+       -- let rec = lteElim x z nz le ri l  
+       --  in nz le ri l rec
 
 
 public export
@@ -182,23 +185,32 @@ leibniz =
                  (\ x => Refl  ))
   
 
-
-{-
--- proof that 1 is not 0
-let p1IsNot0 =
-  (\ p -> apply Unit Void
-                (leibniz Nat *
-                         (natElim (\ _ -> *) Void (\ _ _ -> Unit))
-                         1 0 p)
-                U)
-  :: Not (Eq Nat 1 0)
--}
-
 -- apply an equality proof on two types
 public export 
 apply2 : (a : Type) -> (b : Type) -> (p : a = b) -> a -> b
 apply2 =
   eqElim Type (\ a, b, _ => a -> b) (\ _ , x => x)
+
+
+-- proof that 1 is not 0
+public export 
+p1IsNot0 : (S Z) = Z -> Void2
+p1IsNot0 = (\ p => apply2 Unit2 Void2
+                   (leibniz Nat Type
+                         (natElim (\ _ => Type) Void2 (\ _, _ => Unit2))
+                         1 0 p)
+                U)
+--  :: Not (Eq Nat 1 0)
+
+-- proof that S n is not 0
+public export 
+pSnIsNot0 : (n : Nat) -> (S n) = Z -> Void2
+pSnIsNot0 = (\ n, p => apply2 Unit2 Void2
+                   (leibniz Nat Type
+                         (natElim (\ _ => Type) Void2 (\ _, _ => Unit2))
+                         (S n) 0 p)
+                U)
+
 
 {-
 public export
@@ -211,3 +223,29 @@ succNotLTEzero m p =
         help = apply2 Unit Void2
   in help ()
 -}
+
+
+NoConfusion : Nat -> Nat -> Type 
+NoConfusion Z Z = Z = Z 
+NoConfusion (S n) (S m) = n = m 
+NoConfusion _ _ = Void2
+
+noConf : (x , y : Nat) -> x = y -> NoConfusion x y 
+
+apply3 : (a : Type) -> (x,y : a) -> (p : a -> Type) -> x = y -> p x -> p y
+apply3 a x x p Refl px = px
+
+antisym : (m,n : Nat) -> LTE m n -> LTE n m -> m = n 
+antisym = lteElim (\m,n,_ => LTE n m -> m = n) 
+                        (\n,e => lteElim (\n,m,_ => m = Z -> m = n)
+                           (\n,e => e) 
+                           (\k,l,_,_,e => voidElim (\_ => S l = S k) 
+                                 (noConf (S l) Z e)) 
+                            n Z e Refl )
+                        (\m,n,_,h,q => cong S 
+                           (h ( -- the following is basically fromLteSucc
+                            lteElim (\k,l,_ => k = S n -> l = S m -> LTE n m)
+                                    (\_,e,_ => voidElim (\_ => LTE n m) (noConf Z (S n) e))
+                                    (\k,l,e,_,x,y => apply3 Nat k n (\n => LTE n m) (noConf (S k) (S n) x) (apply3 Nat l m (\m => LTE k m) (noConf (S l) (S m) y) e))
+                                    (S n) (S m) q Refl Refl 
+                        )))
