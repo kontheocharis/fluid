@@ -224,17 +224,20 @@ succNotLTEzero m p =
   in help ()
 -}
 
-
+public export
 NoConfusion : Nat -> Nat -> Type 
 NoConfusion Z Z = Z = Z 
 NoConfusion (S n) (S m) = n = m 
 NoConfusion _ _ = Void2
 
+public export
 noConf : (x , y : Nat) -> x = y -> NoConfusion x y 
 
+public export
 apply3 : (a : Type) -> (x,y : a) -> (p : a -> Type) -> x = y -> p x -> p y
 apply3 a x x p Refl px = px
 
+public export
 antisym : (m,n : Nat) -> LTE m n -> LTE n m -> m = n 
 antisym = lteElim (\m,n,_ => LTE n m -> m = n) 
                         (\n,e => lteElim (\n,m,_ => m = Z -> m = n)
