@@ -106,46 +106,36 @@ index4 (x :: xs) (S i') (S n') (LTESucc p') = index4 i' n' xs p'
 -- the point is that it should be impossible to eliminate when the vector is empty as there is nothing to return.
 -- we should return Just Type ... 
 ------
-
-index4Em1 : (a : Type) -> (i : Nat) -> LTE (S i) Z -> Maybe a
-index4Em1 a i p = 
-    let he = antisym (S i) Z p LTEZero
-        he2 = pSnIsNot0 i he 
-        vE  = voidElim (\_ => a) he2
-        el = lteElim (\si,z,_ => Maybe a)
-                     (\l => Just (voidElim (\_ => a) (pSnIsNot0 i (antisym (S i) Z p LTEZero))))
-                     (\l,r,p2,m => Just (voidElim (\_ => a) (pSnIsNot0 i (antisym (S i) Z p LTEZero)))) 
-    in el (S i) Z p
 -------
 -- none empty case, eliminate as normal.
 ------
-index4LE : (a : Type) -> (i' : Nat) -> (n' : Nat) -> (p : LTE (S (S i')) (S n')) 
-        -> (rec : (i : Nat) -> LTE (S i) n' -> Maybe a) -> Maybe a
-index4LE a i' n' p rec = 
-    let lE = lteElim (\l,r,p => Maybe a) (\ssi => rec i' (fromLteSucc p)) (\l,r,p2,recL => rec i' (fromLteSucc p))
-    in lE (S (S i')) (S n') p
-
-index4NE : (a : Type) -> (i : Nat) -> (n' : Nat) -> (x : a) -> (xs : Vect n' a) -> (p : LTE (S i) (S n')) 
-        -> (rec : (i : Nat) -> LTE (S i) n' -> Maybe a) -> Maybe a
-index4NE a i n' x xs p rec =
-    let nE = natElim (\i => (p : LTE (S i) (S n')) -> Maybe a) 
-                     (\p => Just x) 
-                     (\i', rec2, p2 => index4LE a i' n' p2 rec)
-    in nE i p
+{-
+index2 : (a : Type) -> (i : Nat) -> (n : Nat) -> Vect n a -> (p : LTE (S i) n) ->  Maybe a
+index2 a i n xs p = 
+    let vE = vecElim a (\n,l => (i : Nat) -> (p : LTE (S i) n) -> Maybe a) 
+                              (\i,p => Nothing)
+                              (\n',x, xs, rec,i,p2 => 
+                                 natElim (\i => (p : LTE (S i) (S n')) -> Maybe a) 
+                                         (\p => Just x) 
+                                         (\i', rec2, p3 => 
+                                            lteElim (\l,r,p => Maybe a) 
+                                                    (\ssi => rec i' (fromLteSucc p3)) 
+                                                    (\l,r,p4,recL => rec i' (fromLteSucc p3)) (S (S i')) (S n') p3 ) i p2) 
+    in vE n xs i p
+-}
 
 index4 : (a : Type) -> (i : Nat) -> (n : Nat) -> Vect n a -> (p : LTE (S i) n) ->  Maybe a
 index4 a i n xs p = 
     let vE = vecElim a (\n,l => (i : Nat) -> (p : LTE (S i) n) -> Maybe a) 
                               (\i,p => lteElim (\si,z,_ => Maybe a)
-                                               (\l => Just (voidElim (\_ => a) (pSnIsNot0 i (antisym (S i) Z p LTEZero))))
-                                               (\l,r,p2,m => Just (voidElim (\_ => a) (pSnIsNot0 i (antisym (S i) Z p LTEZero)))) (S i) Z p )
+                                               (\l => voidElim (\_ => Maybe a) (pSnIsNot0 i (antisym (S i) Z p LTEZero)))
+                                               (\l,r,p2,m => voidElim (\_ => Maybe a) (pSnIsNot0 i (antisym (S i) Z p LTEZero))) (S i) Z p )
                               (\n',x, xs, rec,i,p2 => natElim (\i => (p : LTE (S i) (S n')) -> Maybe a) 
                                                               (\p => Just x) 
                                                               (\i', rec2, p2 => 
-                                                                  lteElim (\l,r,p => Maybe a) (\ssi => rec i' (fromLteSucc p2)) (\l,r,p3,recL => rec i' (fromLteSucc p2))
+                                                                  lteElim (\l,r,p => Maybe a) (\ssi => rec i' (fromLteSucc2 (S i') n' p2)) (\l,r,p3,recL => rec i' (fromLteSucc2 (S i') n' p2))
                                                                                      (S (S i')) (S n') p2) i p2 )
     in vE n xs i p
-
 
 {-
 -------------------------------------------------------------------------------
@@ -158,3 +148,22 @@ index5 (S i') (S n') (x :: xs) (LTESucc p') = index5 i' n' xs p'
 
 -}
 
+index5 : (a : Type) -> (i : Nat) -> (n : Nat) -> Vect n a -> (p : LTE (S i) n) ->  a
+index5 a i n xs p = 
+    let vE = vecElim a (\n,l => (i : Nat) -> (p : LTE (S i) n) -> a) 
+                              (\i,p => lteElim (\si,z,_ => a)
+                                               (\l =>  voidElim (\_ => a) (pSnIsNot0 i (antisym (S i) Z p LTEZero)))
+                                               (\l,r,p2,m => voidElim (\_ => a) (pSnIsNot0 i (antisym (S i) Z p LTEZero))) (S i) Z p )
+                              (\n',x, xs, rec,i,p2 => natElim (\i => (p : LTE (S i) (S n')) -> a) 
+                                                              (\p => x) 
+                                                              (\i', rec2, p2 => 
+                                                                  lteElim (\l,r,p => a) (\ssi => rec i' (fromLteSucc2 (S i') n' p2)) (\l,r,p3,recL => rec i' (fromLteSucc2 (S i') n' p2))
+                                                                                     (S (S i')) (S n') p2) i p2 )
+    in vE n xs i p
+
+
+example4 : Maybe Nat 
+example4 = index4 Nat 3 5 [1,2,3,4,5] (LTESucc (LTESucc (LTESucc (LTESucc LTEZero))))
+
+example5 : Maybe Nat 
+example5 = index4 Nat 3 5 [1,2,3,4,5] (LTESucc (LTESucc (LTESucc (LTESucc LTEZero))))

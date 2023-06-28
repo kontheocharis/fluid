@@ -232,6 +232,8 @@ NoConfusion _ _ = Void2
 
 public export
 noConf : (x , y : Nat) -> x = y -> NoConfusion x y 
+noConf Z Z p = Refl
+noConf (S n) (S n) Refl = Refl 
 
 public export
 apply3 : (a : Type) -> (x,y : a) -> (p : a -> Type) -> x = y -> p x -> p y
@@ -252,3 +254,10 @@ antisym = lteElim (\m,n,_ => LTE n m -> m = n)
                                     (\k,l,e,_,x,y => apply3 Nat k n (\n => LTE n m) (noConf (S k) (S n) x) (apply3 Nat l m (\m => LTE k m) (noConf (S l) (S m) y) e))
                                     (S n) (S m) q Refl Refl 
                         )))
+
+public export 
+fromLteSucc2 : (n,m : Nat) -> LTE (S n) (S m) -> LTE n m
+fromLteSucc2 n m p  = lteElim (\k,l,_ => k = S n -> l = S m -> LTE n m)
+                         (\_,e,_ => voidElim (\_ => LTE n m) (noConf Z (S n) e))
+                         (\k,l,e,_,x,y => apply3 Nat k n (\n => LTE n m) (noConf (S k) (S n) x) (apply3 Nat l m (\m => LTE k m) (noConf (S l) (S m) y) e))
+                      (S n) (S m) p Refl Refl 
