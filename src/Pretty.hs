@@ -49,6 +49,9 @@ iPrint_ p ii (FinElim m mz ms n f)
                                  =  iPrint_ p ii (Free (Global "finElim") :@: m :@: mz :@: ms :@: n :@: f)
 iPrint_ p ii (Pair a y z app) = text "Pair " PP.<> cPrint_ 0 ii a  PP.<> text " " PP.<> cPrint_ 0 ii y PP.<> text " " PP.<> text " (" PP.<> cPrint_ 0 ii z PP.<> text ") (" PP.<> cPrint_ 0 ii app PP.<> text " )"
 iPrint_ p ii (TMaybe a) =   iPrint_ p ii (Free (Global "Maybe") :@: a)
+iPrint_ p ii (LTE l r) =   iPrint_ p ii (Free (Global "LTE") :@: l :@: r)
+iPrint_ p ii (LTEElim a b c d e f)
+                                 =  iPrint_ p ii (Free (Global "lteElim") :@: a :@: b :@: c :@: d :@: e :@: f)
 iPrint_ p ii x                 =  text ("[" ++ show x ++ "]")
 
 cPrint_ :: Int -> Int -> TermChk -> Doc
@@ -67,6 +70,9 @@ cPrint_ p ii (FZero n)  = iPrint_ p ii (Free (Global "FZero") :@: n)
 cPrint_ p ii (FSucc n f)= iPrint_ p ii (Free (Global "FSucc") :@: n :@: f)
 cPrint_ p ii (TNothing a) = iPrint_ p ii (Free (Global "Nothing") :@: a)
 cPrint_ p ii (TJust a b) = iPrint_ p ii (Free (Global "Just") :@: a :@: b)
+
+cPrint_ p ii (LTEZero r) = iPrint_ p ii (Free (Global "LTEZero") :@: r)
+cPrint_ p ii (LTESucc l r lte) = iPrint_ p ii (Free (Global "LTESucc") :@: l :@: r :@: lte)
 
 fromNat_ :: Int -> Int -> TermChk -> Doc
 fromNat_ n ii Zero = int n

@@ -387,7 +387,10 @@ quote i (VPair a y z app) = Inf (Pair (quote i a) (quote i y) (quote i z) (quote
 quote i (VMaybe a) = Inf (TMaybe (quote i a))
 quote i (VNothing a) = TNothing (quote i a)
 quote i (VJust a b) = TJust (quote i a) (quote i b)
- 
+quote i (VLTE l r) = Inf (LTE (quote i l) (quote i r))
+quote i (VLTEZero r) = LTEZero (quote i r)
+quote i (VLTESucc l r lte) = LTESucc (quote i l) (quote i r) (quote i lte)
+
 neutralQuote :: Int -> Neutral -> TermInf
 neutralQuote i (NFree x) = boundFree i x
 neutralQuote i (NApp n v) = neutralQuote i n :@: quote i v
@@ -409,6 +412,10 @@ neutralQuote i (NEqElim a m mr x y eq)
    =  EqElim  (quote i a) (quote i m) (quote i mr)
               (quote i x) (quote i y)
               (Inf (neutralQuote i eq))
+neutralQuote i (NLTEElim a b c d e lte)
+   =  EqElim  (quote i a) (quote i b) (quote i c)
+              (quote i d) (quote i e)
+              (Inf (neutralQuote i lte))
 
 boundFree :: Int -> Name -> TermInf 
 boundFree i (Quote k) = Bound (i-k-1)

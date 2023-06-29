@@ -63,7 +63,6 @@ lpte =      [(Global "Zero", VNat),
                                      m `vapp` VLCons a x xs)))) (\ _ ->
                                VPi (VList a) (\ xs -> m `vapp` xs)))))),
 
-
              (Global "sigElim", VPi VStar (\a -> 
                                   VPi 
                                       (VPi a (\_ -> VStar)) (\f ->
@@ -88,6 +87,23 @@ lpte =      [(Global "Zero", VNat),
                               VPi a (\ x -> VPi a (\ y ->
                               VPi (VEq a x y) (\ eq ->
                               ((m `vapp` x) `vapp` y) `vapp` eq))))))),
+
+             (Global "LTE", VPi VNat (\ l -> VPi VNat ( \ r -> VLTE l r))),
+             (Global "LTEZero", VPi VNat (\ r -> VLTE VZero r)),
+             (Global "LTESucc", VPi VNat (\ l -> 
+                                   VPi VNat (\ r -> 
+                                     VPi (VLTE l r) (\lte -> 
+                                        VLTE (VSucc l) (VSucc r))))),
+
+
+             (Global "lteElim", VPi (VPi VNat (\l -> VPi VNat (\r -> VPi (VLTE l r) (\lte -> VStar)))) (\x -> 
+                                  VPi (VPi VNat (\r -> x `vapp` VZero `vapp` r `vapp` (VLTEZero r))) (\z ->
+                                     VPi (VPi VNat (\left -> (VPi VNat (\right -> (VPi (VLTE left right) (\l -> VPi (x `vapp` left `vapp` right `vapp` l) (\_ -> x `vapp` (VSucc left) `vapp` (VSucc right) `vapp` (VLTESucc left right l)))))))) (\nz ->
+                                          VPi VNat (\l -> 
+                                           VPi VNat (\r -> 
+                                            VPi (VLTE l r) (\lte -> x `vapp` l `vapp` r `vapp` lte)))))) ),
+
+
              (Global "FZero", VPi VNat (\ n -> VFin (VSucc n))),
              (Global "FSucc", VPi VNat (\ n -> VPi (VFin n) (\ f ->
                                VFin (VSucc n)))),
@@ -124,9 +140,16 @@ lpve =      [(Global "Zero", VZero),
              (Global "Eq", VLam (\ a -> VLam (\ x -> VLam (\ y -> VEq a x y)))),
              (Global "eqElim", evalChk (Lam (Lam (Lam (Lam (Lam (Lam (Inf (EqElim (Inf (Bound 5)) (Inf (Bound 4)) (Inf (Bound 3)) (Inf (Bound 2)) (Inf (Bound 1)) (Inf (Bound 0)))))))))) ([],[])),
              (Global "sigElim", evalChk (Lam (Lam (Lam (Lam (Lam (Inf (SigElim (Inf (Bound 4)) (Inf (Bound 3)) (Inf (Bound 2)) (Inf (Bound 1)) (Inf (Bound 0))))))))) ([],[])),
+             (Global "LTE", VLam (\l -> VLam (\r -> VLTE l r))),
+             (Global "LTEZero", VLam (\r -> VLTEZero r)),
+             (Global "LTESucc", VLam (\l -> VLam (\r -> VLam (\lte -> VLTESucc l r lte)))),
+
              (Global "FZero", VLam (\ n -> VFZero n)),
              (Global "FSucc", VLam (\ n -> VLam (\ f -> VFSucc n f))),
              (Global "Fin", VLam (\ n -> VFin n)),
+
+             (Global "lteElim", evalChk (Lam (Lam (Lam (Lam (Lam (Lam (Inf (LTEElim (Inf (Bound 5)) (Inf (Bound 4)) (Inf (Bound 3)) (Inf (Bound 2)) (Inf (Bound 1)) (Inf (Bound 0)))))))))) ([],[])),
+
              (Global "finElim", evalChk (Lam (Lam (Lam (Lam (Lam (Inf (FinElim (Inf (Bound 4)) (Inf (Bound 3)) (Inf (Bound 2)) (Inf (Bound 1)) (Inf (Bound 0))))))))) ([],[]))]
      --       ]
 

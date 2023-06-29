@@ -72,6 +72,17 @@ evalInf (FinElim m mz ms n f) d =
                                             (evalChk ms d) (evalChk n d) n')
 
   in rec (evalChk f d)
+
+evalInf (LTEElim x z nz l r lte) d = 
+ let zVal = evalChk z d 
+     nzVal = evalChk nz d 
+     rec fVal = 
+       case fVal of 
+         VLTEZero l -> zVal `vapp` l
+         VLTESucc l r lte -> foldl vapp nzVal [l,r,lte,rec lte] 
+         VNeutral n -> VNeutral (NLTEElim (evalChk x d) (evalChk z d) (evalChk nz d) (evalChk l d) (evalChk r d) n)
+  in rec (evalChk lte d)
+
 evalInf (Eq a x y) d = VEq (evalChk a d) (evalChk x d) (evalChk y d)
 evalInf (EqElim a m mr x y eq) d = 
   let mrVal = evalChk mr d 
