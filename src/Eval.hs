@@ -38,6 +38,7 @@ evalInf (NatElim m mz ms k) d =
   in rec (evalChk k d)
 evalInf (Vec a n) d = VVec (evalChk a d) (evalChk n d)
 evalInf (List a) d = VList (evalChk a d)
+evalInf (TMaybe a) d = VMaybe (evalChk a d)
 evalInf (VecElim a m mn mc k xs) d = 
     let mnVal = evalChk mn d
         mcVal = evalChk mc d
@@ -103,3 +104,5 @@ evalChk (LCons a x xs) d = VLCons (evalChk a d) (evalChk x d) (evalChk xs d)
 evalChk (FZero n) d = VFZero (evalChk n d)
 evalChk (FSucc n f) d = VFSucc (evalChk n d) (evalChk f d)
 evalChk (Refl a x) d = VRefl (evalChk a d) (evalChk x d)
+evalChk (TNothing a) d = VNothing (evalChk a d)
+evalChk (TJust a b) d = VJust (evalChk a d) (evalChk b d)

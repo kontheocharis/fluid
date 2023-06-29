@@ -83,6 +83,10 @@ typeInf i env (List a) =
    do 
       typeChk i env a VStar
       return VStar
+typeInf i env (TMaybe a) = 
+   do
+      typeChk i env a VStar 
+      return VStar
 typeInf i env (Vec a k) = 
    do
       typeChk i env a VStar 
@@ -218,6 +222,25 @@ typeChk i env t1@(Pair a b) (VSigma aT bT)
 
 typeChk i env Zero VNat = return ()
 typeChk i env (Succ k) VNat = typeChk i env k VNat 
+
+typeChk i env (TNothing a) (VMaybe aT) =
+  do
+      typeChk i env a VStar 
+      let aVal = evalChk a (fst env, [])
+      if (quote0 aVal /= quote0 aT) then throwError "type mismatch in Nothing and Maybe"
+                                    else return ()
+      return ()
+
+typeChk i env (TJust a b) (VMaybe aT) = 
+   do
+      typeChk i env a VStar 
+      let aVal = evalChk a (fst env, [])
+      if (quote0 aVal /= quote0 aT) 
+         then throwError "type mismatch in Just and Maybe"
+         else do
+                  typeChk i env b aVal 
+                  return ()
+
 typeChk i env (Nil a) (VVec bVal VZero) = 
    do
       typeChk i env a VStar
@@ -361,7 +384,10 @@ quote i (VRefl a x)  =  Refl (quote i a) (quote i x)
 quote i (VSigma a f) = Inf (Sigma (quote i a) (quote i f))
 quote i (VApp f a) = Inf (App (quote i f) (quote i a))
 quote i (VPair a y z app) = Inf (Pair (quote i a) (quote i y) (quote i z) (quote i app))
-
+quote i (VMaybe a) = Inf (TMaybe (quote i a))
+quote i (VNothing a) = TNothing (quote i a)
+quote i (VJust a b) = TJust (quote i a) (quote i b)
+ 
 neutralQuote :: Int -> Neutral -> TermInf
 neutralQuote i (NFree x) = boundFree i x
 neutralQuote i (NApp n v) = neutralQuote i n :@: quote i v

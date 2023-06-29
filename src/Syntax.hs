@@ -22,6 +22,7 @@ data TermInf =
  | Eq TermChk TermChk TermChk
  | EqElim TermChk TermChk TermChk TermChk TermChk TermChk
  | SigElim TermChk TermChk TermChk TermChk TermChk
+ | TMaybe TermChk
 
 
       deriving (Show, Eq)
@@ -40,6 +41,8 @@ data TermChk =
  | FZero TermChk
  | FSucc TermChk TermChk
  | Refl TermChk TermChk
+ | TNothing TermChk
+ | TJust TermChk TermChk
 
       deriving (Show, Eq)
 
@@ -89,6 +92,9 @@ data Value =
  | VFin Value
  | VRefl Value Value
  | VEq Value Value Value
+ | VMaybe Value 
+ | VNothing Value 
+ | VJust Value Value 
 
 
 -- n ::= x         variable

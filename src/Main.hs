@@ -38,6 +38,13 @@ lpte =      [(Global "Zero", VNat),
                             VPi a (\ _ -> VPi (VList a) (\ _ -> VList a )))),
              (Global "List", VPi VStar (\ _ -> VStar)),
 
+             (Global "Maybe", VPi VStar (\ _ -> VStar)),
+
+             (Global "Nothing", VPi VStar (\a -> VMaybe a)),
+
+             (Global "Just", VPi VStar (\a ->
+                               VPi a (\ _ -> VMaybe a))),
+
              -- (Global "Sigma", VPi VStar (\a -> VPi a (\_ -> VStar))), 
 
              (Global "Sigma", VPi VStar (\a -> (VPi (VPi a (\_ -> VStar)) (\_ -> VStar)))),
@@ -97,6 +104,9 @@ lpve =      [(Global "Zero", VZero),
              (Global "Succ", VLam (\ n -> VSucc n)),
              (Global "Nat", VNat),
              (Global "natElim", evalChk (Lam (Lam (Lam (Lam (Inf (NatElim (Inf (Bound 3)) (Inf (Bound 2)) (Inf (Bound 1)) (Inf (Bound 0)))))))) ([],[])),
+             (Global "Maybe", VLam (\a -> VMaybe a)),
+             (Global "Nothing", VLam (\a -> VNothing a)),
+             (Global "Just" , VLam (\a -> VLam ( \ b -> VJust a b))),
              (Global "Nil", VLam (\ a -> VNil a)),
              (Global "LNil", VLam (\ a -> VLNil a)),
              (Global "Cons", VLam (\ a -> VLam (\ n -> VLam (\ x -> VLam (\ xs ->

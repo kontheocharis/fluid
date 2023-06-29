@@ -48,6 +48,7 @@ iPrint_ p ii (Fin n)          =  iPrint_ p ii (Free (Global "Fin") :@: n)
 iPrint_ p ii (FinElim m mz ms n f)
                                  =  iPrint_ p ii (Free (Global "finElim") :@: m :@: mz :@: ms :@: n :@: f)
 iPrint_ p ii (Pair a y z app) = text "Pair " PP.<> cPrint_ 0 ii a  PP.<> text " " PP.<> cPrint_ 0 ii y PP.<> text " " PP.<> text " (" PP.<> cPrint_ 0 ii z PP.<> text ") (" PP.<> cPrint_ 0 ii app PP.<> text " )"
+iPrint_ p ii (TMaybe a) =   iPrint_ p ii (Free (Global "Maybe") :@: a)
 iPrint_ p ii x                 =  text ("[" ++ show x ++ "]")
 
 cPrint_ :: Int -> Int -> TermChk -> Doc
@@ -64,6 +65,8 @@ cPrint_ p ii (LCons a x xs) =
 cPrint_ p ii (Refl a x) = iPrint_ p ii (Free (Global "Refl") :@: a :@: x)
 cPrint_ p ii (FZero n)  = iPrint_ p ii (Free (Global "FZero") :@: n)
 cPrint_ p ii (FSucc n f)= iPrint_ p ii (Free (Global "FSucc") :@: n :@: f)
+cPrint_ p ii (TNothing a) = iPrint_ p ii (Free (Global "Nothing") :@: a)
+cPrint_ p ii (TJust a b) = iPrint_ p ii (Free (Global "Just") :@: a :@: b)
 
 fromNat_ :: Int -> Int -> TermChk -> Doc
 fromNat_ n ii Zero = int n

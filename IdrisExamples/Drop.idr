@@ -66,10 +66,13 @@ drop4 Z m xs p k q =
       xs
 drop4 (S n') Z [] p Z q = [] -- still technically impossible
                              -- separate 'prune impossibilities' refac?
-drop4 (S n') (S m') (x :: xs) (LTESucc p') k q =
-  case q of
-    Refl => drop4 n' m' xs p' k Refl
+drop4 (S n') (S m') (x :: xs) (LTESucc p') k q = 
+   case q of
+    Refl =>
+     drop4 n' m' xs p' k Refl
     -- Refl is a special case?
     -- What if this were a more interesting relation?
 
+test : (n : Nat) -> (m : Nat) -> (p : n = m) -> Bool 
+test n n Refl = True 
 
