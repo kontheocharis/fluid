@@ -247,6 +247,21 @@ let append =
   ::  forall (a :: *) (m :: Nat) (v :: Vec a m) (n :: Nat) (w :: Vec a n).
       Vec a (plus m n)
 
+let length = 
+  (\ a xs -> listElim a 
+             (\xs -> Nat)
+             Zero 
+             (\x xs rec -> plus 1 rec ) xs
+  ) :: forall (a :: *) (xs :: List a) . Nat 
+
+let vectToList = 
+  ( \ a n xs -> vecElim a 
+                        (\n -> List a)
+                        (\ _ -> LNil a)
+                        (\n xs rec -> LCons a x (rec xs))
+
+  ) :: forall (a :: *) (n :: Nat) (xs :: Vec a n) . List a 
+
 -- helper function for tail, see below
 let tail' =
   (\ a -> vecElim a ( \ m v -> forall (n :: Nat) . Eq Nat m (Succ n) -> Vec a n )
@@ -318,3 +333,17 @@ symm
 let pp = Eq Nat (plus k1 0) k1
 let zz = pNPlus0isN k1 :: pp
 
+let length = 
+  (\ a xs -> listElim a 
+             (\xs -> Nat)
+             Zero 
+             (\x xs rec -> plus 1 rec ) xs
+  ) :: forall (a :: *) (xs :: List a) . Nat 
+
+let vectToList = 
+  ( \ a n xs -> vecElim a 
+                        (\n xs -> List a)
+                        (LNil a)
+                        (\n x xs rec -> LCons a x rec) n xs
+
+  ) :: forall (a :: *) (n :: Nat) (xs :: Vec a n) . List a 

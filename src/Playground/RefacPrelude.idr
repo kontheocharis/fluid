@@ -261,3 +261,17 @@ fromLteSucc2 n m p  = lteElim (\k,l,_ => k = S n -> l = S m -> LTE n m)
                          (\_,e,_ => voidElim (\_ => LTE n m) (noConf Z (S n) e))
                          (\k,l,e,_,x,y => apply3 Nat k n (\n => LTE n m) (noConf (S k) (S n) x) (apply3 Nat l m (\m => LTE k m) (noConf (S l) (S m) y) e))
                       (S n) (S m) p Refl Refl 
+
+public export 
+lengthL : (a : Type) -> (xs : List a) -> Nat 
+lengthL a xs = listElim a (\xs => Nat) 
+                          Z 
+                          (\x, xs, rec => RefacPrelude.plus 1 rec) xs
+        
+public export 
+vectToList : ( a : Type ) -> ( n : Nat ) -> ( xs : Vect n a ) -> List a 
+vectToList a n s = 
+        vecElim a 
+                (\n, xs => List a)
+                []
+                (\n, x, xs, rec => x ::  rec) n s 

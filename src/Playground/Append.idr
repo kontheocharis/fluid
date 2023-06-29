@@ -55,7 +55,11 @@ listAppend4 a n xs m ys =
 ----- m needs to be passed to the eliminator
 listAppend5 : (a : Type) -> (n : Nat) -> Vect n a -> (m : Nat) -> Vect m a -> List a 
 listAppend5 a n xs m ys = 
-        let elim = vecElim a (\n,l => (m : Nat) -> Vect m a -> List a) (\m,ys => (vectToList ys)) (\a,x,xs,rec,m,ys => x :: rec m ys)  n xs
+        let elim = vecElim a 
+                           (\n,l => (m : Nat) -> Vect m a -> List a) 
+                           (\m,ys => (vectToList ys)) 
+                           (\a,x,xs,rec,m,ys => x :: rec m ys)  
+                           n xs
         in elim m ys
 
 
