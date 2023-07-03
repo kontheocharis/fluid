@@ -347,3 +347,27 @@ let vectToList =
                         (\n x xs rec -> LCons a x rec) n xs
 
   ) :: forall (a :: *) (n :: Nat) (xs :: Vec a n) . List a 
+
+let NoConfusion = 
+  (\ x y ->
+           natElim (\x -> forall (y :: Nat) . *) 
+                   (\y -> natElim (\y -> *) 
+                                  (Eq Nat Zero Zero)
+                                  (\m t -> Void) 
+                                  y )
+                   ( \ n hyp sm -> natElim (\y -> *)
+                                           Void 
+                                           (\m t -> Eq Nat n m)
+                                           sm) x y
+  ) :: forall (x :: Nat) (y :: Nat) . *
+
+let noConf = 
+  (\ x y p ->
+        natElim (\x -> forall (y :: Nat) (p :: Eq Nat x y) . NoConfusion x y)
+                (\y p0ey -> natElim (\y -> forall (p :: Eq Nat Zero y) . NoConfusion Zero y)
+                                    (\p -> Refl Nat Zero)
+                                    (\z hyp p -> p0IsNoSucc z p) y p0ey)
+                (\sx hyp y p -> natElim (\y -> forall (p :: Eq Nat (Succ sx) y) . NoConfusion (Succ sx) y)
+                                        (\p -> p0IsNoSucc sx (symm Nat (Succ sx) Zero p))
+                                        (\z hyp p -> leibniz Nat Nat pred (Succ sx) (Succ z) p) y p) x y p
+  ) :: forall (x :: Nat) (y :: Nat) (p :: Eq Nat x y) . NoConfusion x y
