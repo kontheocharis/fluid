@@ -386,19 +386,19 @@ let apply3 =
  ) :: forall (a :: *) (x :: a) (y :: a) (p :: a -> *) (p2 :: Eq a x y) . p x -> p y
 
 let antisym = 
- (\m n p -> lteElim (\m n _ -> forall (p' :: LTE n m) . Eq Nat m n)
-                    (\n e -> lteElim (\n m _ -> forall (p :: Eq Nat m Zero) . Eq Nat m n)
-                             (\n e -> e)
-                             (\k l _ _ e -> voidElim (\_ -> Eq Nat (Succ l) (Succ k))
-                                                     (noConf (Succ l) Zero e))
-                              n Zero e (Refl Nat Zero)
+ (\m n p1 p2 -> lteElim (\m n _ -> forall (p' :: LTE n m) . Eq Nat m n)
+                        (\n e -> lteElim (\n m _ -> forall (p :: Eq Nat m Zero) . Eq Nat m n)
+                                         (\n e -> e)
+                                         (\k l _ _ e -> voidElim (\_ -> Eq Nat (Succ l) (Succ k))
+                                                                 (noConf (Succ l) Zero e))
+                                         n Zero e (Refl Nat Zero)
                     ) 
-                    (\m n _ h q -> leibniz Nat Nat Succ n m (
+                    (\m n _ h q -> leibniz Nat Nat Succ m n (
                            h (
                               lteElim (\k l _ -> forall (p1 :: Eq Nat k (Succ n)) (p2 :: Eq Nat l (Succ m)) . LTE n m)
                                       (\_ e _ -> voidElim (\_ -> LTE n m) (noConf Zero (Succ n) e))
                                       (\k l e _ x y -> apply3 Nat k n (\n -> LTE n m) (noConf (Succ k) (Succ n) x) (apply3 Nat l m (\m -> LTE k m) (noConf (Succ l) (Succ m) y) e)) 
                                       (Succ n) (Succ m) q (Refl Nat (Succ n)) (Refl Nat (Succ m))
-                           )))                 
+                           )))   m n p1 p2               
  )
-   :: forall (m :: Nat) (n :: Nat) (p :: LTE n m) . Eq Nat m n 
+   :: forall (m :: Nat) (n :: Nat) (p1 :: LTE m n) (p2 :: LTE n m) . Eq Nat m n 
