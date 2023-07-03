@@ -265,6 +265,22 @@ public export
 apply3 : (a : Type) -> (x,y : a) -> (p : a -> Type) -> x = y -> p x -> p y
 apply3 a x x p Refl px = px
 
+{-
+public export 
+apply2 : (a : Type) -> (b : Type) -> (p : a = b) -> a -> b
+apply2 =
+  eqElim Type (\ a, b, _ => a -> b) (\ _ , x => x)
+-}
+
+
+apply3' : (a : Type) -> (x,y : a) -> (p : a -> Type) -> x = y -> p x -> p y
+apply3' a x y p p2 px = 
+  eqElim a 
+         (\x, y, _ => p x -> p y) 
+         (\ _, x => x) x y p2 px
+  
+
+
 public export
 antisym : (m,n : Nat) -> LTE m n -> LTE n m -> m = n 
 antisym = lteElim (\m,n,_ => LTE n m -> m = n) 
