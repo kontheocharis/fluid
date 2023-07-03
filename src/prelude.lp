@@ -398,7 +398,7 @@ let antisym =
                               lteElim (\k l _ -> forall (p1 :: Eq Nat k (Succ n)) (p2 :: Eq Nat l (Succ m)) . LTE n m)
                                       (\_ e _ -> voidElim (\_ -> LTE n m) (noConf Zero (Succ n) e))
                                       (\k l e _ x y -> apply3 Nat k n (\n -> LTE n m) (noConf (Succ k) (Succ n) x) (apply3 Nat l m (\m -> LTE k m) (noConf (Succ l) (Succ m) y) e)) 
-                                      (Succ n) (Succ m) q (Refl Nat (Succ n) (Succ n)) (Refl Nat (Succ m) (Succ m))
+                                      (Succ n) (Succ m) q (Refl Nat (Succ n)) (Refl Nat (Succ m))
                            )))                 
  )
    :: forall (m :: Nat) (n :: Nat) (p :: LTE n m) . Eq Nat m n 
