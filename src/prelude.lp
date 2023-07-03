@@ -371,3 +371,36 @@ let noConf =
                                         (\p -> p0IsNoSucc sx (symm Nat (Succ sx) Zero p))
                                         (\z hyp p -> leibniz Nat Nat pred (Succ sx) (Succ z) p) y p) x y p
   ) :: forall (x :: Nat) (y :: Nat) (p :: Eq Nat x y) . NoConfusion x y
+
+-- apply3' : (a : Type) -> (x,y : a) -> (p : a -> Type) -> x = y -> p x -> p y
+-- apply3' a x y p p2 px = 
+--  eqElim a 
+--         (\x, y, _ => p x -> p y) 
+--         (\ _, x => x) x y p2 px
+
+let apply3 =
+ (\a x y p p2 px ->
+    eqElim a 
+           (\x y _ -> p x -> p y)
+           (\_ x -> x) x y p2 px
+ ) :: forall (a :: *) (x :: a) (y :: a) (p :: a -> *) (p2 :: Eq a x y) . p x -> p y
+
+let antisym = 
+ (\m n p -> lteElim (\m n _ -> forall (p :: LTE n m) . Eq Nat m n)
+            --        (\n e -> lteElim (\n m _ -> forall (p :: Eq Nat m Zero) . Eq Nat m n)
+            --                 (\n e -> e)
+            --                 (\k l _ _ e -> voidElim (\_ -> Eq Nat (Succ l) (Succ k))
+            --                                         (noConf (Succ l) Zero e))
+            --                  n Zero e (Refl Nat Zero)
+            --        ) 
+         --           (\m n _ h q -> leibniz Nat Nat Succ n m (
+         --                  h (
+         --                     lteElim (\k l _ -> forall (p1 :: Eq Nat k (Succ n)) (p2 :: Eq Nat l (Succ m)) . LTE n m)
+         --                             (\_ e _ -> voidElim (\_ -> LTE n m) (noConf Zero (Succ n) e))
+         --                             (\k l e _ x y -> apply3 Nat k n (\n -> LTE n m) (noConf (Succ k) (Succ n) x) (apply3 Nat l m (\m -> LTE k m) (noConf (Succ l) (Succ m) y) e)) 
+         --                             (Succ n) (Succ m) q (Refl Nat k (Succ n)) (Refl Nat l (Succ m))
+         --                  )
+         --              )
+         --           )                 
+ )
+   :: forall (m :: Nat) (n :: Nat) (p :: LTE n m) . Eq Nat m n 

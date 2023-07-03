@@ -92,6 +92,13 @@ typeInf i env (Vec a k) =
       typeChk i env a VStar 
       typeChk i env k VNat
       return VStar
+
+typeInf i env (LTE a b) = 
+   do 
+      typeChk i env a VNat 
+      typeChk i env b VNat 
+      return VStar
+
 typeInf i env (ListElim a m mn mc vs) =
    do
       typeChk i env a VStar
@@ -112,17 +119,6 @@ typeInf i env (ListElim a m mn mc vs) =
       error (show $ quote0 vsVal)
       return (foldl vapp mVal [vsVal])
       
-      -- return (VList aVal)
-{-
-typeInf i env t1@(Sigma a b)
-   = do
-         typeChk i env a VStar
-         let x = evalChk a (fst env, [])
-         typeChk (i+1) ((\ (d,g) -> (d, ((Local i, x) : g))) env)
-                       (subsChk 0 (Free (Local i)) b) VStar
-         return VStar
--}
-
 typeInf i env (VecElim a m mn mc k vs) =
    do
       typeChk i env a VStar
@@ -142,6 +138,9 @@ typeInf i env (VecElim a m mn mc k vs) =
       typeChk i env vs (VVec aVal kVal)
       let vsVal = evalChk vs (fst env, [])
       return (foldl vapp mVal [kVal, vsVal])
+
+ 
+
 typeInf i env (Fin n) = 
    do typeChk i env n VNat 
       return VStar
@@ -182,6 +181,32 @@ typeInf i env (EqElim a m mr x y eq) =
       typeChk i env eq (VEq aVal xVal yVal)
       let eqVal = evalChk eq (fst env, [])
       return (foldl vapp mVal [xVal, yVal, eqVal])
+
+typeInf i env (LTEElim x y z a b c) =
+  do
+      typeChk i env x
+         (VPi VNat (\x -> 
+           VPi VNat (\y ->
+            VPi (VLTE x y) (\_ -> VStar))))
+      let xVal = evalChk x (fst env, []) 
+      typeChk i env y 
+         (VPi VNat (\y -> 
+            foldl vapp xVal [VZero, y, (VLTEZero y)]))
+      typeChk i env z 
+         (VPi VNat (\z -> 
+            VPi VNat (\a -> 
+             VPi (VLTE z a) (\b -> 
+                VPi (foldl vapp xVal [z,a,b]) (\_ ->
+                   foldl vapp xVal [VSucc z, VSucc a, VLTESucc z a b])))))
+      typeChk i env a VNat 
+      let aVal = evalChk a (fst env, [])
+      typeChk i env b VNat 
+      let bVal = evalChk b (fst env, [])
+      typeChk i env c (VLTE aVal bVal)
+      let cVal = evalChk c (fst env, [])
+      return (foldl vapp xVal [aVal,bVal,cVal])
+      
+         
 
 typeInf _ _ tm = throwError $ "No type match for " ++ (show tm) -- render (iPrint_ 0 0 tm)
 
