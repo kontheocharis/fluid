@@ -88,7 +88,7 @@ lpte =      [(Global "Zero", VNat),
                               VPi (VEq a x y) (\ eq ->
                               ((m `vapp` x) `vapp` y) `vapp` eq))))))),
 
-             (Global "LTE", VPi VNat (\ l -> VPi VNat ( \ r -> VLTE l r))),
+             (Global "LTE", VPi VNat (\ l -> VPi VNat ( \ r -> VStar))),
              (Global "LTEZero", VPi VNat (\ r -> VLTE VZero r)),
              (Global "LTESucc", VPi VNat (\ l -> 
                                    VPi VNat (\ r -> 
