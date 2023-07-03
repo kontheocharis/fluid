@@ -224,16 +224,42 @@ succNotLTEzero m p =
   in help ()
 -}
 
-public export
-NoConfusion : Nat -> Nat -> Type 
-NoConfusion Z Z = Z = Z 
-NoConfusion (S n) (S m) = n = m 
-NoConfusion _ _ = Void2
+-- public export
+--NoConfusion : Nat -> Nat -> Type 
+--NoConfusion Z Z = Z = Z 
+--NoConfusion (S n) (S m) = n = m 
+--NoConfusion _ _ = Void2
 
 public export
-noConf : (x , y : Nat) -> x = y -> NoConfusion x y 
-noConf Z Z p = Refl
-noConf (S n) (S n) Refl = Refl 
+NoConfusion : Nat -> Nat -> Type 
+NoConfusion x y = 
+ natElim (\x => Nat -> Type) 
+                   (\y => natElim (\y => Type) 
+                                  (Z = Z)
+                                  (\m, t => Void2)
+                                  y )
+                   (\n, hyp, sm => natElim (\y => Type) 
+                                           Void2 
+                                           (\m, t => n = m)
+                                           sm ) x y 
+
+
+--public export
+--noConf : (x , y : Nat) -> x = y -> NoConfusion x y 
+--noConf Z Z p = Refl
+--noConf (S n) (S n) Refl = Refl 
+
+public export 
+noConf : (x, y : Nat) -> x = y -> NoConfusion x y 
+noConf x y p = 
+  natElim (\x => (y : Nat) -> x = y -> NoConfusion x y)
+                    (\y, p0ey => natElim (\y => Z = y -> NoConfusion Z y) 
+                                         (\p => Refl) 
+                                         (\z,hyp,p => pSnIsNot0 z (sym p)) y p0ey)
+                    (\sx, hyp, y, p => natElim (\y => (S sx) = y -> NoConfusion (S sx) y)
+                                               (\p => pSnIsNot0 sx p )
+                                               (\z, hyp, p => cong pred p) y p) x y p 
+  
 
 public export
 apply3 : (a : Type) -> (x,y : a) -> (p : a -> Type) -> x = y -> p x -> p y
