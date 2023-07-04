@@ -76,7 +76,7 @@ index2 a i n xs p =
                                          (\p => Just x) 
                                          (\i', rec2, p3 => 
                                             lteElim (\l,r,p => Maybe a) 
-                                                    (\ssi => rec i' (fromLteSucc p3)) 
+                                                    (\ssi => rec i' ?j ) --(fromLteSucc p3)) 
                                                     (\l,r,p4,recL => rec i' (fromLteSucc p3)) (S (S i')) (S n') p3 ) i p2) 
     in vE n xs i p
 

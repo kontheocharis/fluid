@@ -402,3 +402,14 @@ let antisym =
                            )))   m n p1 p2               
  )
    :: forall (m :: Nat) (n :: Nat) (p1 :: LTE m n) (p2 :: LTE n m) . Eq Nat m n 
+
+let fromLteSucc2 = 
+ ( \ n m p ->
+       lteElim (\k l _ -> Eq Nat k (Succ n) -> Eq Nat l (Succ m) -> LTE n m)
+               (\_ e _ -> voidElim (\_ -> LTE n m) (noConf Zero (Succ n) e))
+               (\k l e _ x y -> apply3 Nat k n (\n -> LTE n m) (noConf (Succ k) (Succ n) x) (apply3 Nat l m (\m -> LTE k m) (noConf (Succ l) (Succ m) y) e))
+               (Succ n) (Succ m) p (Refl Nat (Succ n)) (Refl Nat (Succ m))
+
+ ) :: forall (n :: Nat) (m :: Nat) (p :: LTE (Succ n) (Succ m)) . LTE n m 
+
+ 
