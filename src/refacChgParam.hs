@@ -22,7 +22,7 @@ findDef name (s : stmts) = findDef name stmts
 
 refacListArg :: TermChk -> TermChk
 refacListArg (Inf (Free (Global l) :@: Inf (Bound p))) 
-  | l == "List" = (Inf ((Free (Global "Vec") :@: Inf (Bound 0)) :@: Inf (Bound p)))
+  | l == "List" = (Inf ((Free (Global "Vec") :@: Inf (Bound (p+1))) :@: Inf (Bound 0)))
 refacListArg x = error $ show x
 
 refacPi :: Int -> TermChk -> TermChk
