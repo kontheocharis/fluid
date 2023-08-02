@@ -115,6 +115,7 @@ data Neutral =
  | NEqElim Value Value Value Value Value Neutral
  | NVecToList Value Neutral
  | NLTEElim Value Value Value Value Value Neutral
+ | NSigElim Value Value Value Value Neutral
 
 -- creates a value corrsponding to a free variable
 vfree :: Name -> Value

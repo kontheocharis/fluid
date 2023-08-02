@@ -20,7 +20,10 @@ evalInf (SigElim a f x w s) d =
   case (evalChk s d) of 
     -- VSigma y g -> (evalChk w d) `vapp` y `vapp` g
     VPair x y z app -> (evalChk w d) `vapp` y `vapp` app
-    VNeutral k -> error "here!"
+    VNeutral k -> VNeutral (NSigElim (evalChk a d) (evalChk f d)
+                                     (evalChk x d) (evalChk w d)
+                                     k)
+    _ -> error "internal: eval sigElim"
 
 evalInf (Pair a y z app) d =
    VPair (evalChk a d) (evalChk y d) (evalChk z d) (evalChk app d) 

@@ -441,6 +441,9 @@ neutralQuote i (NLTEElim a b c d e lte)
    =  EqElim  (quote i a) (quote i b) (quote i c)
               (quote i d) (quote i e)
               (Inf (neutralQuote i lte))
+neutralQuote i (NSigElim a f x w s) 
+   = SigElim (quote i a) (quote i f) (quote i x)
+             (quote i w) (Inf (neutralQuote i s))
 
 boundFree :: Int -> Name -> TermInf 
 boundFree i (Quote k) = Bound (i-k-1)

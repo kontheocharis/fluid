@@ -13,6 +13,8 @@ import Text.ParserCombinators.Parsec.Language
 import System.IO hiding (print)
 import System.IO.Error
 
+import Data.Maybe
+
 
 -- import Common
 import Syntax
@@ -158,6 +160,16 @@ compileFile int state@(out, ve, te) f =
     x <- readFile f
     stmts <- parseIO f (many (isparse int)) x
     maybe (return state) (foldM (handleStmt int) state) stmts
+
+
+compileFileandParse :: Interpreter i c t tinf -> State -> String -> IO ([Stmt i tinf], State)
+compileFileandParse int state@(out, ve, te) f =
+  do
+    x <- readFile f
+    stmts <- parseIO f (many (isparse int)) x
+    let stmts' = fromMaybe [] stmts
+    ret <- maybe (return state) (foldM (handleStmt int) state) stmts
+    return (stmts', ret)
 
 compilePhrase :: Interpreter i c t tinf -> State -> String -> IO State
 compilePhrase int state@(out, ve, te) x =
