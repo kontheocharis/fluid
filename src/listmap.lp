@@ -23,6 +23,17 @@ let map4 =
                             n xs 
     ) :: forall (a :: *) (b :: *) (f :: a -> b) (n :: Nat) (ls :: Vec a n) . List b 
 
+let mapRefactored = (\ x -> \ y -> \ z -> \ a -> \ b -> vecElim y
+                                      (\ c -> \ d -> List z)
+                                      (LNil z)
+                                      (\ c -> \ d -> \ e -> \ f -> LCons z (a d) f)
+                                      x
+                                      b) :: forall (x :: Nat)
+                                                   (y :: *)
+                                                   (z :: *)
+                                                   (a :: forall a :: y . z)
+                                                   (b :: Vec y x) .
+                                            List z
 
 let map5 =
     ( \a b f n xs ->

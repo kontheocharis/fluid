@@ -71,6 +71,19 @@ let index1 =
 
     ) :: forall (a :: *) (i :: Nat) (n :: Nat) (xs :: Vec a n) . Maybe a
 
+let index1Refactored = (\ x -> \ y -> \ z -> \ a -> vecElim y
+                               (\ b -> \ c -> forall d :: Nat . Maybe y)
+                               (\ b -> Nothing y)
+                               (\ b -> \ c -> \ d -> \ e -> \ f -> natElim (\ g -> Maybe y)
+                                                                     (Just y c)
+                                                                     (\ g -> \ h -> e g)
+                                                                     f)
+                               x
+                               a
+                               z) :: forall (x :: Nat) (y :: *) (z :: Nat) (a :: Vec y x) .
+                                     Maybe y
+
+
 let index2 = 
     (\ a i n xs p ->
            vecElim a

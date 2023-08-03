@@ -38,6 +38,15 @@ let appendL3 =
                              n xs ys 
     ) :: forall (a :: *) (n :: Nat) (xs :: Vec a n) (ys :: List a) . List a 
 
+let appendL3Refactored = (\ x -> \ y -> \ z -> \ a -> vecElim y
+                               (\ b -> \ c -> forall d :: List y . List y)
+                               (\ b -> b)
+                               (\ b -> \ c -> \ d -> \ e -> \ f -> LCons y c (e f))
+                               x
+                               z
+                               a) :: forall (x :: Nat) (y :: *) (z :: Vec y x) (a :: List y) .
+                                     List y
+
 let appendL4 = 
     (\ a n xs m ys ->
                     vecElim a
@@ -46,6 +55,19 @@ let appendL4 =
                              (\n x xs rec ys -> LCons a x (rec ys)) 
                              n xs (vectToList a m ys) 
     ) :: forall (a :: *) (n :: Nat) (xs :: Vec a n) (m :: Nat) (ys :: Vec a m) . List a 
+
+let appendL4Refactored = (\ x -> \ y -> \ z -> \ a -> \ b -> vecElim y
+                                      (\ c -> \ d -> forall e :: List y . List y)
+                                      (\ c -> c)
+                                      (\ c -> \ d -> \ e -> \ f -> \ g -> LCons y d (f g))
+                                      z
+                                      a
+                                      b) :: forall (x :: Nat)
+                                                   (y :: *)
+                                                   (z :: Nat)
+                                                   (a :: Vec y z)
+                                                   (b :: Vec y x) .
+                                            List y    
 
 let appendL5 = 
      (\ a n xs m ys ->

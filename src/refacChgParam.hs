@@ -26,7 +26,7 @@ countArguments :: Int -> TermChk -> Int
 countArguments p (Lam x) = countArguments (p+1) x 
 countArguments p _ = p
 
-{-
+
 -- rewrite vars compensates for a new bound variable added...
 -- all references to bound variables at the top level are incremented by 1...
 -- only those on the left side of the introduced lambda are increased
@@ -35,7 +35,9 @@ rewriteVarsInf offset (Ann t1 t2) = Ann (rewriteVarsChk offset t1) (rewriteVarsC
 rewriteVarsInf offset Star = Star
 rewriteVarsInf offset (Pi t1 t2) = Pi (rewriteVarsChk offset t1) (rewriteVarsChk offset t2)
 rewriteVarsInf offset (Sigma t1 t2) = Sigma (rewriteVarsChk offset t1) (rewriteVarsChk offset t2)
-rewriteVarsInf offset (Bound x) = (Bound (x+offset))
+rewriteVarsInf offset (Bound x) 
+ | x >= offset = (Bound (x+1))
+ | otherwise   = Bound x
 rewriteVarsInf offset (Free n) = Free n 
 rewriteVarsInf offset (ti :@: tc) = (rewriteVarsInf offset ti) :@: (rewriteVarsChk offset tc)
 rewriteVarsInf offset (App t1 t2) = App (rewriteVarsChk offset t1) (rewriteVarsChk offset t2)
@@ -54,7 +56,7 @@ rewriteVarsInf offset (SigElim t1 t2 t3 t4 t5) = SigElim (rewriteVarsChk offset 
 rewriteVarsInf offset (TMaybe t1) = TMaybe (rewriteVarsChk offset t1)
 rewriteVarsInf offset (LTE t1 t2) = LTE (rewriteVarsChk offset t1) (rewriteVarsChk offset t2)
 rewriteVarsInf offset (LTEElim t1 t2 t3 t4 t5 t6) = LTEElim (rewriteVarsChk offset t1) (rewriteVarsChk offset t2) (rewriteVarsChk offset t3) (rewriteVarsChk offset t4) (rewriteVarsChk offset t5) (rewriteVarsChk offset t6)
--}
+
 
 {-
 data TermChk =         
@@ -75,45 +77,56 @@ data TermChk =
  | LTEZero TermChk 
  | LTESucc TermChk TermChk TermChk
 -}
-{-
+
 rewriteVarsChk :: Int -> TermChk -> TermChk
-rewriteVarsChk offset (Inf t1) = Inf (rewriteVarsInf t1)
-rewriteVarsChk offset (Lam t1) = error "lambda case" -- we need to increment the number of binds ...
+rewriteVarsChk offset (Inf t1) = Inf (rewriteVarsInf offset t1)
+rewriteVarsChk offset (Lam t1) = Lam (rewriteVarsChk offset t1)-- we need to increment the number of binds ...
 rewriteVarsChk offset Zero = Zero 
-rewriteVarsChk offset (Succ t1) = Succ (rewriteVarsChk t1)
-rewriteVarsChk offset (Nil t1) = Nil (rewriteVarsChk t1)
-rewriteVarsChk offset (Cons t1 t2 t3 t4) = Cons (rewriteVarsChk t1) (rewriteVarsChk t2) (rewriteVarsChk t3) (rewriteVarsChk t4)
-rewriteVarsChk offset (LNil t1) = LNil (rewriteVarsChk t1)
-rewriteVarsChk offset (LCons t1 t2 t3) = LCons (rewriteVarsChk t1) (rewriteVarsChk t2) (rewriteVarsChk t3)
-rewriteVarsChk offset (VecToList t1 t2 t3) = VecToList (rewriteVarsChk t1) (rewriteVarsChk t2) (rewriteVarsChk t3)
-rewriteVarsChk offset (FZero t1) = FZero (rewriteVarsChk t1)
-rewriteVarsChk offset (FSucc t1 t2) = FSucc (rewriteVarsChk t1) (rewriteVarsChk t2)
-rewriteVarsChk offset (Refl t1 t2) = Refl (rewriteVarsChk t1) (rewriteVarsChk t2)
-rewriteVarsChk offset (TNothing t1) = TNothing (rewriteVarsChk t1)
-rewriteVarsChk offset (TJust t1 t2) = TJust (rewriteVarsChk t1) (rewriteVarsChk t2)
-rewriteVarsChk offset (LTEZero t1) = LTEZero (rewriteVarsChk t1)
-rewriteVarsChk offset (LTESucc t1 t2 t3) = LTESucc (rewriteVarsChk t1) (rewriteVarsChk t2) (rewriteVarsChk t3)
--}
+rewriteVarsChk offset (Succ t1) = Succ (rewriteVarsChk offset t1)
+rewriteVarsChk offset (Nil t1) = Nil (rewriteVarsChk offset t1)
+rewriteVarsChk offset (Cons t1 t2 t3 t4) = Cons (rewriteVarsChk offset t1) (rewriteVarsChk offset t2) (rewriteVarsChk offset t3) (rewriteVarsChk offset t4)
+rewriteVarsChk offset (LNil t1) = LNil (rewriteVarsChk offset t1)
+rewriteVarsChk offset (LCons t1 t2 t3) = LCons (rewriteVarsChk offset t1) (rewriteVarsChk offset t2) (rewriteVarsChk offset t3)
+rewriteVarsChk offset (VecToList t1 t2 t3) = VecToList (rewriteVarsChk offset t1) (rewriteVarsChk offset t2) (rewriteVarsChk offset t3)
+rewriteVarsChk offset (FZero t1) = FZero (rewriteVarsChk offset t1)
+rewriteVarsChk offset (FSucc t1 t2) = FSucc (rewriteVarsChk offset t1) (rewriteVarsChk offset t2)
+rewriteVarsChk offset (Refl t1 t2) = Refl (rewriteVarsChk offset t1) (rewriteVarsChk offset t2)
+rewriteVarsChk offset (TNothing t1) = TNothing (rewriteVarsChk offset t1)
+rewriteVarsChk offset (TJust t1 t2) = TJust (rewriteVarsChk offset t1) (rewriteVarsChk offset t2)
+rewriteVarsChk offset (LTEZero t1) = LTEZero (rewriteVarsChk offset t1)
+rewriteVarsChk offset (LTESucc t1 t2 t3) = LTESucc (rewriteVarsChk offset t1) (rewriteVarsChk offset t2) (rewriteVarsChk offset t3)
 
-refacListArg :: TermChk -> TermChk
-refacListArg (Inf (Free (Global l) :@: Inf (Bound p))) 
-  | l == "List" = Inf ((Free (Global "Vec") :@: Inf (Bound (p+1))) :@: Inf (Bound 0))
-refacListArg x = error $ show x
 
-refacBody :: Int -> Int -> Int -> TermChk -> TermChk
-refacBody tot pos lamPos (Lam x)  
-   = Lam (refacBody tot pos (lamPos+1) x)
-refacBody tot pos lamPos (Inf (((((Free (Global le) :@: p1 :@: p2) :@: p3) :@: p4) :@: Inf (Bound p)))) 
- | le == "listElim" && p == 0 = Inf ((((Free (Global "vecElim") :@: p1 :@: p2) :@: p3) :@: p4) :@: Inf (Bound tot) :@: Inf (Bound p))  
-refacBody _ _ _ y = y
+refacListArg :: Int -> TermChk -> TermChk
+refacListArg pos (Inf (Free (Global l) :@: Inf (Bound p))) 
+  | l == "List" = Inf ((Free (Global "Vec") :@: Inf (Bound p)) :@: Inf (Bound pos))
+refacListArg pos x = error $ show x
 
-refacPi :: Int -> TermChk -> TermChk
-refacPi 1 (Inf (Pi arg bod)) = Inf (Pi (refacListArg arg) bod)
-refacPi pos (Inf (Pi arg bod)) = Inf (Pi arg (refacPi (pos-1) bod))
-refacPi _ t = t
+refacBodyInf :: Int -> Int -> Int -> TermInf -> TermInf
+refacBodyInf tot pos lamPos ((((Free (Global le) :@: p1 :@: p2) :@: p3) :@: p4) :@: Inf (Bound p))
+  | le == "listElim" && p == (tot-pos) = (((Free (Global "vecElim") 
+                                         :@: p1 
+                                         :@: (Lam (rewriteVarsChk (countArguments 1 p2) p2))) 
+                                         :@: p3) 
+                                         :@: (Lam (rewriteVarsChk (countArguments 1 p4) p4))) 
+                                         :@: Inf (Bound tot) 
+                                         :@: Inf (Bound (tot-pos))
+refacBodyInf tot p lamPos ( t1 :@: t2) = (refacBodyInf tot p lamPos t1) :@: (refacBodyChk tot p lamPos t2)
+refacBodyInf tot p lamPos t = t 
+
+refacBodyChk :: Int -> Int -> Int -> TermChk -> TermChk
+refacBodyChk tot pos lamPos (Lam x)  
+   = Lam (refacBodyChk tot pos (lamPos+1) x)
+refacBodyChk tot pos lamPos (Inf ti) = Inf (refacBodyInf tot pos lamPos ti)
+refacBodyChk _ _ _ y = y
+
+refacPi :: Int -> Int -> TermChk -> TermChk
+refacPi 1 pos2 (Inf (Pi arg bod)) = Inf (Pi (refacListArg (pos2-1) arg) bod)
+refacPi pos pos2 (Inf (Pi arg bod)) = Inf (Pi arg (refacPi (pos-1) pos2 bod))
+refacPi _ _ t = t
 
 refacSig :: Stmt TermInf TermChk -> Int -> Stmt TermInf TermChk
-refacSig (Let s (Ann t pi)) p = Let s (Ann (Lam (refacBody (countArguments 0 t) p 1 t)) (Inf (Pi (Inf (Free (Global "Nat"))) (refacPi p pi))))
+refacSig (Let s (Ann t pi)) p = Let s (Ann (Lam (refacBodyChk (countArguments 0 t) p 1 t)) (Inf (Pi (Inf (Free (Global "Nat"))) (refacPi p p pi))))
 refacSig _ _ = error "refactoring eror in refacSig"
 
 refacChgParam :: String -> String -> Int -> IO ()
