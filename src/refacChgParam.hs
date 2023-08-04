@@ -132,7 +132,7 @@ refacSig _ _ = error "refactoring eror in refacSig"
 refacChgParam :: String -> String -> Int -> IO ()
 refacChgParam file name pos = do
     (stmts, (x,y,z)) <- typecheckandParse file
-    putStrLn $ concatMap showNameValue z
+    putStrLn $ concatMap showNameValue y
     putStrLn $ renderStmts stmts
     let term = findDef name stmts 
     putStrLn $ show term
