@@ -4,8 +4,14 @@ module Utils where
 import REPL
 
 import Syntax
+
+import Syntax2
+
 import Eval
 import Typecheck
+
+import TypeCheck2
+
 -- import LambdaPi.Quote
 import Parser
 import Pretty
@@ -173,6 +179,19 @@ lp :: Interpreter TermInf TermChk Value TermChk
 lp = I { iname = "lambda-Pi",
          iprompt = "LP> ",
          iitype = \v c -> typeInf 0 (v,c),
+         iquote = quote0,
+         ieval = \ e x -> evalInf x (e,[]),
+         ihastype = id,
+         icprint = cPrint_ 0 0,
+         itprint = cPrint_ 0 0 . quote0,
+         iiparse = parseITerm_ 0 [],
+         isparse = parseStmt_ [],
+         iassume = \ s (x, t) -> lpassume s x t }
+
+lp2 :: Interpreter TermInf TermChk TermInf2 TermChk
+lp2 = I { iname = "lambda-Pi",
+         iprompt = "LP> ",
+         iitype = \v c -> typeInf2 0 (v,c),
          iquote = quote0,
          ieval = \ e x -> evalInf x (e,[]),
          ihastype = id,
