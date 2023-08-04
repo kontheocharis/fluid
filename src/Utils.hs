@@ -17,6 +17,7 @@ import Parser
 import Pretty
 
 import Text.PrettyPrint.HughesPJ hiding (parens)
+import Text.PrettyPrint.HughesPJClass
 import qualified Text.PrettyPrint.HughesPJ as PP
 import Text.ParserCombinators.Parsec hiding (parse, State)
 import qualified Text.ParserCombinators.Parsec as P
@@ -194,9 +195,10 @@ lp2 = I { iname = "lambda-Pi",
          iitype = \v c -> typeInf2 0 (v,c),
          iquote = quote0,
          ieval = \ e x -> evalInf x (e,[]),
-         ihastype = id,
+         ihastype = id . infToValue,
          icprint = cPrint_ 0 0,
-         itprint = cPrint_ 0 0 . quote0,
+    --     itprint = cPrint_ 0 0 . quote0 . infToValue,
+         itprint = pPrint . renderInf,
          iiparse = parseITerm_ 0 [],
          isparse = parseStmt_ [],
          iassume = \ s (x, t) -> lpassume s x t }
@@ -208,7 +210,7 @@ typecheck :: String -> IO State
 typecheck = compileFile lp ([], lpve, lpte)
 
 typecheckandParse :: String -> IO ([Stmt TermInf TermChk], State )
-typecheckandParse = compileFileandParse lp ([], lpve, lpte)
+typecheckandParse = compileFileandParse lp2 ([], lpve, lpte)
 
 renderStmt :: Stmt TermInf TermChk -> String 
 renderStmt (Let s t) = "let " ++ s ++ " = " ++ render (iPrint_ 0 0 t)

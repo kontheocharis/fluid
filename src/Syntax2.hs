@@ -36,6 +36,31 @@ data TermInf2 =
  | LTET TermChk2 TermChk2 Value
  | LTEElimT TermChk2 TermChk2 TermChk2 TermChk2 TermChk2 TermChk2 Value
 
+infToValue :: TermInf2 -> Value 
+infToValue (AnnT _ _ v) = v 
+infToValue (StarT v) = v
+infToValue (PiT _ _ v) = v 
+infToValue (SigmaT _ _ v) = v
+infToValue (BoundT _ v) = v 
+infToValue (FreeT _ v) = v 
+infToValue (AppRedT _ _ v) = v
+infToValue (AppT _ _ v) = v 
+infToValue (PairT _ _ _ _ v) = v 
+infToValue (NatT v) = v 
+infToValue (NatElimT _ _ _ _ v) = v 
+infToValue (VecT _ _ v) = v
+infToValue (VecElimT _ _ _ _ _ _ v) = v 
+infToValue (ListT _ v) = v 
+infToValue (ListElimT _ _ _ _ _ v) = v 
+infToValue (FinT _ v) = v
+infToValue (FinElimT _ _ _ _ _ v) = v
+infToValue (EqT _ _ _ v) = v 
+infToValue (EqElimT _ _ _ _ _ _ v) = v 
+infToValue (SigElimT _ _ _ _ _ v) = v 
+infToValue (TMaybeT _ v) = v
+infToValue (LTET _ _ v) = v 
+infToValue (LTEElimT _ _ _ _ _ _ v) = v 
+
 
 renderInf :: TermInf2 -> String 
 renderInf (AnnT t1 t2 v) = "AnnT " ++ renderChk t1 ++ renderChk t2 ++ render (cPrint_ 0 0 (quote0 v))

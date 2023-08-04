@@ -61,12 +61,21 @@ typeInf2 i env (Free x)
 typeInf2 i env (e :@: e')
     = do 
          e2 <- typeInf2 i env e 
-         case e2 of
-            PiT t t' t'' -> case t'' of
-                             VPi t1 t2 -> do e'2 <- typeChk2 i env e' t1
-                                             return (AppRedT e2 e'2 (t2  (evalChk e' (fst env, []))))
-                             _ -> throwError "illegal application"
+         case (infToValue e2) of
+            VPi t1 t2 -> do e'2 <- typeChk2 i env e' t1
+                            return (AppRedT e2 e'2 (t2  (evalChk e' (fst env, []))))
+                            
             _        -> throwError "illegal application"
+{-
+typeInf i env (e :@: e')
+    = do 
+         s <- typeInf i env e 
+         case s of
+            VPi t t' -> do typeChk i env e' t
+                           return (t'  (evalChk e' (fst env, [])))
+            _        -> throwError "illegal application"
+-}
+
 typeInf2 i env Nat = return (NatT VStar)
 typeInf2 i env (NatElim m mz ms k) = 
    do
