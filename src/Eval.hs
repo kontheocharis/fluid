@@ -10,8 +10,8 @@ type Env = [ (Name, Value) ]
 
 evalInf :: TermInf -> (Env, [Value])  -> Value
 evalInf (Ann e _) d = evalChk e d
-evalInf (Bound i) d = (snd d !! i) 
-evalInf (Free x) d  = case lookup x (fst d) of Nothing -> (vfree x); Just v -> v
+evalInf (Bound _ i) d = (snd d !! i) 
+evalInf (Free _ x) d  = case lookup x (fst d) of Nothing -> (vfree x); Just v -> v
 evalInf (e :@: e') d = vapp (evalInf e d) (evalChk e' d)
 evalInf Star d = VStar
 evalInf (Pi t t') d = VPi (evalChk t d) (\ x -> evalChk t' (((\(e, d) -> (e,  (x : d))) d)))

@@ -53,12 +53,10 @@ typeInf i env t1@(Pi p p')
          typeChk i env p VStar
          let t = evalChk p (fst env, []) 
          typeChk (i+1) ((\ (d,g) -> (d,  ((Local i, t) : g))) env)  
-                       (subsChk 0 (Free (Local i)) p') VStar  
+                       (subsChk 0 (Free defaultPos (Local i)) p') VStar  
          return VStar
 
-
-
-typeInf i env (Free x) 
+typeInf i env (Free s x) 
     = case lookup x (snd env) of 
            Just t -> return t 
            Nothing          -> throwError ("unknown identifier " ++ (show x))
@@ -232,7 +230,7 @@ typeChk i env (Inf e) t
                 --    ++ (show (quote0 t)))) -- expected
          ))
 typeChk i env t1@(Lam e) (VPi t t') 
-   = typeChk  (i + 1) ((\ (d,g) -> (d,  ((Local i, t ) : g))) env) (subsChk 0 (Free (Local i)) e) ( t' (vfree (Local i))) 
+   = typeChk  (i + 1) ((\ (d,g) -> (d,  ((Local i, t ) : g))) env) (subsChk 0 (Free defaultPos (Local i)) e) ( t' (vfree (Local i))) 
 
 {-
 typeChk i env t1@(Pair a b) (VSigma aT bT)
@@ -344,8 +342,8 @@ typeChk i env _ _ = throwError "type mismatch5"
 
 subsInf :: Int -> TermInf -> TermInf -> TermInf 
 subsInf i r (Ann e t) = Ann (subsChk i r e) (subsChk i r t)
-subsInf i r (Bound j) = if i == j then r else Bound j
-subsInf i r (Free y) = Free y 
+subsInf i r (Bound s j) = if i == j then r else Bound s j
+subsInf i r (Free s y) = Free s y 
 subsInf i r (e :@: e') = subsInf i r e :@: subsChk i r e'
 subsInf i r Star      = Star
 subsInf i r (Pi t t') = Pi (subsChk i r t) (subsChk (i + 1) r t') 
@@ -446,5 +444,5 @@ neutralQuote i (NSigElim a f x w s)
              (quote i w) (Inf (neutralQuote i s))
 
 boundFree :: Int -> Name -> TermInf 
-boundFree i (Quote k) = Bound (i-k-1)
-boundFree i x = Free x
+boundFree i (Quote k) = Bound defaultPos (i-k-1)
+boundFree i x = Free defaultPos x

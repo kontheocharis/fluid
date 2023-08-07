@@ -136,7 +136,7 @@ lpve :: Context
 lpve =      [(Global "Zero", VZero),
              (Global "Succ", VLam (\ n -> VSucc n)),
              (Global "Nat", VNat),
-             (Global "natElim", evalChk (Lam (Lam (Lam (Lam (Inf (NatElim (Inf (Bound 3)) (Inf (Bound 2)) (Inf (Bound 1)) (Inf (Bound 0)))))))) ([],[])),
+             (Global "natElim", evalChk (Lam (Lam (Lam (Lam (Inf (NatElim (Inf (Bound defaultPos 3)) (Inf (Bound defaultPos 2)) (Inf (Bound defaultPos 1)) (Inf (Bound defaultPos 0)))))))) ([],[])),
              (Global "Maybe", VLam (\a -> VMaybe a)),
              (Global "Nothing", VLam (\a -> VNothing a)),
              (Global "Just" , VLam (\a -> VLam ( \ b -> VJust a b))),
@@ -151,12 +151,12 @@ lpve =      [(Global "Zero", VZero),
              (Global "Sigma", VLam (\ a -> VLam (\f -> VSigma a f))),
              (Global "Pair", VLam (\x -> VLam (\y -> VLam (\z -> VLam (\a -> VPair x y z a))))), 
              (Global "vecToList", VLam (\a -> VLam (\ n -> VLam (\v -> VList a)))),
-             (Global "vecElim", evalChk (Lam (Lam (Lam (Lam (Lam (Lam (Inf (VecElim (Inf (Bound 5)) (Inf (Bound 4)) (Inf (Bound 3)) (Inf (Bound 2)) (Inf (Bound 1)) (Inf (Bound 0)))))))))) ([],[])),
-             (Global "listElim", evalChk (Lam (Lam (Lam (Lam (Lam (Inf (ListElim (Inf (Bound 4)) (Inf (Bound 3)) (Inf (Bound 2)) (Inf (Bound 1)) (Inf (Bound 0))))))))) ([],[])),
+             (Global "vecElim", evalChk (Lam (Lam (Lam (Lam (Lam (Lam (Inf (VecElim (Inf (Bound defaultPos 5)) (Inf (Bound defaultPos 4)) (Inf (Bound defaultPos 3)) (Inf (Bound defaultPos 2)) (Inf (Bound defaultPos 1)) (Inf (Bound defaultPos 0)))))))))) ([],[])),
+             (Global "listElim", evalChk (Lam (Lam (Lam (Lam (Lam (Inf (ListElim (Inf (Bound defaultPos 4)) (Inf (Bound defaultPos 3)) (Inf (Bound defaultPos 2)) (Inf (Bound defaultPos 1)) (Inf (Bound defaultPos 0))))))))) ([],[])),
              (Global "Refl", VLam (\ a -> VLam (\ x -> VRefl a x))),
              (Global "Eq", VLam (\ a -> VLam (\ x -> VLam (\ y -> VEq a x y)))),
-             (Global "eqElim", evalChk (Lam (Lam (Lam (Lam (Lam (Lam (Inf (EqElim (Inf (Bound 5)) (Inf (Bound 4)) (Inf (Bound 3)) (Inf (Bound 2)) (Inf (Bound 1)) (Inf (Bound 0)))))))))) ([],[])),
-             (Global "sigElim", evalChk (Lam (Lam (Lam (Lam (Lam (Inf (SigElim (Inf (Bound 4)) (Inf (Bound 3)) (Inf (Bound 2)) (Inf (Bound 1)) (Inf (Bound 0))))))))) ([],[])),
+             (Global "eqElim", evalChk (Lam (Lam (Lam (Lam (Lam (Lam (Inf (EqElim (Inf (Bound defaultPos 5)) (Inf (Bound defaultPos 4)) (Inf (Bound defaultPos 3)) (Inf (Bound defaultPos 2)) (Inf (Bound defaultPos 1)) (Inf (Bound defaultPos 0)))))))))) ([],[])),
+             (Global "sigElim", evalChk (Lam (Lam (Lam (Lam (Lam (Inf (SigElim (Inf (Bound defaultPos 4)) (Inf (Bound defaultPos 3)) (Inf (Bound defaultPos 2)) (Inf (Bound defaultPos 1)) (Inf (Bound defaultPos 0))))))))) ([],[])),
              (Global "LTE", VLam (\l -> VLam (\r -> VLTE l r))),
              (Global "LTEZero", VLam (\r -> VLTEZero r)),
              (Global "LTESucc", VLam (\l -> VLam (\r -> VLam (\lte -> VLTESucc l r lte)))),
@@ -165,9 +165,9 @@ lpve =      [(Global "Zero", VZero),
              (Global "FSucc", VLam (\ n -> VLam (\ f -> VFSucc n f))),
              (Global "Fin", VLam (\ n -> VFin n)),
 
-             (Global "lteElim", evalChk (Lam (Lam (Lam (Lam (Lam (Lam (Inf (LTEElim (Inf (Bound 5)) (Inf (Bound 4)) (Inf (Bound 3)) (Inf (Bound 2)) (Inf (Bound 1)) (Inf (Bound 0)))))))))) ([],[])),
+             (Global "lteElim", evalChk (Lam (Lam (Lam (Lam (Lam (Lam (Inf (LTEElim (Inf (Bound defaultPos 5)) (Inf (Bound defaultPos 4)) (Inf (Bound defaultPos 3)) (Inf (Bound defaultPos 2)) (Inf (Bound defaultPos 1)) (Inf (Bound defaultPos 0)))))))))) ([],[])),
 
-             (Global "finElim", evalChk (Lam (Lam (Lam (Lam (Lam (Inf (FinElim (Inf (Bound 4)) (Inf (Bound 3)) (Inf (Bound 2)) (Inf (Bound 1)) (Inf (Bound 0))))))))) ([],[]))]
+             (Global "finElim", evalChk (Lam (Lam (Lam (Lam (Lam (Inf (FinElim (Inf (Bound defaultPos 4)) (Inf (Bound defaultPos 3)) (Inf (Bound defaultPos 2)) (Inf (Bound defaultPos 1)) (Inf (Bound defaultPos 0))))))))) ([],[]))]
      --       ]
 
 lpassume state@(out, ve, te) x t =

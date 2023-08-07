@@ -52,11 +52,11 @@ typeInf2 i env t1@(Pi p p')
          p2 <- typeChk2 i env p VStar
          let t = evalChk p (fst env, []) 
          p'2 <- typeChk2 (i+1) ((\ (d,g) -> (d,  ((Local i, t) : g))) env)  
-                        (subsChk 0 (Free (Local i)) p') VStar  
+                        (subsChk 0 (Free defaultPos (Local i)) p') VStar  
          return (PiT p2 p'2 VStar)
-typeInf2 i env (Free x) 
+typeInf2 i env (Free s x) 
     = case lookup x (snd env) of 
-           Just t -> return (FreeT x t )
+           Just t -> return (FreeT s x t )
            Nothing          -> throwError ("unknown identifier " ++ (show x))
 typeInf2 i env (e :@: e')
     = do 
@@ -246,7 +246,7 @@ typeChk2 i env (Inf e) t
         else return (InfT e' t)
 typeChk2 i env t1@(Lam e) (VPi t t') 
    = do
-        e' <- typeChk2  (i + 1) ((\ (d,g) -> (d,  ((Local i, t ) : g))) env) (subsChk 0 (Free (Local i)) e) ( t' (vfree (Local i))) 
+        e' <- typeChk2  (i + 1) ((\ (d,g) -> (d,  ((Local i, t ) : g))) env) (subsChk 0 (Free defaultPos (Local i)) e) ( t' (vfree (Local i))) 
         return (LamT e' (VPi t t'))
 
 {-

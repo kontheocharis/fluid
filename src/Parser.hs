@@ -145,9 +145,10 @@ parseITerm_ 3 e =
           return (toNat_ n)
     <|> do
           x <- identifier lambdaPi
+          p <- getPosition
           case findIndex (== x) e of
-            Just n  -> return (Bound n)
-            Nothing -> return (Free (Global x))
+            Just n  -> return (Bound p n)
+            Nothing -> return (Free p (Global x))
     <|> parens lambdaPi (parseITerm_ 0 e)
   
 parseCTerm_ :: Int -> [String] -> CharParser () TermChk

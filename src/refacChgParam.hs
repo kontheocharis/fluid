@@ -35,10 +35,10 @@ rewriteVarsInf offset (Ann t1 t2) = Ann (rewriteVarsChk offset t1) (rewriteVarsC
 rewriteVarsInf offset Star = Star
 rewriteVarsInf offset (Pi t1 t2) = Pi (rewriteVarsChk offset t1) (rewriteVarsChk offset t2)
 rewriteVarsInf offset (Sigma t1 t2) = Sigma (rewriteVarsChk offset t1) (rewriteVarsChk offset t2)
-rewriteVarsInf offset (Bound x) 
- | x >= offset = (Bound (x+1))
- | otherwise   = Bound x
-rewriteVarsInf offset (Free n) = Free n 
+rewriteVarsInf offset (Bound s x) 
+ | x >= offset = (Bound s (x+1))
+ | otherwise   = Bound s x
+rewriteVarsInf offset (Free s n) = Free s n 
 rewriteVarsInf offset (ti :@: tc) = (rewriteVarsInf offset ti) :@: (rewriteVarsChk offset tc)
 rewriteVarsInf offset (App t1 t2) = App (rewriteVarsChk offset t1) (rewriteVarsChk offset t2)
 rewriteVarsInf offset (Pair t1 t2 t3 t4) = Pair (rewriteVarsChk offset t1) (rewriteVarsChk offset t2) (rewriteVarsChk offset t3) (rewriteVarsChk offset t4)
@@ -98,19 +98,19 @@ rewriteVarsChk offset (LTESucc t1 t2 t3) = LTESucc (rewriteVarsChk offset t1) (r
 
 
 refacListArg :: Int -> TermChk -> TermChk
-refacListArg pos (Inf (Free (Global l) :@: Inf (Bound p))) 
-  | l == "List" = Inf ((Free (Global "Vec") :@: Inf (Bound p)) :@: Inf (Bound pos))
+refacListArg pos (Inf (Free s1 (Global l) :@: Inf (Bound s2 p))) 
+  | l == "List" = Inf ((Free s1 (Global "Vec") :@: Inf (Bound s2 p)) :@: Inf (Bound defaultPos pos))
 refacListArg pos x = error $ show x
 
 refacBodyInf :: Int -> Int -> Int -> TermInf -> TermInf
-refacBodyInf tot pos lamPos ((((Free (Global le) :@: p1 :@: p2) :@: p3) :@: p4) :@: Inf (Bound p))
-  | le == "listElim" && p == (tot-pos) = (((Free (Global "vecElim") 
+refacBodyInf tot pos lamPos ((((Free s1 (Global le) :@: p1 :@: p2) :@: p3) :@: p4) :@: Inf (Bound s2 p))
+  | le == "listElim" && p == (tot-pos) = (((Free s1 (Global "vecElim") 
                                          :@: p1 
                                          :@: (Lam (rewriteVarsChk (countArguments 1 p2) p2))) 
                                          :@: p3) 
                                          :@: (Lam (rewriteVarsChk (countArguments 1 p4) p4))) 
-                                         :@: Inf (Bound tot) 
-                                         :@: Inf (Bound (tot-pos))
+                                         :@: Inf (Bound defaultPos tot) 
+                                         :@: Inf (Bound s2 (tot-pos))
 refacBodyInf tot p lamPos ( t1 :@: t2) = (refacBodyInf tot p lamPos t1) :@: (refacBodyChk tot p lamPos t2)
 refacBodyInf tot p lamPos t = t 
 
@@ -126,7 +126,7 @@ refacPi pos pos2 (Inf (Pi arg bod)) = Inf (Pi arg (refacPi (pos-1) pos2 bod))
 refacPi _ _ t = t
 
 refacSig :: Stmt TermInf TermChk -> Int -> Stmt TermInf TermChk
-refacSig (Let s (Ann t pi)) p = Let s (Ann (Lam (refacBodyChk (countArguments 0 t) p 1 t)) (Inf (Pi (Inf (Free (Global "Nat"))) (refacPi p p pi))))
+refacSig (Let s (Ann t pi)) p = Let s (Ann (Lam (refacBodyChk (countArguments 0 t) p 1 t)) (Inf (Pi (Inf (Free defaultPos (Global "Nat"))) (refacPi p p pi))))
 refacSig _ _ = error "refactoring eror in refacSig"
 
 refacChgParam :: String -> String -> Int -> IO ()

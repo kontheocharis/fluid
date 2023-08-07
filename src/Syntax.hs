@@ -1,13 +1,22 @@
 module Syntax where
 
+import Text.PrettyPrint.HughesPJ hiding (parens)
+import Text.ParserCombinators.Parsec.Pos       
+
+
+type SimpPos = (Int, Int)
+
+defaultPos :: SourcePos
+defaultPos = newPos "unknown location" 0 0
+
 -- Inferrable Terms
 data TermInf = 
    Ann TermChk TermChk     -- ANN
  | Star
  | Pi TermChk TermChk      -- Dependent Pi types
  | Sigma TermChk TermChk   -- Sigma Types
- | Bound Int               -- VAR
- | Free Name               -- VAR
+ | Bound SourcePos Int               -- VAR
+ | Free SourcePos Name               -- VAR
  | TermInf :@: TermChk     -- APP can be reduced. 
  | App TermChk TermChk
  | Pair TermChk TermChk TermChk TermChk -- Pairs

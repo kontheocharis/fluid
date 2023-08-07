@@ -1,6 +1,9 @@
 module Syntax2 where
 
 import Text.PrettyPrint.HughesPJ hiding (parens)
+import Text.ParserCombinators.Parsec.Pos       
+
+
 import Syntax
 import Pretty
 
@@ -16,8 +19,8 @@ data TermInf2 =
  | StarT Value
  | PiT TermChk2 TermChk2 Value      -- Dependent Pi types
  | SigmaT TermChk2 TermChk2 Value   -- Sigma Types
- | BoundT Int Value               -- VAR
- | FreeT Name    Value           -- VAR
+ | BoundT SourcePos Int Value               -- VAR
+ | FreeT SourcePos Name    Value           -- VAR
  | AppRedT TermInf2 TermChk2 Value     -- APP can be reduced. 
  | AppT TermChk2 TermChk2 Value
  | PairT TermChk2 TermChk2 TermChk2 TermChk2 Value -- Pairs
@@ -41,8 +44,8 @@ infToValue (AnnT _ _ v) = v
 infToValue (StarT v) = v
 infToValue (PiT _ _ v) = v 
 infToValue (SigmaT _ _ v) = v
-infToValue (BoundT _ v) = v 
-infToValue (FreeT _ v) = v 
+infToValue (BoundT _ _ v) = v 
+infToValue (FreeT _ _ v) = v 
 infToValue (AppRedT _ _ v) = v
 infToValue (AppT _ _ v) = v 
 infToValue (PairT _ _ _ _ v) = v 
@@ -67,8 +70,8 @@ renderInf (AnnT t1 t2 v) = "(AnnT " ++ renderChk t1 ++ renderChk t2 ++ renderVal
 renderInf (StarT v) = "(StarT " ++ renderVal v ++")"
 renderInf (PiT t1 t2 v) = "(PiT " ++ renderChk t1 ++ renderChk t2 ++ renderVal v ++")"
 renderInf (SigmaT t1 t2 v) = "(SigmaT " ++ renderChk t1 ++ renderChk t2 ++ renderVal v ++")"
-renderInf (BoundT i v) = "(BoundT " ++ show i ++ renderVal v  ++")"
-renderInf (FreeT n v) = "(FreeT " ++ "("++show n++")" ++ renderVal v  ++")"
+renderInf (BoundT s i v) = "(BoundT " ++ show s ++ show i ++ renderVal v  ++")"
+renderInf (FreeT s n v) = "(FreeT " ++ show s ++ "("++show n++")" ++ renderVal v  ++")"
 renderInf (AppRedT ti tc v) = "(" ++ renderInf ti ++ " :@: " ++ renderChk tc ++ renderVal v  ++")"
 renderInf (AppT t1 t2 v) = "(AppT " ++ renderChk t1 ++ renderChk t2 ++ renderVal v ++")"
 renderInf (PairT t1 t2 t3 t4 v) = "(PairT " ++ renderChk t1 ++ renderChk t2 ++ renderChk t3 ++ renderChk t4 ++ renderVal v ++")"
@@ -132,6 +135,3 @@ renderChk (LTEZeroT t v) = "(LTEZeroT " ++ renderChk t ++ renderVal v  ++ ")"
 renderChk (LTESuccT t1 t2 t3 v) = "(LTESuccT " ++ renderChk t1 ++ renderChk t2 ++ renderChk t3 ++ renderVal v  ++ ")"
 
   --    deriving (Show, Eq)
-
-
-
