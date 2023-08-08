@@ -72,7 +72,7 @@ renderInf (PiT t1 t2 v) = "(PiT " ++ renderChk t1 ++ renderChk t2 ++ renderVal v
 renderInf (SigmaT t1 t2 v) = "(SigmaT " ++ renderChk t1 ++ renderChk t2 ++ renderVal v ++")"
 renderInf (BoundT s i v) = "(BoundT " ++ show s ++ show i ++ renderVal v  ++")"
 renderInf (FreeT s n v) = "(FreeT " ++ show s ++ "("++show n++")" ++ renderVal v  ++")"
-renderInf (AppRedT ti tc v) = "(" ++ renderInf ti ++ " :@: " ++ renderChk tc ++ renderVal v  ++")"
+renderInf (AppRedT ti tc v) = "(AppRedT " ++ renderInf ti ++ renderChk tc ++ renderVal v  ++")"
 renderInf (AppT t1 t2 v) = "(AppT " ++ renderChk t1 ++ renderChk t2 ++ renderVal v ++")"
 renderInf (PairT t1 t2 t3 t4 v) = "(PairT " ++ renderChk t1 ++ renderChk t2 ++ renderChk t3 ++ renderChk t4 ++ renderVal v ++")"
 renderInf (NatT v) = "(NatT " ++ renderVal v  ++")"
@@ -96,6 +96,30 @@ renderInf (LTET t1 t2 v) = "(LTET " ++ renderChk t1 ++ renderChk t2 ++ renderVal
 renderInf (LTEElimT t1 t2 t3 t4 t5 t6 v) = "(LTEElimT " ++ renderChk t1 ++ renderChk t2 ++ renderChk t3 ++ renderChk t4 
                                                        ++ renderChk t5 ++ renderChk t6 ++ renderVal v ++")"
  --     deriving (Show, Eq)
+
+termInf2ToTermInf :: TermInf2 -> TermInf
+termInf2ToTermInf (AnnT t1 t2 v) = Ann (termChk2ToTermChk t1) (termChk2ToTermChk t2)
+termInf2ToTermInf (StarT v) = Star
+termInf2ToTermInf (PiT t1 t2 v) = Pi (termChk2ToTermChk t1) (termChk2ToTermChk t2)
+termInf2ToTermInf (SigmaT t1 t2 v) = Sigma (termChk2ToTermChk t1) (termChk2ToTermChk t2)
+termInf2ToTermInf (BoundT s i v) = Bound s i 
+termInf2ToTermInf (FreeT s n v) = Free s n
+termInf2ToTermInf (AppRedT ti tc v) = (termInf2ToTermInf ti) :@: (termChk2ToTermChk tc)
+termInf2ToTermInf (AppT t1 t2 v) = App (termChk2ToTermChk t1) (termChk2ToTermChk t2)
+termInf2ToTermInf (PairT t1 t2 t3 t4 v) = Pair (termChk2ToTermChk t1) (termChk2ToTermChk t2) (termChk2ToTermChk t3) (termChk2ToTermChk t4)
+termInf2ToTermInf (NatElimT t1 t2 t3 t4 v) = NatElim (termChk2ToTermChk t1) (termChk2ToTermChk t2) (termChk2ToTermChk t3) (termChk2ToTermChk t4)
+termInf2ToTermInf (VecT t1 t2 v) = Vec (termChk2ToTermChk t1) (termChk2ToTermChk t2)
+termInf2ToTermInf (VecElimT t1 t2 t3 t4 t5 t6 v) = VecElim (termChk2ToTermChk t1) (termChk2ToTermChk t2) (termChk2ToTermChk t3) (termChk2ToTermChk t4)  (termChk2ToTermChk t5) (termChk2ToTermChk t6)
+termInf2ToTermInf (ListT t v) = List (termChk2ToTermChk t)
+termInf2ToTermInf (ListElimT t1 t2 t3 t4 t5 v) = ListElim (termChk2ToTermChk t1) (termChk2ToTermChk t2) (termChk2ToTermChk t3) (termChk2ToTermChk t4)  (termChk2ToTermChk t5)
+termInf2ToTermInf (FinT t v) = Fin (termChk2ToTermChk t)
+termInf2ToTermInf (FinElimT t1 t2 t3 t4 t5 v) = FinElim (termChk2ToTermChk t1) (termChk2ToTermChk t2) (termChk2ToTermChk t3) (termChk2ToTermChk t4)  (termChk2ToTermChk t5)
+termInf2ToTermInf (EqT t1 t2 t3 v) = Eq (termChk2ToTermChk t1) (termChk2ToTermChk t2) (termChk2ToTermChk t3)
+termInf2ToTermInf (EqElimT t1 t2 t3 t4 t5 t6 v) = EqElim (termChk2ToTermChk t1) (termChk2ToTermChk t2) (termChk2ToTermChk t3) (termChk2ToTermChk t4)  (termChk2ToTermChk t5) (termChk2ToTermChk t6)
+termInf2ToTermInf (SigElimT t1 t2 t3 t4 t5 v) = SigElim (termChk2ToTermChk t1) (termChk2ToTermChk t2) (termChk2ToTermChk t3) (termChk2ToTermChk t4)  (termChk2ToTermChk t5)
+termInf2ToTermInf (TMaybeT t v) = TMaybe (termChk2ToTermChk t)
+termInf2ToTermInf (LTET t1 t2 v) = LTE (termChk2ToTermChk t1) (termChk2ToTermChk t2)
+termInf2ToTermInf (LTEElimT t1 t2 t3 t4 t5 t6 v) = LTEElim (termChk2ToTermChk t1) (termChk2ToTermChk t2) (termChk2ToTermChk t3) (termChk2ToTermChk t4)  (termChk2ToTermChk t5) (termChk2ToTermChk t6)
 
 -- Checkable Terms
 data TermChk2 =         
@@ -135,3 +159,21 @@ renderChk (LTEZeroT t v) = "(LTEZeroT " ++ renderChk t ++ renderVal v  ++ ")"
 renderChk (LTESuccT t1 t2 t3 v) = "(LTESuccT " ++ renderChk t1 ++ renderChk t2 ++ renderChk t3 ++ renderVal v  ++ ")"
 
   --    deriving (Show, Eq)
+
+termChk2ToTermChk :: TermChk2 -> TermChk
+termChk2ToTermChk (InfT t v) = Inf (termInf2ToTermInf t)
+termChk2ToTermChk (LamT t v) = Lam (termChk2ToTermChk t)
+termChk2ToTermChk (ZeroT v) = Zero
+termChk2ToTermChk (SuccT t v) = Succ (termChk2ToTermChk t)
+termChk2ToTermChk (NilT t v) = Nil (termChk2ToTermChk t)
+termChk2ToTermChk (ConsT t1 t2 t3 t4 v) = Cons (termChk2ToTermChk t1) (termChk2ToTermChk t2) (termChk2ToTermChk t3) (termChk2ToTermChk t4) 
+termChk2ToTermChk (LNilT t v) = LNil (termChk2ToTermChk t)
+termChk2ToTermChk (LConsT t1 t2 t3 v) = LCons (termChk2ToTermChk t1) (termChk2ToTermChk t2) (termChk2ToTermChk t3)
+termChk2ToTermChk (VecToListT t1 t2 t3 v) = VecToList (termChk2ToTermChk t1) (termChk2ToTermChk t2) (termChk2ToTermChk t3)
+termChk2ToTermChk (FZeroT t v) = FZero (termChk2ToTermChk t)
+termChk2ToTermChk (FSuccT t1 t2 v) = FSucc (termChk2ToTermChk t1) (termChk2ToTermChk t2)
+termChk2ToTermChk (ReflT t1 t2 v) = Refl (termChk2ToTermChk t1) (termChk2ToTermChk t2)
+termChk2ToTermChk (TNothingT t v) = TNothing (termChk2ToTermChk t)
+termChk2ToTermChk (TJustT t1 t2 v) = TJust (termChk2ToTermChk t1) (termChk2ToTermChk t2)
+termChk2ToTermChk (LTEZeroT t v) = LTEZero (termChk2ToTermChk t)
+termChk2ToTermChk (LTESuccT t1 t2 t3 v) = LTESucc (termChk2ToTermChk t1) (termChk2ToTermChk t2) (termChk2ToTermChk t3)

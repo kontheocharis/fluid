@@ -51,13 +51,17 @@ typeInf2 i env t1@(Pi p p')
    = do
          p2 <- typeChk2 i env p VStar
          let t = evalChk p (fst env, []) 
-         p'2 <- typeChk2 (i+1) ((\ (d,g) -> (d,  ((Local i, t) : g))) env)  
-                        (subsChk 0 (Free defaultPos (Local i)) p') VStar  
+      --   p'2 <- typeChk2 (i+1) ((\ (d,g) -> (d,  ((Local i, t) : g))) env)  
+      --                  (subsChk 0 (Free defaultPos (Local i)) p') VStar  
+         p'2 <- typeChk2 i env p' VStar
          return (PiT p2 p'2 VStar)
+typeInf2 i env (Bound s x) = return $ BoundT s x VStar
 typeInf2 i env (Free s x) 
-    = case lookup x (snd env) of 
+   -- = error (show x) 
+ = trace (show x) 
+         (case lookup x (snd env) of 
            Just t -> return (FreeT s x t )
-           Nothing          -> throwError ("unknown identifier " ++ (show x))
+           Nothing          -> throwError ("unknown identifier " ++ (show x)))
 typeInf2 i env (e :@: e')
     = do 
          e2 <- typeInf2 i env e 
@@ -219,15 +223,15 @@ typeInf2 i env (LTEElim x y z a b c) =
       
          
 
-typeInf2 _ _ tm = throwError $ "No type match for " ++ (show tm) -- render (iPrint_ 0 0 tm)
+typeInf2 _ _ tm = throwError $ "typeInf2 : No type match for " ++ (show tm) -- render (iPrint_ 0 0 tm)
 
 
 typeChk2 :: Int -> ([(Name, Value)], Context) -> TermChk -> Value -> Result TermChk2
 typeChk2 i env (Inf e) t
    = do 
-        e' <- typeInf2 i env e 
-        t' <- typeInf i env e
-        if ( quote0 t /= quote0 t') 
+      --  e' <- typeInf2 i env e 
+        t' <- typeInf2 i env e
+ {-       if ( quote0 t /= quote0 t') 
          then (throwError ("type mismatch:\n" ++ "type inferred:  " 
                     ++ render (cPrint_ 0 0 (quote0 t')) 
                     ++ "\n" 
@@ -242,11 +246,11 @@ typeChk2 i env (Inf e) t
                 --    ++ (show (quote0 t')) -- inferred
                 --    ++ "\n"  
                 --    ++ (show (quote0 t)))) -- expected
-         ))
-        else return (InfT e' t)
+         )) -}
+        return (InfT t' t)
 typeChk2 i env t1@(Lam e) (VPi t t') 
    = do
-        e' <- typeChk2  (i + 1) ((\ (d,g) -> (d,  ((Local i, t ) : g))) env) (subsChk 0 (Free defaultPos (Local i)) e) ( t' (vfree (Local i))) 
+        e' <- typeChk2 i env e  -- (i + 1) ((\ (d,g) -> (d,  ((Local i, t ) : g))) env) (subsChk 0 (Free defaultPos (Local i)) e) ( t' (vfree (Local i))) 
         return (LamT e' (VPi t t'))
 
 {-

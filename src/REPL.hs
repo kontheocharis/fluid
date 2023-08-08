@@ -18,7 +18,9 @@ import Data.Maybe
 
 -- import Common
 import Syntax
+import Syntax2 
 import Typecheck
+import TypeCheck2 
 import Parser
 import Eval
 
