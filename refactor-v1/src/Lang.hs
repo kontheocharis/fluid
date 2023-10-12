@@ -1,5 +1,3 @@
-{-# LANGUAGE InstanceSigs #-}
-
 module Lang (Type, Var (..), Pat (..), Term (..), Decl (..), Program (..), Clause (..)) where
 
 import Data.List (intercalate)

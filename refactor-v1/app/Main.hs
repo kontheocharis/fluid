@@ -26,9 +26,9 @@ indexDepDecl =
   Decl
     "indexDep"
     (PiT (var "n") NatT (PiT (var "i") (FinT (V (var "n"))) (PiT (var "l") (VectT (V (var "t")) (V (var "n"))) (V (var "t")))))
-    [ ImpossibleClause [WildP, LNilP],
-      Clause [FZP, LConsP (VP (var "x")) WildP] (V (var "x")),
-      Clause [FSP (VP (var "n")), LConsP WildP (VP (var "xs"))] (App (App (Global "indexDep") (V (var "n"))) (V (var "xs")))
+    [ ImpossibleClause [WildP, WildP, LNilP],
+      Clause [WildP, FZP, LConsP (VP (var "x")) WildP] (V (var "x")),
+      Clause [WildP, FSP (VP (var "n")), LConsP WildP (VP (var "xs"))] (App (App (Global "indexDep") (V (var "n"))) (V (var "xs")))
     ]
 
 transform :: Decl -> Decl
