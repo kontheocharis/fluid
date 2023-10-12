@@ -77,9 +77,9 @@ instance Show Pat where
   show (VP v) = show v
   show WildP = "_"
   show LNilP = "[]"
-  show (LConsP p1 p2) = "(" ++ show p1 ++ ":" ++ show p2 ++ ")"
+  show (LConsP p1 p2) = "(" ++ show p1 ++ "::" ++ show p2 ++ ")"
   show VNilP = "[]"
-  show (VConsP p1 p2) = "(" ++ show p1 ++ ":" ++ show p2 ++ ")"
+  show (VConsP p1 p2) = "(" ++ show p1 ++ "::" ++ show p2 ++ ")"
   show FZP = "FZ"
   show (FSP p) = "(FS " ++ show p ++ ")"
   show ZP = "Z"
@@ -108,9 +108,9 @@ instance Show Term where
   show Z = "Z"
   show (S t) = "(S " ++ show t ++ ")"
   show LNil = "[]"
-  show (LCons t1 t2) = "(" ++ show t1 ++ ":" ++ show t2 ++ ")"
+  show (LCons t1 t2) = "(" ++ show t1 ++ "::" ++ show t2 ++ ")"
   show VNil = "[]"
-  show (VCons t1 t2) = "(" ++ show t1 ++ ":" ++ show t2 ++ ")"
+  show (VCons t1 t2) = "(" ++ show t1 ++ "::" ++ show t2 ++ ")"
   show (MJust t) = "(Just " ++ show t ++ ")"
   show MNothing = "Nothing"
 
