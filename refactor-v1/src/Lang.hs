@@ -5,7 +5,7 @@ type Type = Term
 
 -- | A variable
 -- Represented by a string name and a unique integer identifier (no shadowing).
-data Var = Var String Int
+data Var = Var String Int deriving (Eq)
 
 -- | A pattern
 data Pat
