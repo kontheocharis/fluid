@@ -1,4 +1,8 @@
+{-# LANGUAGE InstanceSigs #-}
+
 module Lang (Type, Var (..), Pat (..), Term (..), Decl (..), Program (..), Clause (..)) where
+
+import Data.List (intercalate)
 
 -- | Type alias for terms that are expected to be types (just for documentation purposes).
 type Type = Term
@@ -64,7 +68,7 @@ data Term
 data Decl = Decl String Type [Clause]
 
 -- | A clause is a sequence of patterns followed by a term.
-data Clause = Clause [Pat] Term
+data Clause = Clause [Pat] Term | ImpossibleClause [Pat]
 
 -- | A program is a sequence of declarations.
 newtype Program = Program [Decl]
@@ -115,10 +119,11 @@ instance Show Term where
   show MNothing = "Nothing"
 
 instance Show Decl where
-  show (Decl v ty clauses) = unlines $ (v ++ " : " ++ show ty) : map (\c -> v ++ " " ++ show c) clauses
+  show (Decl v ty clauses) = intercalate "\n" $ (v ++ " : " ++ show ty) : map (\c -> v ++ " " ++ show c) clauses
 
 instance Show Clause where
-  show (Clause p t) = unwords (map show p) ++ " = " ++ show t
+  show (Clause p t) = intercalate " " (map show p) ++ " = " ++ show t
+  show (ImpossibleClause p) = intercalate " " (map show p) ++ " impossible"
 
 instance Show Program where
-  show (Program ds) = unlines $ map show ds
+  show (Program ds) = intercalate "\n\n" $ map show ds
