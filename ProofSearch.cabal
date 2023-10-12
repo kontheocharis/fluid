@@ -27,6 +27,7 @@ library
   exposed-modules:
       IMP
       Lib
+      Rewrite
       Test
   other-modules:
       Paths_ProofSearch
