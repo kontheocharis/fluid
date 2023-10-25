@@ -15,6 +15,8 @@ data Pat
     VP Var
   | -- | Wildcard pattern
     WildP
+  | -- | Pair pattern
+    PairP Pat Pat
   | -- Constructors:
     LNilP
   | LConsP Pat Pat
@@ -26,6 +28,7 @@ data Pat
   | SP Pat
   | MJustP Pat
   | MNothingP
+  | ReflP Pat
 
 -- | A term
 data Term
@@ -61,9 +64,10 @@ data Term
   | VCons Term Term
   | MJust Term
   | MNothing
+  | Refl Term
 
--- | A declaration is a sequence of clauses, defining the equations for a function.
-data Decl = Decl String Type [Clause]
+-- | A declaration is a sequence of clauses, defining the equations for a function, potentially with a comment.
+data Decl = Decl (Maybe String) String Type [Clause]
 
 -- | A clause is a sequence of patterns followed by a term.
 data Clause = Clause [Pat] Term | ImpossibleClause [Pat]
@@ -78,6 +82,7 @@ instance Show Var where
 instance Show Pat where
   show (VP v) = show v
   show WildP = "_"
+  show (PairP p1 p2) = "(" ++ show p1 ++ ", " ++ show p2 ++ ")"
   show LNilP = "[]"
   show (LConsP p1 p2) = "(" ++ show p1 ++ "::" ++ show p2 ++ ")"
   show VNilP = "[]"
@@ -88,6 +93,7 @@ instance Show Pat where
   show (SP p) = "(S " ++ show p ++ ")"
   show (MJustP p) = "(Just " ++ show p ++ ")"
   show MNothingP = "Nothing"
+  show (ReflP p) = "(Refl " ++ show p ++ ")"
 
 instance Show Term where
   show (PiT v t1 t2) = "(" ++ show v ++ " : " ++ show t1 ++ ") -> " ++ show t2
@@ -115,9 +121,16 @@ instance Show Term where
   show (VCons t1 t2) = "(" ++ show t1 ++ "::" ++ show t2 ++ ")"
   show (MJust t) = "(Just " ++ show t ++ ")"
   show MNothing = "Nothing"
+  show (Refl t) = "(Refl " ++ show t ++ ")"
 
 instance Show Decl where
-  show (Decl v ty clauses) = intercalate "\n" $ (v ++ " : " ++ show ty) : map (\c -> v ++ " " ++ show c) clauses
+  show (Decl com v ty clauses) =
+    intercalate "\n" $
+      ( case com of
+          Just x -> map ("-- " ++) (lines x)
+          Nothing -> []
+      )
+        ++ ((v ++ " : " ++ show ty) : map (\c -> v ++ " " ++ show c) clauses)
 
 instance Show Clause where
   show (Clause p t) = intercalate " " (map show p) ++ " = " ++ show t

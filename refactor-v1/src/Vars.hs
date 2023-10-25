@@ -41,3 +41,4 @@ subVar _ _ VNil = VNil
 subVar v t' (VCons t1 t2) = VCons (subVar v t' t1) (subVar v t' t2)
 subVar v t' (MJust t) = MJust (subVar v t' t)
 subVar _ _ MNothing = MNothing
+subVar v t' (Refl t) = Refl (subVar v t' t)
