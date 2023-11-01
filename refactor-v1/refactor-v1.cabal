@@ -25,6 +25,7 @@ source-repository head
 
 library
   exposed-modules:
+      Clauses
       Lang
       Lang_msExt
       Ornamenting

@@ -1,4 +1,15 @@
-module Lang (Type, Var (..), Pat (..), Term (..), Decl (..), Program (..), Clause (..), mapTerm) where
+module Lang
+  ( Type,
+    Var (..),
+    Pat (..),
+    Term (..),
+    Decl (..),
+    Program (..),
+    Clause (..),
+    mapTerm,
+    clausePats,
+  )
+where
 
 import Data.List (intercalate)
 
@@ -29,6 +40,7 @@ data Pat
   | MJustP Pat
   | MNothingP
   | ReflP Pat
+  deriving (Eq)
 
 -- | A term
 data Term
@@ -65,12 +77,18 @@ data Term
   | MJust Term
   | MNothing
   | Refl Term
+  deriving (Eq)
 
 -- | A declaration is a sequence of clauses, defining the equations for a function, potentially with a comment.
 data Decl = Decl (Maybe String) String Type [Clause]
 
 -- | A clause is a sequence of patterns followed by a term.
 data Clause = Clause [Pat] Term | ImpossibleClause [Pat]
+
+-- | Get the patterns from a clause.
+clausePats :: Clause -> [Pat]
+clausePats (Clause pats _) = pats
+clausePats (ImpossibleClause pats) = pats
 
 -- | A program is a sequence of declarations.
 newtype Program = Program [Decl]

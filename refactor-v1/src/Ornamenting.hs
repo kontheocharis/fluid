@@ -4,8 +4,8 @@ import Lang (Clause (..), Decl (..), Pat (..), Term (..), Type, Var (..), mapTer
 import Vars (var)
 
 -- | Ornament a declaration.
-ornamentDecl :: Decl -> [Decl]
-ornamentDecl (Decl comment name ty clauses) = [ornDecl, indexPropDecl]
+ornamentDecl :: Decl -> (Decl, Decl)
+ornamentDecl (Decl comment name ty clauses) = (ornDecl, indexPropDecl)
   where
     (tyOrn, i) = ornamentType ty
     indexPropDeclName = name ++ "Indices"
