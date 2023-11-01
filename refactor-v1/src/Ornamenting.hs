@@ -41,7 +41,7 @@ ornamentClauseTerm i declName newRetType term = substitutedRecTerm
     -- First try to fix the type of the outermost term.
     typeFixedTerm = case (newRetType, term) of
       (FinT _, Z) -> FZ
-      (FinT _, S n) -> FS (finToNat n)
+      (FinT _, S n) -> FS (natToFin n)
       (VectT _ _, LNil) -> VNil
       (VectT _ _, LCons h t) -> VCons h (listToVect t)
       _ -> term
@@ -57,16 +57,16 @@ ornamentClauseTerm i declName newRetType term = substitutedRecTerm
 -- | Ornament a pattern.
 ornamentPat :: Pat -> Pat
 ornamentPat ZP = FZP
-ornamentPat (SP p) = FSP (finToNatPat p)
+ornamentPat (SP p) = FSP (natToFinPat p)
 ornamentPat VNilP = LNilP
 ornamentPat (VConsP p1 p2) = LConsP p1 (listToVectPat p2)
 ornamentPat p = p
 
 -- | Convert a fin to a nat.
-finToNat :: Term -> Term
-finToNat FZ = Z
-finToNat (FS n) = S (finToNat n)
-finToNat t = t
+natToFin :: Term -> Term
+natToFin Z = FZ
+natToFin (S n) = FS (natToFin n)
+natToFin t = t
 
 -- | Convert a list to a vector.
 listToVect :: Term -> Term
@@ -75,10 +75,10 @@ listToVect (LCons h t) = VCons h (listToVect t)
 listToVect t = t
 
 -- | Convert a fin to a nat.
-finToNatPat :: Pat -> Pat
-finToNatPat (FZP) = ZP
-finToNatPat (FSP n) = SP (finToNatPat n)
-finToNatPat t = t
+natToFinPat :: Pat -> Pat
+natToFinPat ZP = FZP
+natToFinPat (SP p) = FSP (natToFinPat p)
+natToFinPat p = p
 
 -- | Convert a list to a vector.
 listToVectPat :: Pat -> Pat
