@@ -1,4 +1,4 @@
-module Vars (var, Sub, sub) where
+module Vars (var, Sub, sub, subVar) where
 
 import Lang
 

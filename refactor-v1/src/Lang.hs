@@ -1,4 +1,4 @@
-module Lang (Type, Var (..), Pat (..), Term (..), Decl (..), Program (..), Clause (..)) where
+module Lang (Type, Var (..), Pat (..), Term (..), Decl (..), Program (..), Clause (..), mapTerm) where
 
 import Data.List (intercalate)
 
@@ -74,6 +74,36 @@ data Clause = Clause [Pat] Term | ImpossibleClause [Pat]
 
 -- | A program is a sequence of declarations.
 newtype Program = Program [Decl]
+
+-- | Apply a function to a term, if it is a Just, otherwise return the term.
+mapTerm :: (Term -> Maybe Term) -> Term -> Term
+mapTerm f t | Just t' <- f t = t'
+mapTerm f (PiT v t1 t2) = PiT v (mapTerm f t1) (mapTerm f t2)
+mapTerm f (Lam v t) = Lam v (mapTerm f t)
+mapTerm f (App t1 t2) = App (mapTerm f t1) (mapTerm f t2)
+mapTerm f (SigmaT v t1 t2) = SigmaT v (mapTerm f t1) (mapTerm f t2)
+mapTerm f (Pair t1 t2) = Pair (mapTerm f t1) (mapTerm f t2)
+mapTerm _ TyT = TyT
+mapTerm _ (V v) = V v
+mapTerm _ (Global s) = Global s
+mapTerm _ (Hole i) = Hole i
+mapTerm _ NatT = NatT
+mapTerm f (ListT t) = ListT (mapTerm f t)
+mapTerm f (MaybeT t) = MaybeT (mapTerm f t)
+mapTerm f (VectT t n) = VectT (mapTerm f t) (mapTerm f n)
+mapTerm f (FinT t) = FinT (mapTerm f t)
+mapTerm f (EqT t1 t2) = EqT (mapTerm f t1) (mapTerm f t2)
+mapTerm _ FZ = FZ
+mapTerm f (FS t) = FS (mapTerm f t)
+mapTerm _ Z = Z
+mapTerm f (S t) = S (mapTerm f t)
+mapTerm _ LNil = LNil
+mapTerm f (LCons t1 t2) = LCons (mapTerm f t1) (mapTerm f t2)
+mapTerm _ VNil = VNil
+mapTerm f (VCons t1 t2) = VCons (mapTerm f t1) (mapTerm f t2)
+mapTerm f (MJust t) = MJust (mapTerm f t)
+mapTerm _ MNothing = MNothing
+mapTerm f (Refl t) = Refl (mapTerm f t)
 
 -- Show instances for pretty printing:
 instance Show Var where

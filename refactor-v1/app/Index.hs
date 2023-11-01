@@ -1,4 +1,4 @@
-module Index (allIndexDecls) where
+module Index (indexDecl, allIndexDecls) where
 
 import Lang (Clause (..), Decl (..), Pat (..), Term (..))
 import Vars (var)
@@ -6,7 +6,7 @@ import Vars (var)
 indexDecl :: Decl
 indexDecl =
   Decl
-    (Just "The non-dependent index function.")
+    Nothing
     "index"
     (PiT (var "i") NatT (PiT (var "l") (ListT (V (var "t"))) (MaybeT (V (var "t")))))
     [ Clause [WildP, LNilP] MNothing,
