@@ -1,11 +1,6 @@
 module Clauses (expandDeclPat, expandDeclFully) where
 
-import Lang (Clause (..), Decl (..), Pat (..), Term (..), Type)
-
--- | Convert a pi type to a list of types.
-piTypeToList :: Type -> [Type]
-piTypeToList (PiT _ ty1 ty2) = ty1 : piTypeToList ty2
-piTypeToList t = [t]
+import Lang (Clause (..), Decl (..), Pat (..), Term (..), Type, piTypeToList)
 
 -- | Expand all wildcard patterns in a declaration, one level deep.
 expandDeclFully :: Decl -> Decl

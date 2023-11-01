@@ -8,6 +8,7 @@ module Lang
     Clause (..),
     mapTerm,
     clausePats,
+    piTypeToList,
   )
 where
 
@@ -78,6 +79,11 @@ data Term
   | MNothing
   | Refl Term
   deriving (Eq)
+
+-- | Convert a pi type to a list of types.
+piTypeToList :: Type -> [Type]
+piTypeToList (PiT _ ty1 ty2) = ty1 : piTypeToList ty2
+piTypeToList t = [t]
 
 -- | A declaration is a sequence of clauses, defining the equations for a function, potentially with a comment.
 data Decl = Decl (Maybe String) String Type [Clause]
