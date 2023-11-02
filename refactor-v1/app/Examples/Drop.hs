@@ -1,4 +1,4 @@
-module Drop (dropDecl) where
+module Examples.Drop (dropDecl) where
 
 import Lang (Clause (..), Decl (..), Pat (..), Term (..))
 import Vars (var)
@@ -7,7 +7,6 @@ import Vars (var)
 dropDecl :: Decl
 dropDecl =
   Decl
-    Nothing
     "drop"
     (PiT (var "i") NatT (PiT (var "l") (ListT (V (var "t"))) (ListT (V (var "t")))))
     [ Clause [ZP, (VP (var "xs"))] (V (var "xs")),

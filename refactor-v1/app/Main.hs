@@ -1,8 +1,8 @@
 module Main (main) where
 
 import Clauses (expandDeclFully)
-import Drop (dropDecl)
-import Index (indexDecl)
+import Examples.Drop (dropDecl)
+import Examples.Index (indexDecl)
 import Lang (Clause (..), Decl (Decl), Pat (..), Program (..), Term (..))
 import Ornamenting (ornamentDecl)
 import Vars (var)
@@ -15,7 +15,6 @@ main = ret
 
     identityDecl =
       Decl
-        Nothing
         "identity"
         (PiT (var "num") NatT NatT)
         [ Clause [ZP] Z,

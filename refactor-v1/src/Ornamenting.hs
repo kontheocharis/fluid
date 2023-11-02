@@ -5,12 +5,12 @@ import Vars (var)
 
 -- | Ornament a declaration.
 ornamentDecl :: Decl -> (Decl, Decl)
-ornamentDecl (Decl comment name ty clauses) = (ornDecl, indexPropDecl)
+ornamentDecl (Decl name ty clauses) = (ornDecl, indexPropDecl)
   where
     (tyOrn, i) = ornamentType ty
     indexPropDeclName = name ++ "Indices"
     indicesAndPropLength = i + 1
-    indexPropDecl = generateIndicesPropDecl indexPropDeclName i 0
+    indexPropDecl = generateIndicesPropDecl indexPropDeclName i
     tyOrnWithProp =
       PiT
         (var "prf")
@@ -20,7 +20,7 @@ ornamentDecl (Decl comment name ty clauses) = (ornDecl, indexPropDecl)
 
     ornRetType = last (piTypeToList tyOrn)
     ornClauses = map (ornamentClause indicesAndPropLength name ornRetType) clauses
-    ornDecl = Decl comment name tyOrnWithIndices ornClauses
+    ornDecl = Decl name tyOrnWithIndices ornClauses
 
 -- | Ornament a clause.
 --
@@ -49,7 +49,7 @@ ornamentClauseTerm i declName newRetType term = substitutedRecTerm
     substitutedRecTerm =
       mapTerm
         ( \t -> case t of
-            Global s | s == declName -> Just (foldl (\inner v -> App inner (Hole v)) (Global s) [0 .. i - 1])
+            Global s | s == declName -> Just (foldl (\inner v -> App inner (Hole (show v))) (Global s) [0 .. i - 1])
             _ -> Nothing
         )
         typeFixedTerm
@@ -70,7 +70,7 @@ natToFin t = t
 
 -- | Convert a list to a vector.
 listToVect :: Term -> Term
-listToVect (LNil) = VNil
+listToVect LNil = VNil
 listToVect (LCons h t) = VCons h (listToVect t)
 listToVect t = t
 
@@ -82,7 +82,7 @@ natToFinPat p = p
 
 -- | Convert a list to a vector.
 listToVectPat :: Pat -> Pat
-listToVectPat (LNilP) = VNilP
+listToVectPat LNilP = VNilP
 listToVectPat (LConsP h t) = VConsP h (listToVectPat t)
 listToVectPat t = t
 
@@ -91,13 +91,13 @@ listToVectPat t = t
 -- These indices are determined by the given integer i as (n0,..n(i-1)). They
 -- are all typed as natural numbers.
 --
--- The proof of the proposition is left as a hole of the given numeric index.
-generateIndicesPropDecl :: String -> Int -> Int -> Decl
-generateIndicesPropDecl name i holeIdx = Decl Nothing name piType [holeClause]
+-- The proof of the proposition is left as a hole.
+generateIndicesPropDecl :: String -> Int -> Decl
+generateIndicesPropDecl name i = Decl name piType [holeClause]
   where
     vars = map (\n -> Var ("n" ++ show n) n) [0 .. i - 1]
     piType = foldr (\v ty -> PiT v NatT ty) TyT vars
-    holeClause = Clause (map VP vars) (Hole holeIdx)
+    holeClause = Clause (map VP vars) (Hole "proof")
 
 -- | Ornament a type signature.
 --

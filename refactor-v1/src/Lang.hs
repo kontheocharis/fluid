@@ -41,6 +41,8 @@ data Pat
   | MJustP Pat
   | MNothingP
   | ReflP Pat
+  | LTEZeroP
+  | LTESuccP Pat
   deriving (Eq)
 
 -- | A term
@@ -58,7 +60,7 @@ data Term
   | -- | Global variable (declaration)
     Global String
   | -- | Hole identified by an integer
-    Hole Int
+    Hole String
   | -- Data types:
     NatT
   | ListT Type
@@ -66,6 +68,7 @@ data Term
   | VectT Type Term
   | FinT Term
   | EqT Term Term
+  | LteT Term Term
   | -- Constructors:
     FZ
   | FS Term
@@ -78,6 +81,8 @@ data Term
   | MJust Term
   | MNothing
   | Refl Term
+  | LTEZero
+  | LTESucc Term
   deriving (Eq)
 
 -- | Convert a pi type to a list of types.
@@ -85,8 +90,8 @@ piTypeToList :: Type -> [Type]
 piTypeToList (PiT _ ty1 ty2) = ty1 : piTypeToList ty2
 piTypeToList t = [t]
 
--- | A declaration is a sequence of clauses, defining the equations for a function, potentially with a comment.
-data Decl = Decl (Maybe String) String Type [Clause]
+-- | A declaration is a sequence of clauses, defining the equations for a function.
+data Decl = Decl String Type [Clause]
 
 -- | A clause is a sequence of patterns followed by a term.
 data Clause = Clause [Pat] Term | ImpossibleClause [Pat]
@@ -117,6 +122,7 @@ mapTerm f (MaybeT t) = MaybeT (mapTerm f t)
 mapTerm f (VectT t n) = VectT (mapTerm f t) (mapTerm f n)
 mapTerm f (FinT t) = FinT (mapTerm f t)
 mapTerm f (EqT t1 t2) = EqT (mapTerm f t1) (mapTerm f t2)
+mapTerm f (LteT t1 t2) = LteT (mapTerm f t1) (mapTerm f t2)
 mapTerm _ FZ = FZ
 mapTerm f (FS t) = FS (mapTerm f t)
 mapTerm _ Z = Z
@@ -128,6 +134,8 @@ mapTerm f (VCons t1 t2) = VCons (mapTerm f t1) (mapTerm f t2)
 mapTerm f (MJust t) = MJust (mapTerm f t)
 mapTerm _ MNothing = MNothing
 mapTerm f (Refl t) = Refl (mapTerm f t)
+mapTerm _ LTEZero = LTEZero
+mapTerm f (LTESucc t) = LTESucc (mapTerm f t)
 
 -- Show instances for pretty printing:
 instance Show Var where
@@ -148,6 +156,8 @@ instance Show Pat where
   show (MJustP p) = "(Just " ++ show p ++ ")"
   show MNothingP = "Nothing"
   show (ReflP p) = "(Refl " ++ show p ++ ")"
+  show LTEZeroP = "LTEZero"
+  show (LTESuccP p) = "(LTESucc " ++ show p ++ ")"
 
 instance Show Term where
   show (PiT v t1 t2) = "(" ++ show v ++ " : " ++ show t1 ++ ") -> " ++ show t2
@@ -158,13 +168,14 @@ instance Show Term where
   show TyT = "Type"
   show (V v) = show v
   show (Global s) = s
-  show (Hole i) = "?" ++ show i
+  show (Hole i) = "?" ++ i
   show NatT = "Nat"
   show (ListT t) = "[" ++ show t ++ "]"
   show (MaybeT t) = "Maybe " ++ show t
   show (VectT t n) = "Vect " ++ show t ++ " " ++ show n
   show (FinT t) = "Fin " ++ show t
   show (EqT t1 t2) = show t1 ++ " = " ++ show t2
+  show (LteT t1 t2) = "LTE " ++ show t1 ++ " " ++ show t2
   show FZ = "FZ"
   show (FS t) = "(FS " ++ show t ++ ")"
   show Z = "Z"
@@ -176,15 +187,11 @@ instance Show Term where
   show (MJust t) = "(Just " ++ show t ++ ")"
   show MNothing = "Nothing"
   show (Refl t) = "(Refl " ++ show t ++ ")"
+  show LTEZero = "LTEZero"
+  show (LTESucc t) = "(LTESucc " ++ show t ++ ")"
 
 instance Show Decl where
-  show (Decl com v ty clauses) =
-    intercalate "\n" $
-      ( case com of
-          Just x -> map ("-- " ++) (lines x)
-          Nothing -> []
-      )
-        ++ ((v ++ " : " ++ show ty) : map (\c -> v ++ " " ++ show c) clauses)
+  show (Decl v ty clauses) = intercalate "\n" ((v ++ " : " ++ show ty) : map (\c -> v ++ " " ++ show c) clauses)
 
 instance Show Clause where
   show (Clause p t) = intercalate " " (map show p) ++ " = " ++ show t

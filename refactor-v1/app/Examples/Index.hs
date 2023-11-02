@@ -1,4 +1,4 @@
-module Index (indexDecl, allIndexDecls) where
+module Examples.Index (indexDecl, allIndexDecls) where
 
 import Lang (Clause (..), Decl (..), Pat (..), Term (..))
 import Vars (var)
@@ -6,7 +6,6 @@ import Vars (var)
 indexDecl :: Decl
 indexDecl =
   Decl
-    Nothing
     "index"
     (PiT (var "i") NatT (PiT (var "l") (ListT (V (var "t"))) (MaybeT (V (var "t")))))
     [ Clause [WildP, LNilP] MNothing,
@@ -14,13 +13,11 @@ indexDecl =
       Clause [SP (VP (var "n")), LConsP WildP (VP (var "xs"))] (App (App (Global "index") (V (var "n"))) (V (var "xs")))
     ]
 
+-- | First step: change normal types to dependent types through ornamental relation.
+-- Keep the new indices as holes in recursive calls.
 indexDeclR1 :: Decl
 indexDeclR1 =
   Decl
-    ( Just
-        "First step: change normal types to dependent types through ornamental relation.\n\
-        \Keep the new indices as holes in recursive calls."
-    )
     "index"
     ( PiT
         (var "n1")
@@ -37,15 +34,13 @@ indexDeclR1 =
     )
     [ Clause [WildP, WildP, WildP, WildP, LNilP] MNothing,
       Clause [WildP, WildP, WildP, FZP, VConsP (VP (var "x")) WildP] (MJust (V (var "x"))),
-      Clause [WildP, WildP, WildP, FSP (VP (var "n")), VConsP WildP (VP (var "xs"))] (App (App (App (App (App (Global "index") (Hole 1)) (Hole 2)) (Hole 3)) (V (var "n"))) (V (var "xs")))
+      Clause [WildP, WildP, WildP, FSP (VP (var "n")), VConsP WildP (VP (var "xs"))] (App (App (App (App (App (Global "index") (Hole "1")) (Hole "2")) (Hole "3")) (V (var "n"))) (V (var "xs")))
     ]
 
+-- |  Proposition about ornament indices given by the user.
 indexP :: Decl
 indexP =
   Decl
-    ( Just
-        "Proposition about ornament indices given by the user."
-    )
     "indexP"
     ( PiT
         (var "n1")
@@ -59,10 +54,10 @@ indexP =
     [ Clause [VP (var "n1"), VP (var "n2")] (EqT (V (var "n1")) (V (var "n2")))
     ]
 
+-- | Second step: case split on indices
 indexDeclR2 :: Decl
 indexDeclR2 =
   Decl
-    (Just "Second step: case split on indices")
     "index"
     ( PiT
         (var "n1")
@@ -87,22 +82,22 @@ indexDeclR2 =
       Clause [SP (VP (var "i1")), SP (VP (var "i2")), WildP, FZP, VConsP (VP (var "x")) WildP] (MJust (V (var "x"))),
       Clause
         [ZP, ZP, WildP, FSP (VP (var "n")), VConsP WildP (VP (var "xs"))]
-        (App (App (App (App (App (Global "index") (Hole 1)) (Hole 2)) (Hole 3)) (V (var "n"))) (V (var "xs"))),
+        (App (App (App (App (App (Global "index") (Hole "1")) (Hole "2")) (Hole "3")) (V (var "n"))) (V (var "xs"))),
       Clause
         [ZP, SP (VP (var "i2")), WildP, FSP (VP (var "n")), VConsP WildP (VP (var "xs"))]
-        (App (App (App (App (App (Global "index") (Hole 1)) (Hole 2)) (Hole 3)) (V (var "n"))) (V (var "xs"))),
+        (App (App (App (App (App (Global "index") (Hole "1")) (Hole "2")) (Hole "3")) (V (var "n"))) (V (var "xs"))),
       Clause
         [SP (VP (var "i1")), ZP, WildP, FSP (VP (var "n")), VConsP WildP (VP (var "xs"))]
-        (App (App (App (App (App (Global "index") (Hole 1)) (Hole 2)) (Hole 3)) (V (var "n"))) (V (var "xs"))),
+        (App (App (App (App (App (Global "index") (Hole "1")) (Hole "2")) (Hole "3")) (V (var "n"))) (V (var "xs"))),
       Clause
         [SP (VP (var "i1")), SP (VP (var "i2")), WildP, FSP (VP (var "n")), VConsP WildP (VP (var "xs"))]
-        (App (App (App (App (App (Global "index") (Hole 1)) (Hole 2)) (Hole 3)) (V (var "n"))) (V (var "xs")))
+        (App (App (App (App (App (Global "index") (Hole "1")) (Hole "2")) (Hole "3")) (V (var "n"))) (V (var "xs")))
     ]
 
+-- | Third step: identify branches that are impossible (we should be able to semi-automate this) based on pattern unification
 indexDeclR3 :: Decl
 indexDeclR3 =
   Decl
-    (Just "Third step: identify branches that are impossible (we should be able to semi-automate this) based on pattern unification")
     "index"
     ( PiT
         (var "n1")
@@ -133,13 +128,13 @@ indexDeclR3 =
         [SP (VP (var "i1")), ZP, WildP, FSP (VP (var "n")), VConsP WildP (VP (var "xs"))],
       Clause
         [SP (VP (var "i1")), SP (VP (var "i2")), WildP, FSP (VP (var "n")), VConsP WildP (VP (var "xs"))]
-        (App (App (App (App (App (Global "index") (Hole 1)) (Hole 2)) (Hole 3)) (V (var "n"))) (V (var "xs")))
+        (App (App (App (App (App (Global "index") (Hole "1")) (Hole "2")) (Hole "3")) (V (var "n"))) (V (var "xs")))
     ]
 
+-- | Fourth step: collapse impossible branches (not sure how to automatically figure out ordering here)
 indexDeclR4 :: Decl
 indexDeclR4 =
   Decl
-    (Just "Fourth step: collapse impossible branches (not sure how to automatically figure out ordering here)")
     "index"
     ( PiT
         (var "n1")
@@ -160,15 +155,15 @@ indexDeclR4 =
       ImpossibleClause [WildP, WildP, WildP, FZP, VConsP (VP (var "x")) WildP],
       Clause
         [SP (VP (var "i1")), SP (VP (var "i2")), WildP, FSP (VP (var "n")), VConsP WildP (VP (var "xs"))]
-        (App (App (App (App (App (Global "index") (Hole 1)) (Hole 2)) (Hole 3)) (V (var "n"))) (V (var "xs"))),
+        (App (App (App (App (App (Global "index") (Hole "1")) (Hole "2")) (Hole "3")) (V (var "n"))) (V (var "xs"))),
       ImpossibleClause
         [WildP, WildP, WildP, FSP (VP (var "n")), VConsP WildP (VP (var "xs"))]
     ]
 
+-- | Fifth step: the proposition is an equality, so match on it to remove more branches
 indexDeclR5 :: Decl
 indexDeclR5 =
   Decl
-    (Just "Fifth step: the proposition is an equality, so match on it to remove more branches")
     "index"
     ( PiT
         (var "n1")
@@ -189,15 +184,15 @@ indexDeclR5 =
       ImpossibleClause [WildP, WildP, WildP, FZP, VConsP (VP (var "x")) WildP],
       Clause
         [SP (VP (var "i1")), SP (VP (var "i2")), ReflP WildP, FSP (VP (var "n")), VConsP WildP (VP (var "xs"))]
-        (App (App (App (App (App (Global "index") (Hole 1)) (Hole 2)) (Hole 3)) (V (var "n"))) (V (var "xs"))),
+        (App (App (App (App (App (Global "index") (Hole "1")) (Hole "2")) (Hole "3")) (V (var "n"))) (V (var "xs"))),
       ImpossibleClause
         [WildP, WildP, WildP, FSP (VP (var "n")), VConsP WildP (VP (var "xs"))]
     ]
 
+-- | Sixth step: collapse again
 indexDeclR6 :: Decl
 indexDeclR6 =
   Decl
-    (Just "Sixth step: collapse again")
     "index"
     ( PiT
         (var "n1")
@@ -217,18 +212,16 @@ indexDeclR6 =
       ImpossibleClause [WildP, WildP, WildP, FZP, VConsP (VP (var "x")) WildP],
       Clause
         [SP (VP (var "i1")), SP (VP (var "i2")), ReflP WildP, FSP (VP (var "n")), VConsP WildP (VP (var "xs"))]
-        (App (App (App (App (App (Global "index") (Hole 1)) (Hole 2)) (Hole 3)) (V (var "n"))) (V (var "xs"))),
+        (App (App (App (App (App (Global "index") (Hole "1")) (Hole "2")) (Hole "3")) (V (var "n"))) (V (var "xs"))),
       ImpossibleClause
         [WildP, WildP, WildP, FSP (VP (var "n")), VConsP WildP (VP (var "xs"))]
     ]
 
+-- | Seventh step: ask user to fill in holes or do it automatically.
+-- The recursive proof for this example should be reflexivity purely through unification, but other times it will be harder.
 indexDeclR7 :: Decl
 indexDeclR7 =
   Decl
-    ( Just
-        "Seventh step: ask user to fill in holes or do it automatically.\n\
-        \The recursive proof for this example should be reflexivity purely through unification, but other times it will be harder."
-    )
     "index"
     ( PiT
         (var "n1")
@@ -253,12 +246,10 @@ indexDeclR7 =
         [WildP, WildP, WildP, FSP (VP (var "n")), VConsP WildP (VP (var "xs"))]
     ]
 
+-- | Eighth step: realise that im(index) is isomorphic to t, so remove Maybe.
 indexDeclR8 :: Decl
 indexDeclR8 =
   Decl
-    ( Just
-        "Eighth step: realise that im(index) is isomorphic to t, so remove Maybe."
-    )
     "index"
     ( PiT
         (var "n1")
@@ -283,12 +274,10 @@ indexDeclR8 =
         [WildP, WildP, WildP, FSP (VP (var "n")), VConsP WildP (VP (var "xs"))]
     ]
 
+-- | Ninth step: realise that since the proposition indexP is equality, the two indices can be syntactically unified.
 indexDeclR9 :: Decl
 indexDeclR9 =
   Decl
-    ( Just
-        "Ninth step: realise that since the proposition indexP is equality, the two indices can be syntactically unified."
-    )
     "index"
     ( PiT
         (var "n")
@@ -305,10 +294,10 @@ indexDeclR9 =
         [WildP, FSP (VP (var "n")), VConsP WildP (VP (var "xs"))]
     ]
 
+-- | Tenth step: The final dependent index function, where we assume the typechecker is able to automatically fill all impossibilities.
 indexDepDecl :: Decl
 indexDepDecl =
   Decl
-    (Just "Tenth step: The final dependent index function, where we assume the typechecker is able to automatically fill all impossibilities.")
     "index"
     (PiT (var "n") NatT (PiT (var "i") (FinT (V (var "n"))) (PiT (var "l") (VectT (V (var "t")) (V (var "n"))) (V (var "t")))))
     [ Clause [WildP, FZP, LConsP (VP (var "x")) WildP] (V (var "x")),
