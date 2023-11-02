@@ -34,7 +34,7 @@ indexDeclR1 =
     )
     [ Clause [WildP, WildP, WildP, WildP, LNilP] MNothing,
       Clause [WildP, WildP, WildP, FZP, VConsP (VP (var "x")) WildP] (MJust (V (var "x"))),
-      Clause [WildP, WildP, WildP, FSP (VP (var "n")), VConsP WildP (VP (var "xs"))] (App (App (App (App (App (Global "index") (Hole "1")) (Hole "2")) (Hole "3")) (V (var "n"))) (V (var "xs")))
+      Clause [WildP, WildP, WildP, FSP (VP (var "n")), VConsP WildP (VP (var "xs"))] (App (App (App (App (App (Global "index") (Hole (var "1"))) (Hole (var "2"))) (Hole (var "3"))) (V (var "n"))) (V (var "xs")))
     ]
 
 -- |  Proposition about ornament indices given by the user.
@@ -82,16 +82,16 @@ indexDeclR2 =
       Clause [SP (VP (var "i1")), SP (VP (var "i2")), WildP, FZP, VConsP (VP (var "x")) WildP] (MJust (V (var "x"))),
       Clause
         [ZP, ZP, WildP, FSP (VP (var "n")), VConsP WildP (VP (var "xs"))]
-        (App (App (App (App (App (Global "index") (Hole "1")) (Hole "2")) (Hole "3")) (V (var "n"))) (V (var "xs"))),
+        (App (App (App (App (App (Global "index") (Hole (var "1"))) (Hole (var "2"))) (Hole (var "3"))) (V (var "n"))) (V (var "xs"))),
       Clause
         [ZP, SP (VP (var "i2")), WildP, FSP (VP (var "n")), VConsP WildP (VP (var "xs"))]
-        (App (App (App (App (App (Global "index") (Hole "1")) (Hole "2")) (Hole "3")) (V (var "n"))) (V (var "xs"))),
+        (App (App (App (App (App (Global "index") (Hole (var "1"))) (Hole (var "2"))) (Hole (var "3"))) (V (var "n"))) (V (var "xs"))),
       Clause
         [SP (VP (var "i1")), ZP, WildP, FSP (VP (var "n")), VConsP WildP (VP (var "xs"))]
-        (App (App (App (App (App (Global "index") (Hole "1")) (Hole "2")) (Hole "3")) (V (var "n"))) (V (var "xs"))),
+        (App (App (App (App (App (Global "index") (Hole (var "1"))) (Hole (var "2"))) (Hole (var "3"))) (V (var "n"))) (V (var "xs"))),
       Clause
         [SP (VP (var "i1")), SP (VP (var "i2")), WildP, FSP (VP (var "n")), VConsP WildP (VP (var "xs"))]
-        (App (App (App (App (App (Global "index") (Hole "1")) (Hole "2")) (Hole "3")) (V (var "n"))) (V (var "xs")))
+        (App (App (App (App (App (Global "index") (Hole (var "1"))) (Hole (var "2"))) (Hole (var "3"))) (V (var "n"))) (V (var "xs")))
     ]
 
 -- | Third step: identify branches that are impossible (we should be able to semi-automate this) based on pattern unification
@@ -128,7 +128,7 @@ indexDeclR3 =
         [SP (VP (var "i1")), ZP, WildP, FSP (VP (var "n")), VConsP WildP (VP (var "xs"))],
       Clause
         [SP (VP (var "i1")), SP (VP (var "i2")), WildP, FSP (VP (var "n")), VConsP WildP (VP (var "xs"))]
-        (App (App (App (App (App (Global "index") (Hole "1")) (Hole "2")) (Hole "3")) (V (var "n"))) (V (var "xs")))
+        (App (App (App (App (App (Global "index") (Hole (var "1"))) (Hole (var "2"))) (Hole (var "3"))) (V (var "n"))) (V (var "xs")))
     ]
 
 -- | Fourth step: collapse impossible branches (not sure how to automatically figure out ordering here)
@@ -155,7 +155,7 @@ indexDeclR4 =
       ImpossibleClause [WildP, WildP, WildP, FZP, VConsP (VP (var "x")) WildP],
       Clause
         [SP (VP (var "i1")), SP (VP (var "i2")), WildP, FSP (VP (var "n")), VConsP WildP (VP (var "xs"))]
-        (App (App (App (App (App (Global "index") (Hole "1")) (Hole "2")) (Hole "3")) (V (var "n"))) (V (var "xs"))),
+        (App (App (App (App (App (Global "index") (Hole (var "1"))) (Hole (var "2"))) (Hole (var "3"))) (V (var "n"))) (V (var "xs"))),
       ImpossibleClause
         [WildP, WildP, WildP, FSP (VP (var "n")), VConsP WildP (VP (var "xs"))]
     ]
@@ -184,7 +184,7 @@ indexDeclR5 =
       ImpossibleClause [WildP, WildP, WildP, FZP, VConsP (VP (var "x")) WildP],
       Clause
         [SP (VP (var "i1")), SP (VP (var "i2")), ReflP WildP, FSP (VP (var "n")), VConsP WildP (VP (var "xs"))]
-        (App (App (App (App (App (Global "index") (Hole "1")) (Hole "2")) (Hole "3")) (V (var "n"))) (V (var "xs"))),
+        (App (App (App (App (App (Global "index") (Hole (var "1"))) (Hole (var "2"))) (Hole (var "3"))) (V (var "n"))) (V (var "xs"))),
       ImpossibleClause
         [WildP, WildP, WildP, FSP (VP (var "n")), VConsP WildP (VP (var "xs"))]
     ]
@@ -212,7 +212,7 @@ indexDeclR6 =
       ImpossibleClause [WildP, WildP, WildP, FZP, VConsP (VP (var "x")) WildP],
       Clause
         [SP (VP (var "i1")), SP (VP (var "i2")), ReflP WildP, FSP (VP (var "n")), VConsP WildP (VP (var "xs"))]
-        (App (App (App (App (App (Global "index") (Hole "1")) (Hole "2")) (Hole "3")) (V (var "n"))) (V (var "xs"))),
+        (App (App (App (App (App (Global "index") (Hole (var "1"))) (Hole (var "2"))) (Hole (var "3"))) (V (var "n"))) (V (var "xs"))),
       ImpossibleClause
         [WildP, WildP, WildP, FSP (VP (var "n")), VConsP WildP (VP (var "xs"))]
     ]

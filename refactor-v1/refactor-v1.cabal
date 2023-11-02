@@ -28,6 +28,7 @@ library
       Clauses
       Lang
       Ornamenting
+      Typechecking
       Vars
   other-modules:
       Paths_refactor_v1
@@ -38,6 +39,7 @@ library
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -Wno-unused-top-binds
   build-depends:
       base >=4.7 && <5
+    , mtl
   default-language: Haskell2010
 
 executable refactor-v1-exe
@@ -55,6 +57,7 @@ executable refactor-v1-exe
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -Wno-unused-top-binds -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
+    , mtl
     , refactor-v1
   default-language: Haskell2010
 
@@ -70,5 +73,6 @@ test-suite refactor-v1-test
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -Wno-unused-top-binds -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
+    , mtl
     , refactor-v1
   default-language: Haskell2010

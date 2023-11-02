@@ -1,4 +1,4 @@
-module Vars (var, Sub, sub, subVar) where
+module Vars (var, Sub, sub, subVar, alphaRename) where
 
 import Lang
 
@@ -16,4 +16,14 @@ sub (Sub ((v, t') : s)) t = sub (Sub s) (subVar v t' t)
 
 -- | Substitute a variable for a term in a term.
 subVar :: Var -> Term -> Term -> Term
-subVar v t' = mapTerm (\t'' -> if t'' == V v then Just t' else Nothing)
+subVar v t' =
+  mapTerm
+    ( \t'' -> case t'' of
+        V v' | v == v' -> Just t'
+        Hole v' | v == v' -> Just t'
+        _ -> Nothing
+    )
+
+-- | Alpha rename a variable in a term.
+alphaRename :: Var -> Var -> Term -> Term
+alphaRename v1 v2 = subVar v1 (V v2)

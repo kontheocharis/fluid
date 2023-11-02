@@ -49,7 +49,7 @@ ornamentClauseTerm i declName newRetType term = substitutedRecTerm
     substitutedRecTerm =
       mapTerm
         ( \t -> case t of
-            Global s | s == declName -> Just (foldl (\inner v -> App inner (Hole (show v))) (Global s) [0 .. i - 1])
+            Global s | s == declName -> Just (foldl (\inner v -> App inner (Hole (var (show v)))) (Global s) [0 .. i - 1])
             _ -> Nothing
         )
         typeFixedTerm
@@ -97,7 +97,7 @@ generateIndicesPropDecl name i = Decl name piType [holeClause]
   where
     vars = map (\n -> Var ("n" ++ show n) n) [0 .. i - 1]
     piType = foldr (\v ty -> PiT v NatT ty) TyT vars
-    holeClause = Clause (map VP vars) (Hole "proof")
+    holeClause = Clause (map VP vars) (Hole (var "proof"))
 
 -- | Ornament a type signature.
 --

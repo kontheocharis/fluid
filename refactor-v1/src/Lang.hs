@@ -60,7 +60,7 @@ data Term
   | -- | Global variable (declaration)
     Global String
   | -- | Hole identified by an integer
-    Hole String
+    Hole Var
   | -- Data types:
     NatT
   | ListT Type
@@ -91,7 +91,7 @@ piTypeToList (PiT _ ty1 ty2) = ty1 : piTypeToList ty2
 piTypeToList t = [t]
 
 -- | A declaration is a sequence of clauses, defining the equations for a function.
-data Decl = Decl String Type [Clause]
+data Decl = Decl {declName :: String, declTy :: Type, declClauses :: [Clause]}
 
 -- | A clause is a sequence of patterns followed by a term.
 data Clause = Clause [Pat] Term | ImpossibleClause [Pat]
@@ -168,7 +168,7 @@ instance Show Term where
   show TyT = "Type"
   show (V v) = show v
   show (Global s) = s
-  show (Hole i) = "?" ++ i
+  show (Hole i) = "?" ++ (show i)
   show NatT = "Nat"
   show (ListT t) = "[" ++ show t ++ "]"
   show (MaybeT t) = "Maybe " ++ show t

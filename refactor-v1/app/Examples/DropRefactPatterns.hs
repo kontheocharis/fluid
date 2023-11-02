@@ -330,9 +330,9 @@ removeSigma_clauseRHS
     ) =
     ( Clause
         [arg1, arg2, arg3, arg4, arg5, arg6]
-        (App (App ((App (App (App (App (Global "drop4") rArg1) rArg2) rArg3) rArg4)) (App (App (Global "minus") rArg1) rArg2)) (Refl (Hole "TODO")))
+        (App (App ((App (App (App (App (Global "drop4") rArg1) rArg2) rArg3) rArg4)) (App (App (Global "minus") rArg1) rArg2)) (Refl (Hole (var "TODO"))))
     )
-removeSigma_clauseRHS (Clause patL term) = Clause patL (Hole "1")
+removeSigma_clauseRHS (Clause patL term) = Clause patL (Hole (var "1"))
 
 removeSigma_clauses :: [Clause] -> [Clause]
 removeSigma_clauses [] = []

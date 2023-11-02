@@ -129,7 +129,7 @@ addNatParam_clauseRHS i j k (Clause patL term) =
           then Clause patL (changeAppFname (addParamAt i (V nVar) j term) (k + 1) "drop" "drop11")
           else -- rhs becomes: drop11 n _ xs
 
-            (Clause patL (Hole "addNat"))
+            (Clause patL (Hole (var "addNat")))
     else -- not a recursive call, so no change needed
       Clause patL term
 
@@ -218,7 +218,7 @@ listToVectAt_clauseRHS i j (Clause patL term) =
       if checkTermIsFunc "drop11" 3 term -- recursive call, no change needed, apart from changing name
         then Clause patL (changeAppFname term 3 "drop11" "drop12")
         else -- application of other functions, put hole
-          Clause patL (Hole "listToVectRHS")
+          Clause patL (Hole (var "listToVectRHS"))
     LNil -> Clause patL term -- is a list anyway, so no change needed
     LCons x xs -> Clause patL (LCons x (App (Global "vectToList") xs))
     -- rhs is _:xs, but now xs is vect, so replace with (vectToList xs)
