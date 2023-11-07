@@ -1,4 +1,4 @@
-module Exammples.DropRefactPatterns where
+module Examples.DropRefactPatterns where
 
 import Lang
   ( Clause (..),
