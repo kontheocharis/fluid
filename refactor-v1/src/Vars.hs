@@ -21,7 +21,10 @@ instance Monoid Sub where
   mempty = noSub
 
 instance Semigroup Sub where
-  (<>) (Sub s1) (Sub s2) = Sub (s2 ++ s1)
+  (<>) (Sub s1) (Sub s2) = Sub (as ++ bs)
+    where
+      Sub as = sub (Sub s1) (Sub s2)
+      Sub bs = sub (Sub s2) (Sub s1)
 
 -- | A typeclass for things that can be substituted.
 class Subst a where
@@ -41,6 +44,10 @@ instance Subst Term where
           Hole v' | v == v' -> Just t'
           _ -> Nothing
       )
+
+instance Subst Sub where
+  subVar v' t' (Sub ((v, t) : s)) = Sub ((v, subVar v' t' t) : let Sub rs = subVar v' t' (Sub s) in rs)
+  subVar _ _ (Sub []) = Sub []
 
 -- | Alpha rename a variable in a term.
 alphaRename :: Var -> Var -> Term -> Term

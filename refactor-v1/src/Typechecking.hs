@@ -1,4 +1,4 @@
-module Typechecking (unifyTerms, checkTerm, inferTerm, unifyToLeft, normaliseTermFully, checkProgram) where
+module Typechecking (unifyTerms, checkTerm, unifyToLeft, inferTerm, normaliseTermFully, checkProgram) where
 
 import Context
   ( Tc,
@@ -8,7 +8,6 @@ import Context
     enterCtx,
     enterCtxMod,
     freshHole,
-    freshHoleVar,
     inCtx,
     inGlobalCtx,
     lookupDecl,
@@ -57,21 +56,107 @@ checkClause _ (ImpossibleClause _) = error "Impossible clauses not yet supported
 checkTerm :: Term -> Type -> Tc Sub
 checkTerm (Lam v t) (PiT var' ty1 ty2) = do
   enterCtxMod (addTyping v ty1) $ checkTerm t (alphaRename var' v ty2)
+checkTerm (Lam v t) typ = do
+  varTy <- freshHole
+  bodyTy <- enterCtxMod (addTyping v varTy) $ inferTerm t
+  let inferredTy = PiT v varTy bodyTy
+  s1 <- unifyTerms typ inferredTy
+  s2 <- checkTerm (sub s1 (Lam v t)) (sub s1 inferredTy)
+  return $ s1 <> s2
 checkTerm (Pair t1 t2) (SigmaT v ty1 ty2) = do
   s1 <- checkTerm t1 ty1
   s2 <- checkTerm (sub s1 t2) (subVar v (sub s1 t1) (sub s1 ty2))
   return $ s1 <> s2
-checkTerm (Wild Nothing) _ = return noSub -- TODO: need to do this recursively in infer somehow
+checkTerm (Pair t1 t2) typ = do
+  fstTy <- freshHole
+  sndTy <- freshHole
+  let inferredTy = SigmaT (var "x") fstTy sndTy
+  s1 <- checkTerm (Pair t1 t2) inferredTy
+  s2 <- unifyTerms typ (sub s1 inferredTy)
+  return $ s1 <> s2
+checkTerm (Wild Nothing) _ = return noSub
 checkTerm (Wild (Just v)) ty = do
   -- Add the wildcard to the context.
   modifyCtx (addTyping v ty)
   return noSub
-checkTerm term (Hole h) = do
-  inferred <- inferTerm term
-  return $ Sub [(h, inferred)]
-checkTerm term ty = do
-  inferred <- inferTerm term
-  unifyTerms inferred ty
+checkTerm (PiT v t1 t2) typ = do
+  s <- checkTerm t1 TyT
+  _ <- enterCtxMod (addTyping v (sub s t1)) $ inferTerm (sub s t2)
+  unifyTerms typ TyT
+checkTerm (SigmaT v t1 t2) typ = do
+  s <- checkTerm t1 TyT
+  _ <- enterCtxMod (addTyping v (sub s t1)) $ inferTerm (sub s t2)
+  unifyTerms typ TyT
+checkTerm TyT typ = unifyTerms typ TyT
+checkTerm NatT typ = unifyTerms typ TyT
+checkTerm (ListT t) typ = do
+  _ <- checkTerm t TyT
+  unifyTerms typ TyT
+checkTerm (VectT t n) typ = do
+  _ <- checkTerm t TyT
+  _ <- checkTerm n NatT
+  unifyTerms typ TyT
+checkTerm (FinT t) typ = do
+  _ <- checkTerm t NatT
+  unifyTerms typ TyT
+checkTerm (EqT t1 t2) typ = do
+  ty1 <- inferTerm t1
+  ty2 <- inferTerm t2
+  _ <- unifyTerms ty1 ty2
+  unifyTerms typ TyT
+checkTerm (LteT t1 t2) typ = do
+  _ <- checkTerm t1 NatT
+  _ <- checkTerm t2 NatT
+  unifyTerms typ TyT
+checkTerm (MaybeT t) typ = do
+  _ <- checkTerm t TyT
+  unifyTerms typ TyT
+checkTerm (V v) (Hole h) = do
+  vTyp <- withinCtx (lookupTypeOrError v)
+  return $ Sub [(h, vTyp)]
+checkTerm (V v) typ = do
+  vTyp <- withinCtx (lookupTypeOrError v)
+  unifyTerms typ vTyp
+checkTerm (App t1 t2) typ = do
+  bodyTy <- freshHole
+  varTy <- inferTerm t2
+  let v = var "x"
+  let inferredTy = PiT v varTy bodyTy
+  s <- checkTerm t1 inferredTy
+  unifyTerms typ $ subVar v (sub s t2) (sub s bodyTy)
+checkTerm (Hole h) _ = throwError $ CannotInferHoleType h
+checkTerm (Global g) typ = do
+  decl <- inGlobalCtx (lookupDecl g)
+  case decl of
+    Nothing -> throwError $ DeclNotFound g
+    Just decl' -> unifyTerms typ $ declTy decl'
+checkTerm (Refl t) typ = unifyTerms typ $ EqT t t
+checkTerm Z typ = unifyTerms typ NatT
+checkTerm (S n) typ = do
+  nTy <- inferTerm n
+  _ <- unifyTerms nTy NatT
+  unifyTerms typ NatT
+checkTerm LNil typ = do
+  ty <- freshHole
+  unifyTerms typ (ListT ty)
+checkTerm (LCons h t) typ = do
+  ty <- freshHole
+  s1 <- unifyTerms typ (ListT ty)
+  s2 <- checkTerm h (sub s1 ty)
+  s3 <- checkTerm t (ListT (sub (s1 <> s2) ty))
+  return $ s1 <> s2 <> s3
+checkTerm (MJust t) typ = do
+  ty <- inferTerm t
+  unifyTerms typ $ MaybeT ty
+checkTerm MNothing typ = do
+  ty <- freshHole
+  unifyTerms typ $ MaybeT ty
+checkTerm LTEZero typ = error "TODO"
+checkTerm (LTESucc t) typ = error "TODO"
+checkTerm FZ typ = error "TODO"
+checkTerm (FS t) typ = error "TODO"
+checkTerm VNil typ = error "TODO"
+checkTerm (VCons t1 t2) typ = error "TODO"
 
 -- | Check the type of a term, without producing a substitution.
 checkTermSelfContained :: Term -> Type -> Tc ()
@@ -83,103 +168,12 @@ checkTermSelfContained term ty = do
 checkPat :: Pat -> Type -> Tc Sub
 checkPat p = checkTerm (patToTerm p)
 
--- | Infer the type of a term through `checkTerm` with a hole.
--- Meant to be used from within `inferTerm`.
-inferByCheck :: Term -> Tc Type
-inferByCheck t = do
+-- | Infer the type of a term.
+inferTerm :: Term -> Tc Type
+inferTerm t = do
   ty <- freshHole
   s <- checkTerm t ty
   return $ sub s ty
-
--- | Infer the type of a term. TODO: merge this with `checkTerm`
-inferTerm :: Term -> Tc Type
-inferTerm (PiT v t1 t2) = do
-  s <- checkTerm t1 TyT
-  _ <- enterCtxMod (addTyping v (sub s t1)) $ inferByCheck (sub s t2)
-  return TyT
-inferTerm (SigmaT v t1 t2) = do
-  s <- checkTerm t1 TyT
-  _ <- enterCtxMod (addTyping v (sub s t1)) $ inferByCheck (sub s t2)
-  return TyT
-inferTerm TyT = return TyT
-inferTerm NatT = return TyT
-inferTerm (ListT t) = do
-  _ <- checkTerm t TyT
-  return TyT
-inferTerm (VectT t n) = do
-  _ <- checkTerm t TyT
-  _ <- checkTerm n NatT
-  return TyT
-inferTerm (FinT t) = do
-  _ <- checkTerm t NatT
-  return TyT
-inferTerm (EqT t1 t2) = do
-  ty1 <- inferByCheck t1
-  ty2 <- inferByCheck t2
-  _ <- unifyTerms ty1 ty2
-  return TyT
-inferTerm (LteT t1 t2) = do
-  _ <- checkTerm t1 NatT
-  _ <- checkTerm t2 NatT
-  return TyT
-inferTerm (MaybeT t) = do
-  _ <- checkTerm t TyT
-  return TyT
-inferTerm (V v) = do
-  withinCtx (lookupTypeOrError v)
-inferTerm (Wild _) = do
-  v <- freshHoleVar
-  return $ Hole v
-inferTerm (Lam v t) = do
-  bodyTy <- freshHole
-  varTy <- freshHole
-  let inferredTy = PiT v varTy bodyTy
-  s <- checkTerm (Lam v t) inferredTy
-  return $ sub s inferredTy
-inferTerm (Pair t1 t2) = do
-  fstTy <- freshHole
-  sndTy <- freshHole
-  let inferredTy = SigmaT (var "x") fstTy sndTy
-  s <- checkTerm (Pair t1 t2) inferredTy
-  return $ sub s inferredTy
-inferTerm (App t1 t2) = do
-  bodyTy <- freshHole
-  varTy <- inferByCheck t2
-  let v = var "x"
-  let inferredTy = PiT v varTy bodyTy
-  s <- checkTerm t1 inferredTy
-  return $ subVar v (sub s t2) (sub s bodyTy)
-inferTerm (Hole h) = throwError $ CannotInferHoleType h
-inferTerm (Global g) = do
-  decl <- inGlobalCtx (lookupDecl g)
-  case decl of
-    Nothing -> throwError $ DeclNotFound g
-    Just decl' -> return $ declTy decl'
-inferTerm (Refl t) = return $ EqT t t
-inferTerm Z = return NatT
-inferTerm (S n) = do
-  nTy <- inferByCheck n
-  _ <- unifyTerms nTy NatT
-  return NatT
-inferTerm LNil = do
-  ty <- freshHole
-  return $ ListT ty
-inferTerm (LCons h t) = do
-  ty <- inferByCheck h
-  ty' <- inferByCheck t
-  unifyToLeft (ListT ty) ty'
-inferTerm (MJust t) = do
-  ty <- inferByCheck t
-  return $ MaybeT ty
-inferTerm MNothing = do
-  ty <- freshHole
-  return $ MaybeT ty
-inferTerm LTEZero = error "TODO"
-inferTerm (LTESucc t) = error "TODO"
-inferTerm FZ = error "TODO"
-inferTerm (FS t) = error "TODO"
-inferTerm VNil = error "TODO"
-inferTerm (VCons t1 t2) = error "TODO"
 
 -- | Reduce a term to normal form (one step).
 -- If this is not possible, return Nothing.
