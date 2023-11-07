@@ -28,15 +28,15 @@ ornamentDecl (Decl name ty clauses) = (ornDecl, indexPropDecl)
 -- signature, and uses this to determine how many new variables to add to the
 -- patterns and recursive calls.
 ornamentClause :: Int -> String -> Type -> Clause -> Clause
-ornamentClause newIndices declName newRetType clause = case clause of
-  Clause pats term -> Clause (replicate newIndices WildP ++ map ornamentPat pats) (ornamentClauseTerm newIndices declName newRetType term)
+ornamentClause newIndices decl newRetType clause = case clause of
+  Clause pats term -> Clause (replicate newIndices WildP ++ map ornamentPat pats) (ornamentClauseTerm newIndices decl newRetType term)
   ImpossibleClause pats -> ImpossibleClause (replicate newIndices WildP ++ map ornamentPat pats)
 
 -- | Ornament a term that appears as part of a clause of an ornamented declaration of the given name.
 --
 -- This is a best-effort attempt to replace the original term with the ornamented term.
 ornamentClauseTerm :: Int -> String -> Type -> Term -> Term
-ornamentClauseTerm i declName newRetType term = substitutedRecTerm
+ornamentClauseTerm i decl newRetType term = substitutedRecTerm
   where
     -- First try to fix the type of the outermost term.
     typeFixedTerm = case (newRetType, term) of
@@ -49,7 +49,7 @@ ornamentClauseTerm i declName newRetType term = substitutedRecTerm
     substitutedRecTerm =
       mapTerm
         ( \t -> case t of
-            Global s | s == declName -> Just (foldl (\inner v -> App inner (Hole (var (show v)))) (Global s) [0 .. i - 1])
+            Global s | s == decl -> Just (foldl (\inner v -> App inner (Hole (var (show v)))) (Global s) [0 .. i - 1])
             _ -> Nothing
         )
         typeFixedTerm

@@ -1,4 +1,4 @@
-module Vars (var, Sub, sub, subVar, alphaRename) where
+module Vars (var, Sub (..), Subst, sub, subVar, alphaRename, noSub) where
 
 import Lang
 
@@ -9,20 +9,34 @@ var x = Var x 0
 -- | A substitution, represented as a list of variable-term pairs.
 newtype Sub = Sub [(Var, Term)]
 
--- | Apply a substitution to a term.
-sub :: Sub -> Term -> Term
-sub (Sub []) t = t
-sub (Sub ((v, t') : s)) t = sub (Sub s) (subVar v t' t)
+-- | Empty substitution.
+noSub :: Sub
+noSub = Sub []
 
--- | Substitute a variable for a term in a term.
-subVar :: Var -> Term -> Term -> Term
-subVar v t' =
-  mapTerm
-    ( \t'' -> case t'' of
-        V v' | v == v' -> Just t'
-        Hole v' | v == v' -> Just t'
-        _ -> Nothing
-    )
+instance Monoid Sub where
+  mempty = noSub
+
+instance Semigroup Sub where
+  (<>) (Sub s1) (Sub s2) = Sub (s1 ++ s2)
+
+-- | A typeclass for things that can be substituted.
+class Subst a where
+  -- | Apply a `Sub` to a term.
+  sub :: Sub -> a -> a
+  sub (Sub ((v, t') : ss)) t = sub (Sub ss) (subVar v t' t)
+  sub (Sub []) t = t
+
+  -- | Substitute a variable for a term in a term.
+  subVar :: Var -> Term -> a -> a
+
+instance Subst Term where
+  subVar v t' =
+    mapTerm
+      ( \t'' -> case t'' of
+          V v' | v == v' -> Just t'
+          Hole v' | v == v' -> Just t'
+          _ -> Nothing
+      )
 
 -- | Alpha rename a variable in a term.
 alphaRename :: Var -> Var -> Term -> Term
