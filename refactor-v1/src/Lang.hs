@@ -9,6 +9,7 @@ module Lang
     mapTerm,
     clausePats,
     piTypeToList,
+    patToTerm,
   )
 where
 
@@ -45,6 +46,25 @@ data Pat
   | LTESuccP Pat
   deriving (Eq)
 
+-- | Convert a pattern to a term
+patToTerm :: Pat -> Term
+patToTerm (VP v) = Wild (Just v)
+patToTerm WildP = Wild Nothing
+patToTerm ZP = Z
+patToTerm (SP p) = S (patToTerm p)
+patToTerm FZP = FZ
+patToTerm (FSP p) = FS (patToTerm p)
+patToTerm LNilP = LNil
+patToTerm (LConsP p1 p2) = LCons (patToTerm p1) (patToTerm p2)
+patToTerm VNilP = VNil
+patToTerm (VConsP p1 p2) = VCons (patToTerm p1) (patToTerm p2)
+patToTerm (MJustP p) = MJust (patToTerm p)
+patToTerm MNothingP = MNothing
+patToTerm (ReflP p) = Refl (patToTerm p)
+patToTerm LTEZeroP = LTEZero
+patToTerm (LTESuccP p) = LTESucc (patToTerm p)
+patToTerm (PairP p1 p2) = Pair (patToTerm p1) (patToTerm p2)
+
 -- | A term
 data Term
   = -- Dependently-typed lambda calculus with Pi and Sigma:
@@ -57,6 +77,8 @@ data Term
     TyT
   | -- | Variable
     V Var
+  | -- | Wildcard pattern term (only used to represent patterns)
+    Wild (Maybe Var)
   | -- | Global variable (declaration)
     Global String
   | -- | Hole identified by an integer
@@ -85,10 +107,10 @@ data Term
   | LTESucc Term
   deriving (Eq)
 
--- | Convert a pi type to a list of types.
-piTypeToList :: Type -> [Type]
-piTypeToList (PiT _ ty1 ty2) = ty1 : piTypeToList ty2
-piTypeToList t = [t]
+-- | Convert a pi type to a list of types and the return type.
+piTypeToList :: Type -> ([(Var, Type)], Type)
+piTypeToList (PiT v ty1 ty2) = let (tys, ty) = piTypeToList ty2 in ((v, ty1) : tys, ty)
+piTypeToList t = ([], t)
 
 -- | A declaration is a sequence of clauses, defining the equations for a function.
 data Decl = Decl {declName :: String, declTy :: Type, declClauses :: [Clause]}
@@ -114,6 +136,7 @@ mapTerm f (SigmaT v t1 t2) = SigmaT v (mapTerm f t1) (mapTerm f t2)
 mapTerm f (Pair t1 t2) = Pair (mapTerm f t1) (mapTerm f t2)
 mapTerm _ TyT = TyT
 mapTerm _ (V v) = V v
+mapTerm _ (Wild w) = Wild w
 mapTerm _ (Global s) = Global s
 mapTerm _ (Hole i) = Hole i
 mapTerm _ NatT = NatT
@@ -167,6 +190,8 @@ instance Show Term where
   show (Pair t1 t2) = "(" ++ show t1 ++ ", " ++ show t2 ++ ")"
   show TyT = "Type"
   show (V v) = show v
+  show (Wild Nothing) = "_"
+  show (Wild (Just v)) = show v
   show (Global s) = s
   show (Hole i) = "?" ++ (show i)
   show NatT = "Nat"

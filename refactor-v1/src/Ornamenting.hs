@@ -18,7 +18,7 @@ ornamentDecl (Decl name ty clauses) = (ornDecl, indexPropDecl)
         tyOrn
     tyOrnWithIndices = foldr (\v t -> PiT (var ("n" ++ show v)) NatT t) tyOrnWithProp [0 .. i - 1]
 
-    ornRetType = last (piTypeToList tyOrn)
+    (_, ornRetType) = piTypeToList tyOrn
     ornClauses = map (ornamentClause indicesAndPropLength name ornRetType) clauses
     ornDecl = Decl name tyOrnWithIndices ornClauses
 

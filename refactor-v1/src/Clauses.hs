@@ -20,8 +20,8 @@ expandDeclPat idx (Decl n ty clauses) = Decl n ty (concatMap (expandClausePat ty
 expandClausePat :: Type -> Int -> Clause -> [Clause]
 expandClausePat ty idx clause = expandedClauses
   where
-    piTypes = piTypeToList ty
-    targetType = piTypes !! idx
+    (piTypes, _) = piTypeToList ty
+    (_, targetType) = piTypes !! idx
     (targetPat, pats, term) = case clause of
       Clause ps t -> (ps !! idx, ps, Just t)
       ImpossibleClause ps -> (ps !! idx, ps, Nothing)

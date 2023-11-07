@@ -26,6 +26,7 @@ source-repository head
 library
   exposed-modules:
       Clauses
+      Context
       Lang
       Ornamenting
       Typechecking
