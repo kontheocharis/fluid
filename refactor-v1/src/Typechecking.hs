@@ -17,7 +17,7 @@ import Context
     modifyGlobalCtx,
     withinCtx,
   )
-import Control.Monad (foldM, zipWithM)
+import Control.Monad (foldM)
 import Control.Monad.Except (catchError, throwError)
 import Data.Bifunctor (second)
 import Debug.Trace (trace)
@@ -38,7 +38,7 @@ checkDecl decl = do
   -- The, add the declaration to the context.
   modifyGlobalCtx (addDecl decl)
   -- Then, check each clause.
-  mapM_ (\c -> enterCtx $ checkClause tys c) (declClauses decl)
+  mapM_ (enterCtx . checkClause tys) (declClauses decl)
 
 -- | Check a clause against a list of types which are its signature.
 checkClause :: ([(Var, Type)], Type) -> Clause -> Tc ()
