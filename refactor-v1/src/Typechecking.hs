@@ -8,7 +8,7 @@ import Context
     enterCtx,
     enterCtxMod,
     freshHole,
-    freshHoleVar,
+    freshVar,
     inCtx,
     inGlobalCtx,
     lookupDecl,
@@ -122,7 +122,7 @@ checkTerm (V v) typ = do
 checkTerm (App t1 t2) typ = do
   bodyTy <- freshHole
   varTy <- inferTerm t2
-  let v = var "x"
+  v <- freshVar
   let inferredTy = PiT v varTy bodyTy
   s <- checkTerm t1 inferredTy
   unifyTerms typ $ subVar v (sub s t2) (sub s bodyTy)
@@ -133,43 +133,43 @@ checkTerm (Global g) typ = do
     Nothing -> throwError $ DeclNotFound g
     Just decl' -> unifyTerms typ $ declTy decl'
 checkTerm (Refl t) typ = do
-  ty <- freshHoleVar
+  ty <- freshVar
   checkCtor [ty] [V ty] (EqT t t) [t] typ
 checkTerm Z typ = do
   checkCtor [] [] NatT [] typ
 checkTerm (S n) typ = do
   checkCtor [] [NatT] NatT [n] typ
 checkTerm LNil typ = do
-  ty <- freshHoleVar
+  ty <- freshVar
   checkCtor [ty] [] (ListT (V ty)) [] typ
 checkTerm (LCons h t) typ = do
-  ty <- freshHoleVar
+  ty <- freshVar
   checkCtor [ty] [V ty, ListT (V ty)] (ListT (V ty)) [h, t] typ
 checkTerm (MJust t) typ = do
-  ty <- freshHoleVar
+  ty <- freshVar
   checkCtor [ty] [V ty] (MaybeT (V ty)) [t] typ
 checkTerm MNothing typ = do
-  ty <- freshHoleVar
+  ty <- freshVar
   checkCtor [ty] [] (MaybeT (V ty)) [] typ
 checkTerm LTEZero typ = do
-  right <- freshHoleVar
+  right <- freshVar
   checkCtor [right] [] (LteT Z (V right)) [] typ
 checkTerm (LTESucc t) typ = do
-  left <- freshHoleVar
-  right <- freshHoleVar
+  left <- freshVar
+  right <- freshVar
   checkCtor [left, right] [LteT (V left) (V right)] (LteT (S (V left)) (S (V right))) [t] typ
 checkTerm FZ typ = do
-  n <- freshHoleVar
+  n <- freshVar
   checkCtor [n] [] (FinT (S (V n))) [] typ
 checkTerm (FS t) typ = do
-  n <- freshHoleVar
+  n <- freshVar
   checkCtor [n] [FinT (V n)] (FinT (S (V n))) [t] typ
 checkTerm VNil typ = do
-  ty <- freshHoleVar
+  ty <- freshVar
   checkCtor [ty] [] (VectT (V ty) Z) [] typ
 checkTerm (VCons t1 t2) typ = do
-  n <- freshHoleVar
-  ty <- freshHoleVar
+  n <- freshVar
+  ty <- freshVar
   checkCtor [n, ty] [V ty, VectT (V ty) (V n)] (VectT (V ty) (S (V n))) [t1, t2] typ
 
 -- | Check the type of a constructor.

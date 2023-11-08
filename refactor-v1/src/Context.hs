@@ -16,7 +16,7 @@ module Context
     lookupDecl,
     lookupType,
     freshHole,
-    freshHoleVar,
+    freshVar,
     modifyCtx,
     enterCtx,
     modifyGlobalCtx,
@@ -70,8 +70,8 @@ data TcState = TcState
     ctx :: Ctx,
     -- | The global context.
     globalCtx :: GlobalCtx,
-    -- | Hole counter.
-    holeCounter :: Int
+    -- | Unique variable counter.
+    varCounter :: Int
   }
 
 -- | The empty typechecking state.
@@ -149,16 +149,16 @@ addTyping v t (Ctx c) = Ctx (Typing v t : c)
 addDecl :: Decl -> GlobalCtx -> GlobalCtx
 addDecl d (GlobalCtx c) = GlobalCtx ((declName d, d) : c)
 
--- | Get a fresh hole.
-freshHoleVar :: Tc Var
-freshHoleVar = do
+-- | Get a fresh variable.
+freshVar :: Tc Var
+freshVar = do
   s <- get
-  let h = holeCounter s
-  put $ s {holeCounter = h + 1}
+  let h = varCounter s
+  put $ s {varCounter = h + 1}
   return $ Var ("h" ++ show h) h
 
 -- | Get a fresh hole.
 freshHole :: Tc Term
 freshHole = do
-  v <- freshHoleVar
+  v <- freshVar
   return $ Hole v
