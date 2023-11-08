@@ -89,18 +89,27 @@ explicitIndexDecl =
       Clause [VP (var "t"), SP (VP (var "n")), LConsP WildP (VP (var "xs"))] (App (App (App (Global "index") (V (var "t"))) (V (var "n"))) (V (var "xs")))
     ]
 
--- | Tenth step: The final dependent index function, where we assume the typechecker is able to automatically fill all impossibilities.
 explicitIndexDepDecl :: Decl
 explicitIndexDepDecl =
   Decl
-    "index"
+    "indexDep"
     (PiT (var "t") TyT (PiT (var "n") NatT (PiT (var "i") (FinT (V (var "n"))) (PiT (var "l") (VectT (V (var "t")) (V (var "n"))) (V (var "t"))))))
     [ Clause [WildP, WildP, FZP, VConsP (VP (var "x")) WildP] (V (var "x")),
-      Clause [VP (var "t"), SP (VP (var "j")), FSP (VP (var "f")), VConsP WildP (VP (var "xs"))] (App (App (App (App (Global "index") (V (var "t"))) (V (var "j"))) (V (var "f"))) (V (var "xs")))
+      Clause [VP (var "t"), SP (VP (var "j")), FSP (VP (var "f")), VConsP WildP (VP (var "xs"))] (App (App (App (App (Global "indexDep") (V (var "t"))) (V (var "j"))) (V (var "f"))) (V (var "xs")))
+    ]
+
+explicitDropDecl :: Decl
+explicitDropDecl =
+  Decl
+    "drop"
+    (PiT (var "t") TyT (PiT (var "i") NatT (PiT (var "l") (ListT (V (var "t"))) (ListT (V (var "t"))))))
+    [ Clause [WildP, ZP, VP (var "xs")] (V (var "xs")),
+      Clause [WildP, SP (VP (var "i")), LNilP] LNil,
+      Clause [VP (var "t"), SP (VP (var "i")), LConsP WildP (VP (var "xs"))] (App (App (App (Global "drop") (V (var "t"))) (V (var "i"))) (V (var "xs")))
     ]
 
 main :: IO ()
-main = checkProg $ Program [explicitIndexDepDecl]
+main = checkProg $ Program [explicitIndexDecl, explicitIndexDepDecl, explicitDropDecl]
 
 -- main = infer (App (App (Lam (var "q") (Lam (var "v") (Pair (V (var "v")) (V (var "q"))))) (S Z)) Z)
 -- main = infer (LCons (MJust Z) (LCons (MNothing) (LNil)))

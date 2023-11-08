@@ -53,18 +53,6 @@ checkClause ([], _) cl@(Clause (p : _) _) = throwError $ TooManyPatterns cl p
 checkClause ((_, t) : _, _) cl@(Clause [] _) = throwError $ TooFewPatterns cl t
 checkClause _ (ImpossibleClause _) = error "Impossible clauses not yet supported"
 
--- | Remove wildcards from a term, replacing them with fresh holes or variables
--- if possible.
-removeWildcards :: Term -> Tc Term
-removeWildcards =
-  mapTermM
-    ( \case
-        Wild Nothing -> Just <$> freshHole
-        Wild (Just x) -> do
-          return $ Just (V x)
-        _ -> return Nothing
-    )
-
 -- | Check the type of a term. (The type itself should already be checked.)
 -- This might produce a substitution.
 checkTerm :: Term -> Type -> Tc Sub
@@ -361,3 +349,15 @@ normaliseAndUnifyTerms wh l r = do
 ensureEmptySub :: Sub -> Tc ()
 ensureEmptySub (Sub []) = return ()
 ensureEmptySub (Sub xs) = throwError $ NeedMoreTypeHints (map fst xs)
+
+-- | Remove wildcards from a term, replacing them with fresh holes or variables
+-- if possible.
+removeWildcards :: Term -> Tc Term
+removeWildcards =
+  mapTermM
+    ( \case
+        Wild Nothing -> Just <$> freshHole
+        Wild (Just x) -> do
+          return $ Just (V x)
+        _ -> return Nothing
+    )
