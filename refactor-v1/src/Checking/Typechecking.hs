@@ -238,14 +238,12 @@ normaliseTermFully t = do
     Just t'' -> normaliseTermFully t''
 
 -- | Unify two terms.
-unifyTerms :: Term -> Term -> Tc Sub
-unifyTerms = unifyTermsWH []
-
--- | Unify two terms.
 -- This might produce a substitution.
 -- Unification is currently symmetric.
 --
--- This also accepts a list of holes to always unify.
+-- This also accepts a list of "weak holes" to always unify with the other side,
+-- even if the other side is a hole. TODO: There should be a cleaner way of
+-- doing this and also avoding `removeWildcards`.
 unifyTermsWH :: [Var] -> Term -> Term -> Tc Sub
 unifyTermsWH wh (PiT lv l1 l2) (PiT rv r1 r2) = do
   s1 <- unifyTermsWH wh l1 r1
@@ -330,16 +328,20 @@ unifyTermsWH wh (App l1 l2) (App r1 r2) =
     `catchError` (\_ -> normaliseAndUnifyTerms wh (App l1 l2) (App r1 r2))
 unifyTermsWH wh l r = normaliseAndUnifyTerms wh l r
 
+-- | Unify two terms.
+unifyTerms :: Term -> Term -> Tc Sub
+unifyTerms = unifyTermsWH []
+
 -- | Unify two terms, and ensure that the substitution is empty.
 unifyTermsSelfContained :: Term -> Term -> Tc ()
 unifyTermsSelfContained l r = do
-  _ <- unifyTermsWH [] l r
+  _ <- unifyTerms l r
   return ()
 
 -- | Unify two terms and return the substituted left term
 unifyToLeft :: Term -> Term -> Tc Term
 unifyToLeft l r = do
-  s <- unifyTermsWH [] l r
+  s <- unifyTerms l r
   return $ sub s l
 
 -- | Unify two terms, normalising them first.
