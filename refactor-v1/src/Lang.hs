@@ -10,7 +10,6 @@ module Lang
     mapTermM,
     clausePats,
     piTypeToList,
-    patToTerm,
   )
 where
 
@@ -48,25 +47,6 @@ data Pat
   | LTESuccP Pat
   deriving (Eq)
 
--- | Convert a pattern to a term
-patToTerm :: Pat -> Term
-patToTerm (VP v) = Wild (Just v)
-patToTerm WildP = Wild Nothing
-patToTerm ZP = Z
-patToTerm (SP p) = S (patToTerm p)
-patToTerm FZP = FZ
-patToTerm (FSP p) = FS (patToTerm p)
-patToTerm LNilP = LNil
-patToTerm (LConsP p1 p2) = LCons (patToTerm p1) (patToTerm p2)
-patToTerm VNilP = VNil
-patToTerm (VConsP p1 p2) = VCons (patToTerm p1) (patToTerm p2)
-patToTerm (MJustP p) = MJust (patToTerm p)
-patToTerm MNothingP = MNothing
-patToTerm (ReflP p) = Refl (patToTerm p)
-patToTerm LTEZeroP = LTEZero
-patToTerm (LTESuccP p) = LTESucc (patToTerm p)
-patToTerm (PairP p1 p2) = Pair (patToTerm p1) (patToTerm p2)
-
 -- | A term
 data Term
   = -- Dependently-typed lambda calculus with Pi and Sigma:
@@ -79,8 +59,6 @@ data Term
     TyT
   | -- | Variable
     V Var
-  | -- | Wildcard pattern term (only used to represent patterns)
-    Wild (Maybe Var)
   | -- | Global variable (declaration)
     Global String
   | -- | Hole identified by an integer
@@ -145,7 +123,6 @@ mapTermM f term = do
       (Pair t1 t2) -> Pair <$> mapTermM f t1 <*> mapTermM f t2
       TyT -> return TyT
       (V v) -> return $ V v
-      (Wild w) -> return $ Wild w
       (Global s) -> return $ Global s
       (Hole i) -> return $ Hole i
       NatT -> return NatT
@@ -200,8 +177,6 @@ instance Show Term where
   show (Pair t1 t2) = "(" ++ show t1 ++ ", " ++ show t2 ++ ")"
   show TyT = "Type"
   show (V v) = show v
-  show (Wild Nothing) = "_"
-  show (Wild (Just v)) = show v
   show (Global s) = s
   show (Hole i) = "?" ++ (show i)
   show NatT = "Nat"

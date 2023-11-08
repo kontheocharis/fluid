@@ -1,28 +1,31 @@
-{-# LANGUAGE LambdaCase #-}
-
 module Checking.Typechecking (checkTerm, unifyTerms, unifyToLeft, inferTerm, normaliseTermFully, checkProgram) where
 
 import Checking.Context
   ( Tc,
     TcError (..),
+    TcState (inPat),
     addDecl,
     addTyping,
     enterCtx,
     enterCtxMod,
+    enterPat,
     freshHole,
+    freshHoleVar,
     freshVar,
+    inCtx,
     inGlobalCtx,
+    inState,
+    isPatBind,
     lookupDecl,
-    lookupTypeOrError,
+    lookupType,
     modifyCtx,
     modifyGlobalCtx,
-    withinCtx,
   )
 import Checking.Vars (Sub (..), Subst (sub), alphaRename, noSub, subVar, var)
 import Control.Monad (foldM)
 import Control.Monad.Except (catchError, throwError)
 import Data.Bifunctor (second)
-import Lang (Clause (..), Decl (..), Pat (..), Program (..), Term (..), Type, Var, mapTermM, patToTerm, piTypeToList)
+import Lang (Clause (..), Decl (..), Pat (..), Program (..), Term (..), Type, Var, piTypeToList)
 
 -- | Check the program
 checkProgram :: Program -> Tc ()
@@ -45,9 +48,10 @@ checkClause :: ([(Var, Type)], Type) -> Clause -> Tc ()
 checkClause ([], t) (Clause [] r) = do
   checkTermSelfContained r t
 checkClause ((v, a) : as, t) (Clause (p : ps) r) = do
-  s <- checkPat p a
-  instantiatedPat <- removeWildcards (patToTerm p)
-  let s' = s <> Sub [(v, sub s instantiatedPat)]
+  pt <- patToTerm p
+  s <- enterPat $ checkTerm pt a
+  let instantiatedPat = sub s pt
+  let s' = s <> Sub [(v, instantiatedPat)]
   checkClause (map (second (sub s')) as, sub s' t) (Clause ps r)
 checkClause ([], _) cl@(Clause (p : _) _) = throwError $ TooManyPatterns cl p
 checkClause ((_, t) : _, _) cl@(Clause [] _) = throwError $ TooFewPatterns cl t
@@ -57,10 +61,10 @@ checkClause _ (ImpossibleClause _) = error "Impossible clauses not yet supported
 -- This might produce a substitution.
 checkTerm :: Term -> Type -> Tc Sub
 checkTerm (Lam v t) (PiT var' ty1 ty2) = do
-  enterCtxMod (addTyping v ty1) $ checkTerm t (alphaRename var' v ty2)
+  enterCtxMod (addTyping v ty1 False) $ checkTerm t (alphaRename var' v ty2)
 checkTerm (Lam v t) typ = do
   varTy <- freshHole
-  bodyTy <- enterCtxMod (addTyping v varTy) $ inferTerm t
+  bodyTy <- enterCtxMod (addTyping v varTy False) $ inferTerm t
   let inferredTy = PiT v varTy bodyTy
   s1 <- unifyTerms typ inferredTy
   s2 <- checkTerm (sub s1 (Lam v t)) (sub s1 inferredTy)
@@ -76,18 +80,13 @@ checkTerm (Pair t1 t2) typ = do
   s1 <- checkTerm (Pair t1 t2) inferredTy
   s2 <- unifyTerms typ (sub s1 inferredTy)
   return $ s1 <> s2
-checkTerm (Wild Nothing) _ = return noSub
-checkTerm (Wild (Just v)) ty = do
-  -- Add the wildcard to the context.
-  modifyCtx (addTyping v ty)
-  return noSub
 checkTerm (PiT v t1 t2) typ = do
   s <- checkTerm t1 TyT
-  _ <- enterCtxMod (addTyping v (sub s t1)) $ inferTerm (sub s t2)
+  _ <- enterCtxMod (addTyping v (sub s t1) False) $ inferTerm (sub s t2)
   unifyTerms typ TyT
 checkTerm (SigmaT v t1 t2) typ = do
   s <- checkTerm t1 TyT
-  _ <- enterCtxMod (addTyping v (sub s t1)) $ inferTerm (sub s t2)
+  _ <- enterCtxMod (addTyping v (sub s t1) False) $ inferTerm (sub s t2)
   unifyTerms typ TyT
 checkTerm TyT typ = unifyTerms typ TyT
 checkTerm NatT typ = unifyTerms typ TyT
@@ -113,16 +112,25 @@ checkTerm (LteT t1 t2) typ = do
 checkTerm (MaybeT t) typ = do
   _ <- checkTerm t TyT
   unifyTerms typ TyT
-checkTerm (V v) (Hole h) = do
-  vTyp <- withinCtx (lookupTypeOrError v)
-  return $ Sub [(h, vTyp)]
 checkTerm (V v) typ = do
-  vTyp <- withinCtx (lookupTypeOrError v)
-  unifyTerms typ vTyp
+  vTyp <- inCtx (lookupType v)
+  case vTyp of
+    Nothing -> do
+      -- If we are in a pattern, then this is a bound variable so we can add it
+      -- to the context.
+      p <- inState inPat
+      if p
+        then do
+          modifyCtx (addTyping v typ True)
+          return noSub
+        else throwError $ VariableNotFound v
+    Just vTyp' -> case typ of
+      Hole h -> return $ Sub [(h, vTyp')]
+      _ -> unifyTerms typ vTyp'
 checkTerm (App t1 t2) typ = do
   bodyTy <- freshHole
   varTy <- inferTerm t2
-  v <- freshVar
+  v <- freshHoleVar
   let inferredTy = PiT v varTy bodyTy
   s <- checkTerm t1 inferredTy
   unifyTerms typ $ subVar v (sub s t2) (sub s bodyTy)
@@ -133,43 +141,43 @@ checkTerm (Global g) typ = do
     Nothing -> throwError $ DeclNotFound g
     Just decl' -> unifyTerms typ $ declTy decl'
 checkTerm (Refl t) typ = do
-  ty <- freshVar
+  ty <- freshHoleVar
   checkCtor [ty] [V ty] (EqT t t) [t] typ
 checkTerm Z typ = do
   checkCtor [] [] NatT [] typ
 checkTerm (S n) typ = do
   checkCtor [] [NatT] NatT [n] typ
 checkTerm LNil typ = do
-  ty <- freshVar
+  ty <- freshHoleVar
   checkCtor [ty] [] (ListT (V ty)) [] typ
 checkTerm (LCons h t) typ = do
-  ty <- freshVar
+  ty <- freshHoleVar
   checkCtor [ty] [V ty, ListT (V ty)] (ListT (V ty)) [h, t] typ
 checkTerm (MJust t) typ = do
-  ty <- freshVar
+  ty <- freshHoleVar
   checkCtor [ty] [V ty] (MaybeT (V ty)) [t] typ
 checkTerm MNothing typ = do
-  ty <- freshVar
+  ty <- freshHoleVar
   checkCtor [ty] [] (MaybeT (V ty)) [] typ
 checkTerm LTEZero typ = do
-  right <- freshVar
+  right <- freshHoleVar
   checkCtor [right] [] (LteT Z (V right)) [] typ
 checkTerm (LTESucc t) typ = do
-  left <- freshVar
-  right <- freshVar
+  left <- freshHoleVar
+  right <- freshHoleVar
   checkCtor [left, right] [LteT (V left) (V right)] (LteT (S (V left)) (S (V right))) [t] typ
 checkTerm FZ typ = do
-  n <- freshVar
+  n <- freshHoleVar
   checkCtor [n] [] (FinT (S (V n))) [] typ
 checkTerm (FS t) typ = do
-  n <- freshVar
+  n <- freshHoleVar
   checkCtor [n] [FinT (V n)] (FinT (S (V n))) [t] typ
 checkTerm VNil typ = do
-  ty <- freshVar
+  ty <- freshHoleVar
   checkCtor [ty] [] (VectT (V ty) Z) [] typ
 checkTerm (VCons t1 t2) typ = do
-  n <- freshVar
-  ty <- freshVar
+  n <- freshHoleVar
+  ty <- freshHoleVar
   checkCtor [n, ty] [V ty, VectT (V ty) (V n)] (VectT (V ty) (S (V n))) [t1, t2] typ
 
 -- | Check the type of a constructor.
@@ -192,10 +200,6 @@ checkTermSelfContained :: Term -> Type -> Tc ()
 checkTermSelfContained term ty = do
   _ <- checkTerm term ty
   return ()
-
--- | Check a pattern against a type.
-checkPat :: Pat -> Type -> Tc Sub
-checkPat p = checkTerm (patToTerm p)
 
 -- | Infer the type of a term.
 inferTerm :: Term -> Tc Type
@@ -230,8 +234,7 @@ normaliseTermFully t = do
 -- Unification is currently symmetric.
 --
 -- This also accepts a list of "weak holes" to always unify with the other side,
--- even if the other side is a hole. TODO: There should be a cleaner way of
--- doing this and also avoding `removeWildcards`.
+-- even if the other side is a hole.
 unifyTermsWH :: [Var] -> Term -> Term -> Tc Sub
 unifyTermsWH wh (PiT lv l1 l2) (PiT rv r1 r2) = do
   s1 <- unifyTermsWH wh l1 r1
@@ -248,16 +251,9 @@ unifyTermsWH wh (Pair l1 l2) (Pair r1 r2) = do
   s2 <- unifyTermsWH wh l2 r2
   return $ s1 <> s2
 unifyTermsWH _ TyT TyT = return noSub
-unifyTermsWH _ (V l) (V r) =
-  if l == r
-    then return noSub
-    else throwError $ Mismatch (V l) (V r)
-unifyTermsWH wh (Global l) (Global r) =
-  if l == r
-    then return noSub
-    else normaliseAndUnifyTerms wh (Global l) (Global r)
 unifyTermsWH wh (Hole l) (Hole r)
   | l == r = return noSub
+  -- Check for weak holes before refusing to unify.
   | l `elem` wh = return $ Sub [(l, Hole r)]
   | r `elem` wh = return $ Sub [(r, Hole l)]
   | otherwise = throwError $ CannotUnifyTwoHoles l r
@@ -265,6 +261,25 @@ unifyTermsWH _ (Hole h) t = do
   return $ Sub [(h, t)]
 unifyTermsWH _ t (Hole h) = do
   return $ Sub [(h, t)]
+unifyTermsWH _ (V l) (V r) | l == r = return noSub
+unifyTermsWH _ (V v) t = do
+  -- Pattern bindings can always be unified with.
+  patBind <- inCtx (isPatBind v)
+  if patBind == Just True
+    then do
+      return $ Sub [(v, t)]
+    else throwError $ Mismatch (V v) t
+unifyTermsWH _ t (V v) = do
+  -- Pattern bindings can always be unified with.
+  patBind <- inCtx (isPatBind v)
+  if patBind == Just True
+    then do
+      return $ Sub [(v, t)]
+    else throwError $ Mismatch (V v) t
+unifyTermsWH wh (Global l) (Global r) =
+  if l == r
+    then return noSub
+    else normaliseAndUnifyTerms wh (Global l) (Global r)
 unifyTermsWH _ NatT NatT = return noSub
 unifyTermsWH wh (ListT t) (ListT r) = do
   unifyTermsWH wh t r
@@ -350,14 +365,21 @@ ensureEmptySub :: Sub -> Tc ()
 ensureEmptySub (Sub []) = return ()
 ensureEmptySub (Sub xs) = throwError $ NeedMoreTypeHints (map fst xs)
 
--- | Remove wildcards from a term, replacing them with fresh holes or variables
--- if possible.
-removeWildcards :: Term -> Tc Term
-removeWildcards =
-  mapTermM
-    ( \case
-        Wild Nothing -> Just <$> freshHole
-        Wild (Just x) -> do
-          return $ Just (V x)
-        _ -> return Nothing
-    )
+-- | Convert a pattern to a term
+patToTerm :: Pat -> Tc Term
+patToTerm (VP v) = return (V v)
+patToTerm WildP = V <$> freshVar
+patToTerm ZP = return Z
+patToTerm (SP p) = S <$> patToTerm p
+patToTerm FZP = return FZ
+patToTerm (FSP p) = FS <$> patToTerm p
+patToTerm LNilP = return LNil
+patToTerm (LConsP p1 p2) = LCons <$> patToTerm p1 <*> patToTerm p2
+patToTerm VNilP = return VNil
+patToTerm (VConsP p1 p2) = VCons <$> patToTerm p1 <*> patToTerm p2
+patToTerm (MJustP p) = MJust <$> patToTerm p
+patToTerm MNothingP = return MNothing
+patToTerm (ReflP p) = Refl <$> patToTerm p
+patToTerm LTEZeroP = return LTEZero
+patToTerm (LTESuccP p) = LTESucc <$> patToTerm p
+patToTerm (PairP p1 p2) = Pair <$> patToTerm p1 <*> patToTerm p2

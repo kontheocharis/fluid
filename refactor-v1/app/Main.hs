@@ -74,7 +74,7 @@ infer a = do
 
 checkProg :: Program -> IO ()
 checkProg p = do
-  putStrLn $ "Checking program: " ++ show p
+  putStrLn $ "Checking program:\n" ++ show p
   case runStateT (checkProgram p) emptyTcState of
     Left err -> putStrLn $ "Error: " ++ show err
     Right (_, _) -> putStrLn "Valid!"
@@ -108,13 +108,66 @@ explicitDropDecl =
       Clause [VP (var "t"), SP (VP (var "i")), LConsP WildP (VP (var "xs"))] (App (App (App (Global "drop") (V (var "t"))) (V (var "i"))) (V (var "xs")))
     ]
 
-main :: IO ()
-main = checkProg $ Program [explicitIndexDecl, explicitIndexDepDecl, explicitDropDecl]
+sym :: Decl
+sym =
+  Decl
+    "sym"
+    ( PiT
+        (var "t")
+        TyT
+        ( PiT
+            (var "x")
+            ( V (var "t")
+            )
+            ( PiT
+                (var "y")
+                (V (var "t"))
+                (PiT (var "p") (EqT (V (var "x")) (V (var "y"))) (EqT (V (var "y")) (V (var "x"))))
+            )
+        )
+    )
+    [ Clause [WildP, WildP, WildP, ReflP (VP (var "z"))] (Refl (V (var "z")))
+    ]
 
+trans :: Decl
+trans =
+  Decl
+    "trans"
+    ( PiT
+        (var "t")
+        TyT
+        ( PiT
+            (var "x")
+            ( V (var "t")
+            )
+            ( PiT
+                (var "y")
+                (V (var "t"))
+                ( PiT
+                    (var "z")
+                    (V (var "t"))
+                    ( PiT
+                        (var "p")
+                        (EqT (V (var "x")) (V (var "y")))
+                        ( PiT
+                            (var "q")
+                            (EqT (V (var "y")) (V (var "z")))
+                            ( EqT (V (var "x")) (V (var "z"))
+                            )
+                        )
+                    )
+                )
+            )
+        )
+    )
+    [Clause [WildP, WildP, WildP, WildP, ReflP (VP (var "w")), ReflP (VP (var "v"))] (Refl (V (var "v")))]
+
+main :: IO ()
+main = checkProg $ Program [explicitIndexDecl, explicitDropDecl, explicitIndexDepDecl, sym, trans]
+
+-- Some inference to try out:
 -- main = infer (App (App (Lam (var "q") (Lam (var "v") (Pair (V (var "v")) (V (var "q"))))) (S Z)) Z)
 -- main = infer (LCons (MJust Z) (LCons (MNothing) (LNil)))
-
 -- main = infer (Lam (var "q") (V (var "q")))
-
 -- main = check (FS FZ) (FinT (S (S (S Z))))
 -- main = infer (Refl Z)

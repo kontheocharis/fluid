@@ -9,13 +9,17 @@ module Checking.Context
     inGlobalCtx,
     inCtx,
     enterCtxMod,
+    inState,
     addTyping,
     addDecl,
     withinCtx,
     lookupTypeOrError,
     lookupDecl,
+    isPatBind,
+    enterPat,
     lookupType,
     freshHole,
+    freshHoleVar,
     freshVar,
     modifyCtx,
     enterCtx,
@@ -29,10 +33,15 @@ import Data.List (intercalate)
 import Lang (Clause, Decl (..), Pat, Term (..), Type, Var (..))
 
 -- | A typing judgement.
-data Judgement = Typing Var Type
+data Judgement = Typing
+  { judgementVar :: Var,
+    judgementType :: Type,
+    -- Whether this is a pattern binding.
+    judgementIsPatBind :: Bool
+  }
 
 instance Show Judgement where
-  show (Typing v ty) = show v ++ " : " ++ show ty
+  show (Typing v ty b) = show v ++ " : " ++ show ty ++ (if b then " (pat)" else "")
 
 -- | A context, represented as a list of typing judgements.
 newtype Ctx = Ctx [Judgement]
@@ -71,12 +80,14 @@ data TcState = TcState
     -- | The global context.
     globalCtx :: GlobalCtx,
     -- | Unique variable counter.
-    varCounter :: Int
+    varCounter :: Int,
+    -- | Whether we are in a pattern
+    inPat :: Bool
   }
 
 -- | The empty typechecking state.
 emptyTcState :: TcState
-emptyTcState = TcState (Ctx []) (GlobalCtx []) 0
+emptyTcState = TcState (Ctx []) (GlobalCtx []) 0 False
 
 -- | The typechecking monad.
 type Tc a = StateT TcState (Either TcError) a
@@ -95,9 +106,23 @@ withinCtx = withSomeCtx ctx
 inCtx :: (Ctx -> a) -> Tc a
 inCtx f = withSomeCtx ctx (return . f)
 
+-- | Map over the current typechecking state.
+inState :: (TcState -> a) -> Tc a
+inState f = withSomeCtx id (return . f)
+
 -- | Map over the global context.
 inGlobalCtx :: (GlobalCtx -> a) -> Tc a
 inGlobalCtx f = withSomeCtx globalCtx (return . f)
+
+-- | Enter a pattern by setting the inPat flag to True.
+enterPat :: Tc a -> Tc a
+enterPat p = do
+  s <- get
+  put $ s {inPat = True}
+  res <- p
+  s' <- get
+  put $ s' {inPat = False}
+  return res
 
 -- | Update the current context.
 enterCtxMod :: (Ctx -> Ctx) -> Tc a -> Tc a -- todo: substitute in a
@@ -106,7 +131,8 @@ enterCtxMod f op = do
   let prevCtx = ctx s
   put $ s {ctx = f prevCtx}
   res <- op
-  put $ s {ctx = prevCtx}
+  s' <- get
+  put $ s' {ctx = prevCtx}
   return res
 
 -- | Enter a new context and exit it after the operation.
@@ -128,7 +154,13 @@ modifyGlobalCtx f = do
 -- | Lookup the type of a variable in the current context.
 lookupType :: Var -> Ctx -> Maybe Type
 lookupType _ (Ctx []) = Nothing
-lookupType v (Ctx ((Typing v' ty) : c)) = if v == v' then Just ty else lookupType v (Ctx c)
+lookupType v (Ctx ((Typing v' ty _) : c)) = if v == v' then Just ty else lookupType v (Ctx c)
+
+-- | Lookup the type of a variable in the current context.
+isPatBind :: Var -> Ctx -> Maybe Bool
+isPatBind _ (Ctx []) = Nothing
+isPatBind v (Ctx ((Typing v' _ b) : _)) | v' == v = Just b
+isPatBind v (Ctx ((Typing {}) : c)) = isPatBind v (Ctx c)
 
 -- | Lookup the type of a variable in the current context.
 lookupTypeOrError :: Var -> Ctx -> Tc Type
@@ -142,8 +174,8 @@ lookupDecl _ (GlobalCtx []) = Nothing
 lookupDecl s (GlobalCtx ((s', d) : c)) = if s == s' then Just d else lookupDecl s (GlobalCtx c)
 
 -- | Add a variable to the current context.
-addTyping :: Var -> Type -> Ctx -> Ctx
-addTyping v t (Ctx c) = Ctx (Typing v t : c)
+addTyping :: Var -> Type -> Bool -> Ctx -> Ctx
+addTyping v t b (Ctx c) = Ctx (Typing v t b : c)
 
 -- | Add a declaration to the global context.
 addDecl :: Decl -> GlobalCtx -> GlobalCtx
@@ -155,10 +187,16 @@ freshVar = do
   s <- get
   let h = varCounter s
   put $ s {varCounter = h + 1}
+  return $ Var ("v" ++ show h) h
+
+-- | Get a fresh variable.
+freshHoleVar :: Tc Var
+freshHoleVar = do
+  s <- get
+  let h = varCounter s
+  put $ s {varCounter = h + 1}
   return $ Var ("h" ++ show h) h
 
 -- | Get a fresh hole.
 freshHole :: Tc Term
-freshHole = do
-  v <- freshVar
-  return $ Hole v
+freshHole = Hole <$> freshHoleVar
