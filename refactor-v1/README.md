@@ -6,6 +6,7 @@ This repository contains a small dependently-typed language with some basic data
 such as `Vect`, `Nat`, `Fin`, and `Maybe`, in `src/Lang`.
 
 The type checking implementation for this can be found in `src/Checking`.
+It is a bi-directional type checking implementation with inference, holes, and pattern unification.
 
 It also contains some basic refactoring transformations, such as ornamenting declarations and
 expanding patterns in clauses. These can be found in `src/Refactoring.`
