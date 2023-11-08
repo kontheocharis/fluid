@@ -1,14 +1,14 @@
 module Main (main) where
 
-import Clauses (expandDeclFully)
-import Context (emptyTcState)
+import Checking.Context (emptyTcState)
+import Checking.Typechecking (checkProgram, checkTerm, inferTerm, normaliseTermFully, unifyToLeft)
+import Checking.Vars (var)
 import Control.Monad.State (StateT (runStateT))
 import Examples.Drop (dropDecl)
 import Examples.Index (indexDecl)
 import Lang (Clause (..), Decl (Decl), Pat (..), Program (..), Term (..), Type)
-import Ornamenting (ornamentDecl)
-import Typechecking (checkProgram, checkTerm, inferTerm, normaliseTermFully, unifyToLeft)
-import Vars (var)
+import Refactoring.Clauses (expandDeclFully)
+import Refactoring.Ornamenting (ornamentDecl)
 
 testProgram :: Program
 testProgram = ret

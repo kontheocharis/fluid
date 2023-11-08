@@ -1,5 +1,6 @@
 module Examples.DropRefact where
 
+import Checking.Vars (subVar, var)
 import Lang
   ( Clause (..),
     Decl (..),
@@ -8,7 +9,6 @@ import Lang
     Term (..),
     Type,
   )
-import Vars (subVar, var)
 
 -- | The non-dependent drop function.
 dropDecl :: Decl

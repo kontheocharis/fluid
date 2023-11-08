@@ -1,4 +1,4 @@
-module Context
+module Checking.Context
   ( Judgement (..),
     Ctx (..),
     GlobalCtx (..),

@@ -1,7 +1,7 @@
-module Ornamenting (ornamentDecl, ornamentType) where
+module Refactoring.Ornamenting (ornamentDecl, ornamentType) where
 
+import Checking.Vars (var)
 import Lang (Clause (..), Decl (..), Pat (..), Term (..), Type, Var (..), mapTerm, piTypeToList)
-import Vars (var)
 
 -- | Ornament a declaration.
 ornamentDecl :: Decl -> (Decl, Decl)

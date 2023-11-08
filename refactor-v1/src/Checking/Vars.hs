@@ -1,4 +1,4 @@
-module Vars (var, Sub (..), Subst, sub, subVar, alphaRename, noSub) where
+module Checking.Vars (var, Sub (..), Subst, sub, subVar, alphaRename, noSub) where
 
 import Data.List (intercalate)
 import Lang

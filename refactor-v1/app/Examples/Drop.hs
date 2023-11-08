@@ -1,7 +1,7 @@
 module Examples.Drop (dropDecl) where
 
+import Checking.Vars (var)
 import Lang (Clause (..), Decl (..), Pat (..), Term (..))
-import Vars (var)
 
 -- | The non-dependent drop function.
 dropDecl :: Decl

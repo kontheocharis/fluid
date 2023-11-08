@@ -1,6 +1,6 @@
-module Typechecking (unifyTerms, checkTerm, unifyToLeft, inferTerm, normaliseTermFully, checkProgram) where
+module Checking.Typechecking (unifyTerms, checkTerm, unifyToLeft, inferTerm, normaliseTermFully, checkProgram) where
 
-import Context
+import Checking.Context
   ( Tc,
     TcError (..),
     addDecl,
@@ -17,12 +17,12 @@ import Context
     modifyGlobalCtx,
     withinCtx,
   )
+import Checking.Vars (Sub (..), Subst (sub), alphaRename, noSub, subVar, var)
 import Control.Monad (foldM)
 import Control.Monad.Except (catchError, throwError)
 import Data.Bifunctor (second)
 import Debug.Trace (trace)
 import Lang (Clause (..), Decl (..), Pat (..), Program (..), Term (..), Type, Var, patToTerm, piTypeToList)
-import Vars (Sub (..), Subst (sub), alphaRename, noSub, subVar, var)
 
 -- | Check the program
 checkProgram :: Program -> Tc ()

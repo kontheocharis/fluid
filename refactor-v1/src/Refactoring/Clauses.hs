@@ -1,4 +1,4 @@
-module Clauses (expandDeclPat, expandDeclFully) where
+module Refactoring.Clauses (expandDeclPat, expandDeclFully) where
 
 import Lang (Clause (..), Decl (..), Pat (..), Term (..), Type, piTypeToList)
 
