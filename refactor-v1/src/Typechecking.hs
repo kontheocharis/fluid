@@ -8,6 +8,7 @@ import Context
     enterCtx,
     enterCtxMod,
     freshHole,
+    freshHoleVar,
     inCtx,
     inGlobalCtx,
     lookupDecl,
@@ -16,6 +17,7 @@ import Context
     modifyGlobalCtx,
     withinCtx,
   )
+import Control.Monad (foldM, zipWithM)
 import Control.Monad.Except (catchError, throwError)
 import Data.Bifunctor (second)
 import Debug.Trace (trace)
@@ -130,33 +132,60 @@ checkTerm (Global g) typ = do
   case decl of
     Nothing -> throwError $ DeclNotFound g
     Just decl' -> unifyTerms typ $ declTy decl'
-checkTerm (Refl t) typ = unifyTerms typ $ EqT t t
-checkTerm Z typ = unifyTerms typ NatT
+checkTerm (Refl t) typ = do
+  ty <- freshHoleVar
+  checkCtor [ty] [V ty] (EqT t t) [t] typ
+checkTerm Z typ = do
+  checkCtor [] [] NatT [] typ
 checkTerm (S n) typ = do
-  nTy <- inferTerm n
-  _ <- unifyTerms nTy NatT
-  unifyTerms typ NatT
+  checkCtor [] [NatT] NatT [n] typ
 checkTerm LNil typ = do
-  ty <- freshHole
-  unifyTerms typ (ListT ty)
+  ty <- freshHoleVar
+  checkCtor [ty] [] (ListT (V ty)) [] typ
 checkTerm (LCons h t) typ = do
-  ty <- freshHole
-  s1 <- unifyTerms typ (ListT ty)
-  s2 <- checkTerm h (sub s1 ty)
-  s3 <- checkTerm t (ListT (sub (s1 <> s2) ty))
-  return $ s1 <> s2 <> s3
+  ty <- freshHoleVar
+  checkCtor [ty] [V ty, ListT (V ty)] (ListT (V ty)) [h, t] typ
 checkTerm (MJust t) typ = do
-  ty <- inferTerm t
-  unifyTerms typ $ MaybeT ty
+  ty <- freshHoleVar
+  checkCtor [ty] [V ty] (MaybeT (V ty)) [t] typ
 checkTerm MNothing typ = do
-  ty <- freshHole
-  unifyTerms typ $ MaybeT ty
-checkTerm LTEZero typ = error "TODO"
-checkTerm (LTESucc t) typ = error "TODO"
-checkTerm FZ typ = error "TODO"
-checkTerm (FS t) typ = error "TODO"
-checkTerm VNil typ = error "TODO"
-checkTerm (VCons t1 t2) typ = error "TODO"
+  ty <- freshHoleVar
+  checkCtor [ty] [] (MaybeT (V ty)) [] typ
+checkTerm LTEZero typ = do
+  right <- freshHoleVar
+  checkCtor [right] [] (LteT Z (V right)) [] typ
+checkTerm (LTESucc t) typ = do
+  left <- freshHoleVar
+  right <- freshHoleVar
+  checkCtor [left, right] [LteT (V left) (V right)] (LteT (S (V left)) (S (V right))) [t] typ
+checkTerm FZ typ = do
+  n <- freshHoleVar
+  checkCtor [n] [] (FinT (S (V n))) [] typ
+checkTerm (FS t) typ = do
+  n <- freshHoleVar
+  checkCtor [n] [FinT (V n)] (FinT (S (V n))) [t] typ
+checkTerm VNil typ = do
+  ty <- freshHoleVar
+  checkCtor [ty] [] (VectT (V ty) Z) [] typ
+checkTerm (VCons t1 t2) typ = do
+  n <- freshHoleVar
+  ty <- freshHoleVar
+  checkCtor [n, ty] [V ty, VectT (V ty) (V n)] (VectT (V ty) (S (V n))) [t1, t2] typ
+
+-- | Check the type of a constructor.
+checkCtor :: [Var] -> [Type] -> Type -> [Term] -> Type -> Tc Sub
+checkCtor implicitVars ctorParams ctorRet ctorArgs annotType = do
+  let implicitVarHoles = map Hole implicitVars
+  let implicitVarSub = Sub $ zip implicitVars implicitVarHoles
+  let instantiatedCtorRet = sub implicitVarSub ctorRet
+  retSub <- unifyTerms annotType instantiatedCtorRet
+  foldM
+    ( \ss (ty, arg) -> do
+        s <- checkTerm arg (sub ss ty)
+        return $ ss <> s
+    )
+    (implicitVarSub <> retSub)
+    (zip ctorParams ctorArgs)
 
 -- | Check the type of a term, without producing a substitution.
 checkTermSelfContained :: Term -> Type -> Tc ()

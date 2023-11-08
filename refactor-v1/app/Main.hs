@@ -93,7 +93,9 @@ main :: IO ()
 -- main = checkProg $ Program [explicitIndexDecl]
 
 -- main = infer (App (App (Lam (var "q") (Lam (var "v") (Pair (V (var "v")) (V (var "q"))))) (S Z)) Z)
-
-main = infer (LCons Z (LCons (S Z) LNil))
+-- main = infer (LCons (MJust Z) (LCons (MNothing) (LNil)))
 
 -- main = infer (Lam (var "q") (V (var "q")))
+
+-- main = check (FS FZ) (FinT (S (S (S Z))))
+main = infer (Refl Z)
