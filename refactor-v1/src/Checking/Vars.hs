@@ -21,6 +21,7 @@ instance Monoid Sub where
   mempty = noSub
 
 instance Semigroup Sub where
+  -- This is not a particularly smart way to do this, but it works.
   (<>) (Sub s1) (Sub s2) = Sub (as ++ bs)
     where
       Sub as = sub (Sub s1) (Sub s2)
