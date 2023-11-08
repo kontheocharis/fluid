@@ -76,7 +76,8 @@ checkTerm (Pair t1 t2) (SigmaT v ty1 ty2) = do
 checkTerm (Pair t1 t2) typ = do
   fstTy <- freshHole
   sndTy <- freshHole
-  let inferredTy = SigmaT (var "x") fstTy sndTy
+  v <- freshVar
+  let inferredTy = SigmaT v fstTy sndTy
   s1 <- checkTerm (Pair t1 t2) inferredTy
   s2 <- unifyTerms typ (sub s1 inferredTy)
   return $ s1 <> s2

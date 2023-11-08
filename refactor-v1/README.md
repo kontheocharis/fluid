@@ -11,11 +11,19 @@ It is a bi-directional type checking implementation with inference, holes, and p
 It also contains some basic refactoring transformations, such as ornamenting declarations and
 expanding patterns in clauses. These can be found in `src/Refactoring.`
 
+## General TODO
+
+- Write a small parser & REPL
+
 ## Type-checking TODO
 
 - Handle reducing declarations during normalisation
 - Add support for implicit (type?) arguments
-- Add unit and void types
-- Handle impossible patterns
+- Add unit and void types (or use Fin Z)
+- Handle impossible patterns in TC
 - Implement a pattern exhaustiveness/totality check
-- Find a convenient way to query the type of some language node, to be used for type-aware transformations.
+- Find a convenient way to query the type of some language node (including holes), to be used for type-aware transformations.
+
+## Refactoring TODO
+
+- Switch an argument to be implicit/explicit (type-directed).

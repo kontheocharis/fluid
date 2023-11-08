@@ -173,7 +173,7 @@ instance Show Term where
   show (PiT v t1 t2) = "(" ++ show v ++ " : " ++ show t1 ++ ") -> " ++ show t2
   show (Lam v t) = "(\\" ++ show v ++ " -> " ++ show t ++ ")"
   show (App t1 t2) = "(" ++ show t1 ++ " " ++ show t2 ++ ")"
-  show (SigmaT v t1 t2) = "(" ++ show v ++ " : " ++ show t1 ++ ") * " ++ show t2
+  show (SigmaT v t1 t2) = "(" ++ show v ++ " : " ++ show t1 ++ ") ** " ++ show t2
   show (Pair t1 t2) = "(" ++ show t1 ++ ", " ++ show t2 ++ ")"
   show TyT = "Type"
   show (V v) = show v

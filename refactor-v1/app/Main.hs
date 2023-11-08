@@ -167,7 +167,10 @@ main = checkProg $ Program [explicitIndexDecl, explicitDropDecl, explicitIndexDe
 
 -- Some inference to try out:
 -- main = infer (App (App (Lam (var "q") (Lam (var "v") (Pair (V (var "v")) (V (var "q"))))) (S Z)) Z)
+
 -- main = infer (LCons (MJust Z) (LCons (MNothing) (LNil)))
 -- main = infer (Lam (var "q") (V (var "q")))
 -- main = check (FS FZ) (FinT (S (S (S Z))))
+-- main = check (Pair (S (S Z)) (FS FZ)) (SigmaT (var "x") NatT (FinT (V (var "x"))))
+
 -- main = infer (Refl Z)
