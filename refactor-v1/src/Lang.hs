@@ -7,12 +7,14 @@ module Lang
     Program (..),
     Clause (..),
     mapTerm,
+    mapTermM,
     clausePats,
     piTypeToList,
     patToTerm,
   )
 where
 
+import Control.Monad.Identity (runIdentity)
 import Data.List (intercalate)
 
 -- | Type alias for terms that are expected to be types (just for documentation purposes).
@@ -128,37 +130,45 @@ newtype Program = Program [Decl]
 
 -- | Apply a function to a term, if it is a Just, otherwise return the term.
 mapTerm :: (Term -> Maybe Term) -> Term -> Term
-mapTerm f t | Just t' <- f t = t'
-mapTerm f (PiT v t1 t2) = PiT v (mapTerm f t1) (mapTerm f t2)
-mapTerm f (Lam v t) = Lam v (mapTerm f t)
-mapTerm f (App t1 t2) = App (mapTerm f t1) (mapTerm f t2)
-mapTerm f (SigmaT v t1 t2) = SigmaT v (mapTerm f t1) (mapTerm f t2)
-mapTerm f (Pair t1 t2) = Pair (mapTerm f t1) (mapTerm f t2)
-mapTerm _ TyT = TyT
-mapTerm _ (V v) = V v
-mapTerm _ (Wild w) = Wild w
-mapTerm _ (Global s) = Global s
-mapTerm _ (Hole i) = Hole i
-mapTerm _ NatT = NatT
-mapTerm f (ListT t) = ListT (mapTerm f t)
-mapTerm f (MaybeT t) = MaybeT (mapTerm f t)
-mapTerm f (VectT t n) = VectT (mapTerm f t) (mapTerm f n)
-mapTerm f (FinT t) = FinT (mapTerm f t)
-mapTerm f (EqT t1 t2) = EqT (mapTerm f t1) (mapTerm f t2)
-mapTerm f (LteT t1 t2) = LteT (mapTerm f t1) (mapTerm f t2)
-mapTerm _ FZ = FZ
-mapTerm f (FS t) = FS (mapTerm f t)
-mapTerm _ Z = Z
-mapTerm f (S t) = S (mapTerm f t)
-mapTerm _ LNil = LNil
-mapTerm f (LCons t1 t2) = LCons (mapTerm f t1) (mapTerm f t2)
-mapTerm _ VNil = VNil
-mapTerm f (VCons t1 t2) = VCons (mapTerm f t1) (mapTerm f t2)
-mapTerm f (MJust t) = MJust (mapTerm f t)
-mapTerm _ MNothing = MNothing
-mapTerm f (Refl t) = Refl (mapTerm f t)
-mapTerm _ LTEZero = LTEZero
-mapTerm f (LTESucc t) = LTESucc (mapTerm f t)
+mapTerm f term = runIdentity $ mapTermM (return . f) term
+
+-- | Apply a function to a term, if it is a Just, otherwise return the term (monadic).
+mapTermM :: (Monad m) => (Term -> m (Maybe Term)) -> Term -> m Term
+mapTermM f term = do
+  term' <- f term
+  case term' of
+    Nothing -> case term of
+      (PiT v t1 t2) -> PiT v <$> mapTermM f t1 <*> mapTermM f t2
+      (Lam v t) -> Lam v <$> mapTermM f t
+      (App t1 t2) -> App <$> mapTermM f t1 <*> mapTermM f t2
+      (SigmaT v t1 t2) -> SigmaT v <$> mapTermM f t1 <*> mapTermM f t2
+      (Pair t1 t2) -> Pair <$> mapTermM f t1 <*> mapTermM f t2
+      TyT -> return TyT
+      (V v) -> return $ V v
+      (Wild w) -> return $ Wild w
+      (Global s) -> return $ Global s
+      (Hole i) -> return $ Hole i
+      NatT -> return NatT
+      (ListT t) -> ListT <$> mapTermM f t
+      (MaybeT t) -> MaybeT <$> mapTermM f t
+      (VectT t n) -> VectT <$> mapTermM f t <*> mapTermM f n
+      (FinT t) -> FinT <$> mapTermM f t
+      (EqT t1 t2) -> EqT <$> mapTermM f t1 <*> mapTermM f t2
+      (LteT t1 t2) -> LteT <$> mapTermM f t1 <*> mapTermM f t2
+      FZ -> return FZ
+      (FS t) -> FS <$> mapTermM f t
+      Z -> return Z
+      (S t) -> S <$> mapTermM f t
+      LNil -> return LNil
+      (LCons t1 t2) -> LCons <$> mapTermM f t1 <*> mapTermM f t2
+      VNil -> return VNil
+      (VCons t1 t2) -> VCons <$> mapTermM f t1 <*> mapTermM f t2
+      (MJust t) -> MJust <$> mapTermM f t
+      MNothing -> return MNothing
+      (Refl t) -> Refl <$> mapTermM f t
+      LTEZero -> return LTEZero
+      (LTESucc t) -> LTESucc <$> mapTermM f t
+    Just t' -> return t'
 
 -- Show instances for pretty printing:
 instance Show Var where

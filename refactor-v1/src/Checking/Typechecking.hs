@@ -1,4 +1,6 @@
-module Checking.Typechecking (unifyTerms, checkTerm, unifyToLeft, inferTerm, normaliseTermFully, checkProgram) where
+{-# LANGUAGE LambdaCase #-}
+
+module Checking.Typechecking (checkTerm, unifyTerms, unifyToLeft, inferTerm, normaliseTermFully, checkProgram) where
 
 import Checking.Context
   ( Tc,
@@ -9,7 +11,6 @@ import Checking.Context
     enterCtxMod,
     freshHole,
     freshVar,
-    inCtx,
     inGlobalCtx,
     lookupDecl,
     lookupTypeOrError,
@@ -21,8 +22,7 @@ import Checking.Vars (Sub (..), Subst (sub), alphaRename, noSub, subVar, var)
 import Control.Monad (foldM)
 import Control.Monad.Except (catchError, throwError)
 import Data.Bifunctor (second)
-import Debug.Trace (trace)
-import Lang (Clause (..), Decl (..), Pat (..), Program (..), Term (..), Type, Var, patToTerm, piTypeToList)
+import Lang (Clause (..), Decl (..), Pat (..), Program (..), Term (..), Type, Var, mapTermM, patToTerm, piTypeToList)
 
 -- | Check the program
 checkProgram :: Program -> Tc ()
@@ -43,15 +43,27 @@ checkDecl decl = do
 -- | Check a clause against a list of types which are its signature.
 checkClause :: ([(Var, Type)], Type) -> Clause -> Tc ()
 checkClause ([], t) (Clause [] r) = do
-  c <- inCtx id
-  trace (show ("___", c)) $ checkTermSelfContained r t
+  checkTermSelfContained r t
 checkClause ((v, a) : as, t) (Clause (p : ps) r) = do
   s <- checkPat p a
-  let s' = s <> Sub [(v, sub s (patToTerm p))]
+  instantiatedPat <- removeWildcards (patToTerm p)
+  let s' = s <> Sub [(v, sub s instantiatedPat)]
   checkClause (map (second (sub s')) as, sub s' t) (Clause ps r)
 checkClause ([], _) cl@(Clause (p : _) _) = throwError $ TooManyPatterns cl p
 checkClause ((_, t) : _, _) cl@(Clause [] _) = throwError $ TooFewPatterns cl t
 checkClause _ (ImpossibleClause _) = error "Impossible clauses not yet supported"
+
+-- | Remove wildcards from a term, replacing them with fresh holes or variables
+-- if possible.
+removeWildcards :: Term -> Tc Term
+removeWildcards =
+  mapTermM
+    ( \case
+        Wild Nothing -> Just <$> freshHole
+        Wild (Just x) -> do
+          return $ Just (V x)
+        _ -> return Nothing
+    )
 
 -- | Check the type of a term. (The type itself should already be checked.)
 -- This might produce a substitution.
@@ -178,7 +190,7 @@ checkCtor implicitVars ctorParams ctorRet ctorArgs annotType = do
   let implicitVarHoles = map Hole implicitVars
   let implicitVarSub = Sub $ zip implicitVars implicitVarHoles
   let instantiatedCtorRet = sub implicitVarSub ctorRet
-  retSub <- unifyTerms annotType instantiatedCtorRet
+  retSub <- unifyTermsWH implicitVars annotType instantiatedCtorRet
   foldM
     ( \ss (ty, arg) -> do
         s <- checkTerm arg (sub ss ty)
@@ -226,115 +238,122 @@ normaliseTermFully t = do
     Just t'' -> normaliseTermFully t''
 
 -- | Unify two terms.
+unifyTerms :: Term -> Term -> Tc Sub
+unifyTerms = unifyTermsWH []
+
+-- | Unify two terms.
 -- This might produce a substitution.
 -- Unification is currently symmetric.
-unifyTerms :: Term -> Term -> Tc Sub
-unifyTerms (PiT lv l1 l2) (PiT rv r1 r2) = do
-  s1 <- unifyTerms l1 r1
-  s2 <- unifyTerms l2 (alphaRename rv lv r2)
+--
+-- This also accepts a list of holes to always unify.
+unifyTermsWH :: [Var] -> Term -> Term -> Tc Sub
+unifyTermsWH wh (PiT lv l1 l2) (PiT rv r1 r2) = do
+  s1 <- unifyTermsWH wh l1 r1
+  s2 <- unifyTermsWH wh l2 (alphaRename rv lv r2)
   return $ s1 <> s2
-unifyTerms (SigmaT lv l1 l2) (SigmaT rv r1 r2) = do
-  s1 <- unifyTerms l1 r1
-  s2 <- unifyTerms l2 (alphaRename rv lv r2)
+unifyTermsWH wh (SigmaT lv l1 l2) (SigmaT rv r1 r2) = do
+  s1 <- unifyTermsWH wh l1 r1
+  s2 <- unifyTermsWH wh l2 (alphaRename rv lv r2)
   return $ s1 <> s2
-unifyTerms (Lam lv l) (Lam rv r) = do
-  unifyTerms l (alphaRename rv lv r)
-unifyTerms (Pair l1 l2) (Pair r1 r2) = do
-  s1 <- unifyTerms l1 r1
-  s2 <- unifyTerms l2 r2
+unifyTermsWH wh (Lam lv l) (Lam rv r) = do
+  unifyTermsWH wh l (alphaRename rv lv r)
+unifyTermsWH wh (Pair l1 l2) (Pair r1 r2) = do
+  s1 <- unifyTermsWH wh l1 r1
+  s2 <- unifyTermsWH wh l2 r2
   return $ s1 <> s2
-unifyTerms TyT TyT = return noSub
-unifyTerms (V l) (V r) =
+unifyTermsWH _ TyT TyT = return noSub
+unifyTermsWH _ (V l) (V r) =
   if l == r
     then return noSub
     else throwError $ Mismatch (V l) (V r)
-unifyTerms (Global l) (Global r) =
+unifyTermsWH wh (Global l) (Global r) =
   if l == r
     then return noSub
-    else normaliseAndUnifyTerms (Global l) (Global r)
-unifyTerms (Hole l) (Hole r) =
-  if l == r
-    then return noSub
-    else throwError $ CannotUnifyTwoHoles l r
-unifyTerms NatT NatT = return noSub
-unifyTerms (ListT t) (ListT r) = do
-  unifyTerms t r
-unifyTerms (MaybeT t) (MaybeT r) = do
-  unifyTerms t r
-unifyTerms (VectT lt ln) (VectT rt rn) = do
-  s1 <- unifyTerms lt rt
-  s2 <- unifyTerms ln rn
-  return $ s1 <> s2
-unifyTerms (FinT l) (FinT r) = do
-  unifyTerms l r
-unifyTerms (EqT l1 l2) (EqT r1 r2) = do
-  s1 <- unifyTerms l1 r1
-  s2 <- unifyTerms l2 r2
-  return $ s1 <> s2
-unifyTerms (LteT l1 l2) (LteT r1 r2) = do
-  s1 <- unifyTerms l1 r1
-  s2 <- unifyTerms l2 r2
-  return $ s1 <> s2
-unifyTerms FZ FZ = return noSub
-unifyTerms (FS l) (FS r) = do
-  unifyTerms l r
-unifyTerms Z Z = return noSub
-unifyTerms (S l) (S r) = do
-  unifyTerms l r
-unifyTerms LNil LNil = return noSub
-unifyTerms (LCons l1 l2) (LCons r1 r2) = do
-  s1 <- unifyTerms l1 r1
-  s2 <- unifyTerms l2 r2
-  return $ s1 <> s2
-unifyTerms VNil VNil = return noSub
-unifyTerms (VCons l1 l2) (VCons r1 r2) = do
-  s1 <- unifyTerms l1 r1
-  s2 <- unifyTerms l2 r2
-  return $ s1 <> s2
-unifyTerms (MJust l) (MJust r) = do
-  unifyTerms l r
-unifyTerms MNothing MNothing = return noSub
-unifyTerms (Refl l) (Refl r) = do
-  unifyTerms l r
-unifyTerms LTEZero LTEZero = return noSub
-unifyTerms (LTESucc l) (LTESucc r) = do
-  unifyTerms l r
-unifyTerms (Hole h) t = do
+    else normaliseAndUnifyTerms wh (Global l) (Global r)
+unifyTermsWH wh (Hole l) (Hole r)
+  | l == r = return noSub
+  | l `elem` wh = return $ Sub [(l, Hole r)]
+  | r `elem` wh = return $ Sub [(r, Hole l)]
+  | otherwise = throwError $ CannotUnifyTwoHoles l r
+unifyTermsWH _ (Hole h) t = do
   return $ Sub [(h, t)]
-unifyTerms t (Hole h) = do
+unifyTermsWH _ t (Hole h) = do
   return $ Sub [(h, t)]
-unifyTerms (App l1 l2) (App r1 r2) =
+unifyTermsWH _ NatT NatT = return noSub
+unifyTermsWH wh (ListT t) (ListT r) = do
+  unifyTermsWH wh t r
+unifyTermsWH wh (MaybeT t) (MaybeT r) = do
+  unifyTermsWH wh t r
+unifyTermsWH wh (VectT lt ln) (VectT rt rn) = do
+  s1 <- unifyTermsWH wh lt rt
+  s2 <- unifyTermsWH wh ln rn
+  return $ s1 <> s2
+unifyTermsWH wh (FinT l) (FinT r) = do
+  unifyTermsWH wh l r
+unifyTermsWH wh (EqT l1 l2) (EqT r1 r2) = do
+  s1 <- unifyTermsWH wh l1 r1
+  s2 <- unifyTermsWH wh l2 r2
+  return $ s1 <> s2
+unifyTermsWH wh (LteT l1 l2) (LteT r1 r2) = do
+  s1 <- unifyTermsWH wh l1 r1
+  s2 <- unifyTermsWH wh l2 r2
+  return $ s1 <> s2
+unifyTermsWH _ FZ FZ = return noSub
+unifyTermsWH wh (FS l) (FS r) = do
+  unifyTermsWH wh l r
+unifyTermsWH _ Z Z = return noSub
+unifyTermsWH wh (S l) (S r) = do
+  unifyTermsWH wh l r
+unifyTermsWH _ LNil LNil = return noSub
+unifyTermsWH wh (LCons l1 l2) (LCons r1 r2) = do
+  s1 <- unifyTermsWH wh l1 r1
+  s2 <- unifyTermsWH wh l2 r2
+  return $ s1 <> s2
+unifyTermsWH _ VNil VNil = return noSub
+unifyTermsWH wh (VCons l1 l2) (VCons r1 r2) = do
+  s1 <- unifyTermsWH wh l1 r1
+  s2 <- unifyTermsWH wh l2 r2
+  return $ s1 <> s2
+unifyTermsWH wh (MJust l) (MJust r) = do
+  unifyTermsWH wh l r
+unifyTermsWH _ MNothing MNothing = return noSub
+unifyTermsWH wh (Refl l) (Refl r) = do
+  unifyTermsWH wh l r
+unifyTermsWH _ LTEZero LTEZero = return noSub
+unifyTermsWH wh (LTESucc l) (LTESucc r) = do
+  unifyTermsWH wh l r
+unifyTermsWH wh (App l1 l2) (App r1 r2) =
   do
-    s1 <- unifyTerms l1 r1
-    s2 <- unifyTerms l2 r2
+    s1 <- unifyTermsWH wh l1 r1
+    s2 <- unifyTermsWH wh l2 r2
     return $ s1 <> s2
-    `catchError` (\_ -> normaliseAndUnifyTerms (App l1 l2) (App r1 r2))
-unifyTerms l r = normaliseAndUnifyTerms l r
+    `catchError` (\_ -> normaliseAndUnifyTerms wh (App l1 l2) (App r1 r2))
+unifyTermsWH wh l r = normaliseAndUnifyTerms wh l r
 
 -- | Unify two terms, and ensure that the substitution is empty.
 unifyTermsSelfContained :: Term -> Term -> Tc ()
 unifyTermsSelfContained l r = do
-  _ <- unifyTerms l r
+  _ <- unifyTermsWH [] l r
   return ()
 
 -- | Unify two terms and return the substituted left term
 unifyToLeft :: Term -> Term -> Tc Term
 unifyToLeft l r = do
-  s <- unifyTerms l r
+  s <- unifyTermsWH [] l r
   return $ sub s l
 
 -- | Unify two terms, normalising them first.
-normaliseAndUnifyTerms :: Term -> Term -> Tc Sub
-normaliseAndUnifyTerms l r = do
+normaliseAndUnifyTerms :: [Var] -> Term -> Term -> Tc Sub
+normaliseAndUnifyTerms wh l r = do
   l' <- normaliseTerm l
   case l' of
     Nothing -> do
       r' <- normaliseTerm r
       case r' of
         Nothing -> throwError $ Mismatch l r
-        Just r'' -> unifyTerms l r''
+        Just r'' -> unifyTermsWH wh l r''
     Just l'' -> do
-      unifyTerms l'' r
+      unifyTermsWH wh l'' r
 
 -- | Ensure that a substitution is empty.
 ensureEmptySub :: Sub -> Tc ()

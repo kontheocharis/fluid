@@ -24,8 +24,8 @@ instance Semigroup Sub where
   -- This is not a particularly smart way to do this, but it works.
   (<>) (Sub s1) (Sub s2) = Sub (as ++ bs)
     where
-      Sub as = sub (Sub s1) (Sub s2)
-      Sub bs = sub (Sub s2) (Sub s1)
+      Sub as = sub (Sub s2) (Sub s1)
+      Sub bs = sub (Sub s1) (Sub s2)
 
 -- | A typeclass for things that can be substituted.
 class Subst a where

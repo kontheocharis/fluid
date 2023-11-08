@@ -89,8 +89,18 @@ explicitIndexDecl =
       Clause [VP (var "t"), SP (VP (var "n")), LConsP WildP (VP (var "xs"))] (App (App (App (Global "index") (V (var "t"))) (V (var "n"))) (V (var "xs")))
     ]
 
+-- | Tenth step: The final dependent index function, where we assume the typechecker is able to automatically fill all impossibilities.
+explicitIndexDepDecl :: Decl
+explicitIndexDepDecl =
+  Decl
+    "index"
+    (PiT (var "t") TyT (PiT (var "n") NatT (PiT (var "i") (FinT (V (var "n"))) (PiT (var "l") (VectT (V (var "t")) (V (var "n"))) (V (var "t"))))))
+    [ Clause [WildP, WildP, FZP, VConsP (VP (var "x")) WildP] (V (var "x")),
+      Clause [VP (var "t"), SP (VP (var "j")), FSP (VP (var "f")), VConsP WildP (VP (var "xs"))] (App (App (App (App (Global "index") (V (var "t"))) (V (var "j"))) (V (var "f"))) (V (var "xs")))
+    ]
+
 main :: IO ()
--- main = checkProg $ Program [explicitIndexDecl]
+main = checkProg $ Program [explicitIndexDepDecl]
 
 -- main = infer (App (App (Lam (var "q") (Lam (var "v") (Pair (V (var "v")) (V (var "q"))))) (S Z)) Z)
 -- main = infer (LCons (MJust Z) (LCons (MNothing) (LNil)))
@@ -98,4 +108,4 @@ main :: IO ()
 -- main = infer (Lam (var "q") (V (var "q")))
 
 -- main = check (FS FZ) (FinT (S (S (S Z))))
-main = infer (Refl Z)
+-- main = infer (Refl Z)
