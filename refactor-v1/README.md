@@ -14,6 +14,7 @@ expanding patterns in clauses. These can be found in `src/Refactoring.`
 ## Type-checking TODO
 
 - Handle reducing declarations during normalisation
+- Add support for implicit (type?) arguments
 - Add unit and void types
 - Handle impossible patterns
 - Implement a pattern exhaustiveness/totality check
