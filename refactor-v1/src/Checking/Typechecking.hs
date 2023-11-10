@@ -21,7 +21,7 @@ import Checking.Context
     modifyCtx,
     modifyGlobalCtx,
   )
-import Checking.Vars (Sub (..), Subst (sub), alphaRename, noSub, subVar, var)
+import Checking.Vars (Sub (..), Subst (sub), alphaRename, noSub, subVar)
 import Control.Monad (foldM)
 import Control.Monad.Except (catchError, throwError)
 import Data.Bifunctor (second)
