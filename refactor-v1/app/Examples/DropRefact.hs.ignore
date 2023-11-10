@@ -1,4 +1,4 @@
-module Examples.DropRefact where
+module Examples.DropRefact () where
 
 import Checking.Vars (subVar, var)
 import Lang
