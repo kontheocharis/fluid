@@ -3,12 +3,19 @@ module Main (main) where
 import Checking.Context (emptyTcState)
 import Checking.Typechecking (checkProgram, checkTerm, inferTerm, normaliseTermFully, unifyToLeft)
 import Checking.Vars (var)
+import Control.Monad.Identity (Identity (runIdentity))
 import Control.Monad.State (StateT (runStateT))
+import Data.String (IsString (fromString))
+import Data.Text.Internal.StrictBuilder (toText)
 import Examples.Drop (dropDecl)
 import Examples.Index (indexDecl)
 import Lang (Clause (..), Decl (Decl), Pat (..), Program (..), Term (..), Type)
+import Parser (initialParserState, term)
 import Refactoring.Clauses (expandDeclFully)
 import Refactoring.Ornamenting (ornamentDecl)
+import System.IO (stdin)
+import Text.Parsec (parseTest, runParsecT, runParserT)
+import Text.Parsec.Prim (runParser)
 
 testProgram :: Program
 testProgram = ret
@@ -163,7 +170,13 @@ trans =
     [Clause [WildP, WildP, WildP, WildP, ReflP (VP (var "w")), ReflP (VP (var "v"))] (Refl (V (var "v")))]
 
 main :: IO ()
-main = checkProg $ Program [explicitIndexDecl, explicitDropDecl, explicitIndexDepDecl, sym, trans]
+main = do
+  input <- getLine
+  let result = runParser term initialParserState "" (fromString input)
+  case result of
+    Left err -> putStrLn $ "Error: " ++ show err
+    Right t -> do
+      putStrLn $ "Parsed: " ++ show t
 
 -- Some inference to try out:
 -- main = infer (App (App (Lam (var "q") (Lam (var "v") (Pair (V (var "v")) (V (var "q"))))) (S Z)) Z)
