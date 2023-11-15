@@ -24,11 +24,12 @@ module Checking.Context
     modifyCtx,
     enterCtx,
     modifyGlobalCtx,
+    runTc,
   )
 where
 
 import Control.Monad.Except (throwError)
-import Control.Monad.State (MonadState (..), StateT)
+import Control.Monad.State (MonadState (..), StateT (runStateT))
 import Data.List (intercalate)
 import Lang (Clause, Decl (..), Pat, Term (..), Type, Var (..))
 
@@ -91,6 +92,12 @@ emptyTcState = TcState (Ctx []) (GlobalCtx []) 0 False
 
 -- | The typechecking monad.
 type Tc a = StateT TcState (Either TcError) a
+
+-- | Run a typechecking computation.
+runTc :: Tc a -> Either TcError a
+runTc tc = do
+  (res, _) <- runStateT tc emptyTcState
+  return res
 
 -- | Map over some context.
 withSomeCtx :: (TcState -> c) -> (c -> Tc a) -> Tc a

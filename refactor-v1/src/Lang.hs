@@ -10,6 +10,7 @@ module Lang
     mapTermM,
     clausePats,
     piTypeToList,
+    termToPat,
   )
 where
 
@@ -146,6 +147,45 @@ mapTermM f term = do
       LTEZero -> return LTEZero
       (LTESucc t) -> LTESucc <$> mapTermM f t
     Just t' -> return t'
+
+-- | Convert a term to a pattern, if possible.
+termToPat :: Term -> Maybe Pat
+termToPat (V (Var "_" _)) = Just WildP
+termToPat (V v) = Just $ VP v
+termToPat (Pair p1 p2) = do
+  p1' <- termToPat p1
+  p2' <- termToPat p2
+  return $ PairP p1' p2'
+termToPat LNil = Just LNilP
+termToPat (LCons p1 p2) = do
+  p1' <- termToPat p1
+  p2' <- termToPat p2
+  return $ LConsP p1' p2'
+termToPat VNil = Just VNilP
+termToPat (VCons p1 p2) = do
+  p1' <- termToPat p1
+  p2' <- termToPat p2
+  return $ VConsP p1' p2'
+termToPat FZ = Just FZP
+termToPat (FS p) = do
+  p' <- termToPat p
+  return $ FSP p'
+termToPat Z = Just ZP
+termToPat (S p) = do
+  p' <- termToPat p
+  return $ SP p'
+termToPat (MJust p) = do
+  p' <- termToPat p
+  return $ MJustP p'
+termToPat MNothing = Just MNothingP
+termToPat (Refl p) = do
+  p' <- termToPat p
+  return $ ReflP p'
+termToPat LTEZero = Just LTEZeroP
+termToPat (LTESucc p) = do
+  p' <- termToPat p
+  return $ LTESuccP p'
+termToPat _ = Nothing
 
 -- Show instances for pretty printing:
 instance Show Var where

@@ -135,7 +135,9 @@ checkTerm (App t1 t2) typ = do
   let inferredTy = PiT v varTy bodyTy
   s <- checkTerm t1 inferredTy
   unifyTerms typ $ subVar v (sub s t2) (sub s bodyTy)
-checkTerm (Hole h) _ = throwError $ CannotInferHoleType h
+checkTerm (Hole _) ty = do
+  hTy <- freshHoleVar
+  return $ Sub [(hTy, ty)]
 checkTerm (Global g) typ = do
   decl <- inGlobalCtx (lookupDecl g)
   case decl of

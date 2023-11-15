@@ -24,6 +24,8 @@ dependencies:
   - mtl
   - parsec
   - text
+  - haskeline
+  - optparse-applicative
 
 ghc-options:
   - -Wall
