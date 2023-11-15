@@ -1,6 +1,6 @@
-name: refactor-v1
+name: fluid
 version: 0.1.0.0
-github: "githubuser/refactor-v1"
+github: "githubuser/fluid"
 license: BSD-3-Clause
 author: "Author name here"
 maintainer: "example@example.com"
@@ -17,7 +17,7 @@ extra-source-files:
 # To avoid duplicated efforts in documentation and dealing with the
 # complications of embedding Haddock markup inside cabal files, it is
 # common to point users to the README.md file.
-description: Please see the README on GitHub at <https://github.com/githubuser/refactor-v1#readme>
+description: Please see the README on GitHub at <https://github.com/githubuser/fluid#readme>
 
 dependencies:
   - base >= 4.7 && < 5
@@ -43,7 +43,7 @@ library:
   source-dirs: src
 
 executables:
-  refactor-v1-exe:
+  fluid-exe:
     main: Main.hs
     source-dirs: app
     ghc-options:
@@ -51,10 +51,10 @@ executables:
       - -rtsopts
       - -with-rtsopts=-N
     dependencies:
-      - refactor-v1
+      - fluid
 
 tests:
-  refactor-v1-test:
+  fluid-test:
     main: Spec.hs
     source-dirs: test
     ghc-options:
@@ -62,4 +62,4 @@ tests:
       - -rtsopts
       - -with-rtsopts=-N
     dependencies:
-      - refactor-v1
+      - fluid

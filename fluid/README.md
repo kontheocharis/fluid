@@ -1,19 +1,21 @@
-# refactor-v1
+# Fluid
 
-The goal of this project is to develop refactoring transformations for a dependently-typed language.
+The goal of this project is to develop refactoring transformations for a toy dependently-typed language called Fluid.
 
-This repository contains a small dependently-typed language with some basic data types
-such as `Vect`, `Nat`, `Fin`, and `Maybe`, in `src/Lang`.
+This repository contains a simple compiler for the Fluid language, which is a
+subset of Idris with some basic data types such as `Vect`, `Nat`, `Fin`, and
+`Maybe`, in `src/Lang`.
 
 The type checking implementation for this can be found in `src/Checking`.
 It is a bi-directional type checking implementation with inference, holes, and pattern unification.
 
-It also contains some basic refactoring transformations, such as ornamenting declarations and
+The repository also contains some basic refactoring transformations, such as ornamenting declarations and
 expanding patterns in clauses. These can be found in `src/Refactoring.`
 
 ## General TODO
 
 - [x] Write a small parser & REPL
+- [ ] Handle inference of lists vs vectors
 
 ## Type-checking TODO
 

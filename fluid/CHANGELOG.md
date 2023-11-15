@@ -1,4 +1,4 @@
-# Changelog for `refactor-v1`
+# Changelog for `fluid`
 
 All notable changes to this project will be documented in this file.
 
