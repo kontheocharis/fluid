@@ -3,9 +3,10 @@ module Parsing.Parser (parseProgram, parseTerm) where
 import Data.Char (isSpace)
 import Data.String
 import Data.Text (Text)
+import Debug.Trace (trace)
 import Lang (Clause (..), Decl (..), Pat (..), Program (..), Term (..), Type, Var (..), termToPat)
 import Parsing.Resolution (resolveGlobalsInDecl, resolveTerm)
-import Text.Parsec (Parsec, between, char, choice, getState, many, many1, modifyState, newline, optionMaybe, putState, runParser, satisfy, string, (<|>))
+import Text.Parsec (Parsec, between, char, choice, eof, getState, many, many1, modifyState, newline, option, optionMaybe, optional, putState, runParser, satisfy, string, (<|>))
 import Text.Parsec.Char (alphaNum, letter)
 import Text.Parsec.Prim (try)
 import Text.Parsec.Text ()
@@ -51,10 +52,34 @@ type Parser a = Parsec Text ParserState a
 parens :: Parser a -> Parser a
 parens = between (symbol "(") (symbol ")")
 
+-- | Parse whitespace or comments.
 white :: Parser ()
 white = do
-  _ <- many $ satisfy (\c -> isSpace c && c /= '\n')
-  _ <- (reservedOp "--" >> many (satisfy (/= '\n'))) <|> return ""
+  _ <-
+    many $
+      do
+        (do _ <- satisfy (\c -> isSpace c && c /= '\n'); return ())
+        <|> try
+          ( reservedOp "--"
+              >> many (satisfy (/= '\n'))
+              >> (do _ <- newline; return ())
+          )
+  return ()
+
+-- | Parse vertical whitespace (i.e. a new line) or horizontal whitespace or comments.
+anyWhite :: Parser ()
+anyWhite = do
+  _ <- many $ do
+    white
+    _ <- newline
+    white
+  return ()
+
+-- | Parse vertical whitespace (i.e. a new line).
+enter :: Parser ()
+enter = do
+  _ <- many1 newline
+  white
   return ()
 
 identifier :: Parser String
@@ -84,13 +109,13 @@ colon = symbol ":"
 
 -- | Parse a term from a string.
 parseTerm :: String -> Either String Term
-parseTerm contents = case runParser term initialParserState "" (fromString contents) of
+parseTerm contents = case runParser (term <* eof) initialParserState "" (fromString contents) of
   Left err -> Left $ show err
   Right p -> Right p
 
 -- | Parse a program from its filename and string contents.
 parseProgram :: String -> String -> Either String Program
-parseProgram filename contents = case runParser program initialParserState filename (fromString contents) of
+parseProgram filename contents = case runParser (program <* eof) initialParserState filename (fromString contents) of
   Left err -> Left $ show err
   Right p -> Right p
 
@@ -105,10 +130,10 @@ program = do
 -- | Parse a declaration.
 decl :: Parser Decl
 decl = do
-  white
+  anyWhite
   (name, ty) <- declSignature
-  _ <- newline
   clauses <- many (declClause name)
+  anyWhite
   return $ Decl name ty clauses
 
 -- | Parse the type signature of a declaration.
@@ -117,20 +142,28 @@ declSignature = try $ do
   name <- identifier
   _ <- colon
   ty <- term
+  enter
   return (name, ty)
 
 -- | Parse a clause of a declaration.
 declClause :: String -> Parser Clause
 declClause name = do
   _ <- symbol name
-  ps <- many pat
-  im <- optionMaybe $ reserved "impossible"
-  clause <- case im of
-    Just _ -> return $ ImpossibleClause ps
-    Nothing -> do
-      reservedOp "="
-      Clause ps <$> term
-  _ <- newline
+  ps' <- many pat
+  -- Check if this is an impossible clause by looking at the last pattern.
+  let (im, ps) =
+        if null ps'
+          then (False, [])
+          else case last ps' of
+            (VP (Var "impossible" _)) -> (True, init ps')
+            _ -> (False, ps')
+  clause <-
+    if im
+      then return $ ImpossibleClause ps
+      else do
+        reservedOp "="
+        Clause ps <$> term
+  enter
   return clause
 
 -- | Parse a term.

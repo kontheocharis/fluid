@@ -218,7 +218,7 @@ instance Show Term where
   show TyT = "Type"
   show (V v) = show v
   show (Global s) = s
-  show (Hole i) = "?" ++ (show i)
+  show (Hole i) = "?" ++ show i
   show NatT = "Nat"
   show (ListT t) = "[" ++ show t ++ "]"
   show (MaybeT t) = "Maybe " ++ show t

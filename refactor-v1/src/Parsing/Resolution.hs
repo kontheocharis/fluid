@@ -42,6 +42,8 @@ resolveTerm = mapTerm r
     r (V (Var "Nothing" _)) = Just MNothing
     r (App (V (Var "Just" _)) t1) = Just (MJust (resolveTerm t1))
     r (App (V (Var "Refl" _)) t1) = Just (Refl (resolveTerm t1))
+    r (V (Var "LTEZero" _)) = Just LTEZero
+    r (App (V (Var "LTESucc" _)) t1) = Just (LTESucc (resolveTerm t1))
     r _ = Nothing
 
 -- | Fix the variables in a term to be well-scoped.
