@@ -3,10 +3,9 @@ module Parsing.Parser (parseProgram, parseTerm) where
 import Data.Char (isSpace)
 import Data.String
 import Data.Text (Text)
-import Debug.Trace (trace)
 import Lang (Clause (..), Decl (..), Pat (..), Program (..), Term (..), Type, Var (..), termToPat)
 import Parsing.Resolution (resolveGlobalsInDecl, resolveTerm)
-import Text.Parsec (Parsec, between, char, choice, eof, getState, many, many1, modifyState, newline, option, optionMaybe, optional, putState, runParser, satisfy, string, (<|>))
+import Text.Parsec (Parsec, between, char, choice, eof, getState, many, many1, modifyState, newline, optionMaybe, putState, runParser, satisfy, string, (<|>))
 import Text.Parsec.Char (alphaNum, letter)
 import Text.Parsec.Prim (try)
 import Text.Parsec.Text ()
