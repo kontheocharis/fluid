@@ -58,7 +58,7 @@ runCli = do
       info
         (parseArgs <**> helper)
         ( fullDesc
-            <> progDesc "Fluid is a toy dependently typed programming language for experimenting with automated program transformations."
+            <> progDesc "Fluid is a toy dependently typed programming language for experimenting with automated program transformations. A REPL is available if no arguments are given."
             <> header "Fluid"
         )
 

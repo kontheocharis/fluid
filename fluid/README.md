@@ -2,6 +2,8 @@
 
 The goal of this project is to develop refactoring transformations for a toy dependently-typed language called Fluid.
 
+See command-line help with the `-h` flag (`stack run --` with Stack).
+
 This repository contains a simple compiler for the Fluid language, which is a
 subset of Idris with some basic data types such as `Vect`, `Nat`, `Fin`, and
 `Maybe`, in `src/Lang`.
