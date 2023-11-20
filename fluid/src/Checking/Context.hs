@@ -11,10 +11,10 @@ module Checking.Context
     enterCtxMod,
     inState,
     addTyping,
-    addDecl,
+    addDeclItem,
     withinCtx,
     lookupTypeOrError,
-    lookupDecl,
+    lookupDeclItem,
     isPatBind,
     enterPat,
     lookupType,
@@ -31,7 +31,7 @@ where
 import Control.Monad.Except (throwError)
 import Control.Monad.State (MonadState (..), StateT (runStateT))
 import Data.List (intercalate)
-import Lang (Clause, Decl (..), Pat, Term (..), Type, Var (..))
+import Lang (Clause, DeclItem (..), Pat, Term (..), Type, Var (..))
 
 -- | A typing judgement.
 data Judgement = Typing
@@ -51,13 +51,13 @@ instance Show Ctx where
   show (Ctx js) = intercalate "\n" $ map show js
 
 -- | The global context, represented as a list of string-decl pairs.
-newtype GlobalCtx = GlobalCtx [(String, Decl)]
+newtype GlobalCtx = GlobalCtx [(String, DeclItem)]
 
 -- | A typechecking error.
 data TcError
   = VariableNotFound Var
   | Mismatch Term Term
-  | DeclNotFound String
+  | DeclItemNotFound String
   | CannotUnifyTwoHoles Var Var
   | CannotInferHoleType Var
   | NeedMoreTypeHints [Var]
@@ -67,7 +67,7 @@ data TcError
 instance Show TcError where
   show (VariableNotFound v) = "Variable not found: " ++ show v
   show (Mismatch t1 t2) = "Term mismatch: " ++ show t1 ++ " vs " ++ show t2
-  show (DeclNotFound s) = "Declaration not found: " ++ s
+  show (DeclItemNotFound s) = "DeclItemaration not found: " ++ s
   show (CannotUnifyTwoHoles h1 h2) = "Cannot unify two holes: " ++ show h1 ++ " and " ++ show h2
   show (CannotInferHoleType h) = "Cannot infer hole type: " ++ show h
   show (NeedMoreTypeHints vs) = "Need more type hints to resolve the holes: " ++ show vs
@@ -176,17 +176,17 @@ lookupTypeOrError v c = case lookupType v c of
   Just ty -> return ty
 
 -- | Lookup the declaration of a global variable in the global context.
-lookupDecl :: String -> GlobalCtx -> Maybe Decl
-lookupDecl _ (GlobalCtx []) = Nothing
-lookupDecl s (GlobalCtx ((s', d) : c)) = if s == s' then Just d else lookupDecl s (GlobalCtx c)
+lookupDeclItem :: String -> GlobalCtx -> Maybe DeclItem
+lookupDeclItem _ (GlobalCtx []) = Nothing
+lookupDeclItem s (GlobalCtx ((s', d) : c)) = if s == s' then Just d else lookupDeclItem s (GlobalCtx c)
 
 -- | Add a variable to the current context.
 addTyping :: Var -> Type -> Bool -> Ctx -> Ctx
 addTyping v t b (Ctx c) = Ctx (Typing v t b : c)
 
 -- | Add a declaration to the global context.
-addDecl :: Decl -> GlobalCtx -> GlobalCtx
-addDecl d (GlobalCtx c) = GlobalCtx ((declName d, d) : c)
+addDeclItem :: DeclItem -> GlobalCtx -> GlobalCtx
+addDeclItem d (GlobalCtx c) = GlobalCtx ((declName d, d) : c)
 
 -- | Get a fresh variable.
 freshVar :: Tc Var

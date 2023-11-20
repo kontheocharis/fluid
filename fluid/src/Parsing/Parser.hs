@@ -3,8 +3,8 @@ module Parsing.Parser (parseProgram, parseTerm) where
 import Data.Char (isSpace)
 import Data.String
 import Data.Text (Text)
-import Lang (Clause (..), Decl (..), Pat (..), Program (..), Term (..), Type, Var (..), termToPat)
-import Parsing.Resolution (resolveGlobalsInDecl, resolveTerm)
+import Lang (Clause (..), DeclItem (..), Item (..), Pat (..), Program (..), Term (..), Type, Var (..), termToPat)
+import Parsing.Resolution (resolveGlobalsInDeclItem, resolveTerm)
 import Text.Parsec (Parsec, between, char, choice, eof, getState, many, many1, modifyState, newline, optionMaybe, putState, runParser, satisfy, string, (<|>))
 import Text.Parsec.Char (alphaNum, letter)
 import Text.Parsec.Prim (try)
@@ -124,16 +124,16 @@ program = do
   ds <- many decl
   let globals = map declName ds
   -- Resolve the globals after getting all the declarations.
-  return $ Program (map (resolveGlobalsInDecl globals) ds)
+  return $ Program (map (Decl . resolveGlobalsInDeclItem globals) ds)
 
 -- | Parse a declaration.
-decl :: Parser Decl
+decl :: Parser DeclItem
 decl = do
   anyWhite
   (name, ty) <- declSignature
   clauses <- many (declClause name)
   anyWhite
-  return $ Decl name ty clauses
+  return $ DeclItem name ty clauses
 
 -- | Parse the type signature of a declaration.
 declSignature :: Parser (String, Type)

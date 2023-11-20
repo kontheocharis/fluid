@@ -1,20 +1,20 @@
-module Refactoring.Clauses (expandDeclPat, expandDeclFully) where
+module Refactoring.Clauses (expandDeclItemPat, expandDeclItemFully) where
 
-import Lang (Clause (..), Decl (..), Pat (..), Term (..), Type, piTypeToList)
+import Lang (Clause (..), DeclItem (..), Pat (..), Term (..), Type, piTypeToList)
 
 -- | Expand all wildcard patterns in a declaration, one level deep.
-expandDeclFully :: Decl -> Decl
-expandDeclFully decl = foldr expandDeclPat decl allPatIndices
+expandDeclItemFully :: DeclItem -> DeclItem
+expandDeclItemFully decl = foldr expandDeclItemPat decl allPatIndices
   where
-    (Decl _ _ clauses) = decl
+    (DeclItem _ _ clauses) = decl
     allPatIndices = case clauses of
       [] -> []
       (Clause ps _ : _) -> [0 .. length ps - 1]
       (ImpossibleClause ps : _) -> [0 .. length ps - 1]
 
 -- | Expand a pattern in a declaration at the given index, one level deep.
-expandDeclPat :: Int -> Decl -> Decl
-expandDeclPat idx (Decl n ty clauses) = Decl n ty (concatMap (expandClausePat ty idx) clauses)
+expandDeclItemPat :: Int -> DeclItem -> DeclItem
+expandDeclItemPat idx (DeclItem n ty clauses) = DeclItem n ty (concatMap (expandClausePat ty idx) clauses)
 
 -- | Expand a pattern in a clause at the given index, one level deep.
 expandClausePat :: Type -> Int -> Clause -> [Clause]

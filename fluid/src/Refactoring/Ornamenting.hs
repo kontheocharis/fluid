@@ -1,26 +1,26 @@
-module Refactoring.Ornamenting (ornamentDecl, ornamentType) where
+module Refactoring.Ornamenting (ornamentDeclItem, ornamentType) where
 
 import Checking.Vars (var)
-import Lang (Clause (..), Decl (..), Pat (..), Term (..), Type, Var (..), mapTerm, piTypeToList)
+import Lang (Clause (..), DeclItem (..), Pat (..), Term (..), Type, Var (..), mapTerm, piTypeToList)
 
 -- | Ornament a declaration.
-ornamentDecl :: Decl -> (Decl, Decl)
-ornamentDecl (Decl name ty clauses) = (ornDecl, indexPropDecl)
+ornamentDeclItem :: DeclItem -> (DeclItem, DeclItem)
+ornamentDeclItem (DeclItem name ty clauses) = (ornItem, indexPropItem)
   where
     (tyOrn, i) = ornamentType ty
-    indexPropDeclName = name ++ "Indices"
+    indexPropItemName = name ++ "Indices"
     indicesAndPropLength = i + 1
-    indexPropDecl = generateIndicesPropDecl indexPropDeclName i
+    indexPropItem = generateIndicesPropItem indexPropItemName i
     tyOrnWithProp =
       PiT
         (var "prf")
-        (foldl (\term v -> App term (V (var ("n" ++ show v)))) (Global indexPropDeclName) [0 .. i - 1])
+        (foldl (\term v -> App term (V (var ("n" ++ show v)))) (Global indexPropItemName) [0 .. i - 1])
         tyOrn
     tyOrnWithIndices = foldr (\v t -> PiT (var ("n" ++ show v)) NatT t) tyOrnWithProp [0 .. i - 1]
 
     (_, ornRetType) = piTypeToList tyOrn
     ornClauses = map (ornamentClause indicesAndPropLength name ornRetType) clauses
-    ornDecl = Decl name tyOrnWithIndices ornClauses
+    ornItem = DeclItem name tyOrnWithIndices ornClauses
 
 -- | Ornament a clause.
 --
@@ -92,8 +92,8 @@ listToVectPat t = t
 -- are all typed as natural numbers.
 --
 -- The proof of the proposition is left as a hole.
-generateIndicesPropDecl :: String -> Int -> Decl
-generateIndicesPropDecl name i = Decl name piType [holeClause]
+generateIndicesPropItem :: String -> Int -> DeclItem
+generateIndicesPropItem name i = DeclItem name piType [holeClause]
   where
     vars = map (\n -> Var ("n" ++ show n) n) [0 .. i - 1]
     piType = foldr (\v ty -> PiT v NatT ty) TyT vars

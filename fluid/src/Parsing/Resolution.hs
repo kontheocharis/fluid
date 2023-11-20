@@ -1,6 +1,6 @@
-module Parsing.Resolution (resolveTerm, resolveGlobals, resolveGlobalsInDecl, resolveGlobalsInClause) where
+module Parsing.Resolution (resolveTerm, resolveGlobals, resolveGlobalsInDeclItem, resolveGlobalsInClause) where
 
-import Lang (Clause (Clause, ImpossibleClause), Decl (..), Term (..), Var (..), mapTerm)
+import Lang (Clause (Clause, ImpossibleClause), DeclItem (..), Term (..), Var (..), mapTerm)
 
 -- | Resolve global variables in a term.
 resolveGlobals :: [String] -> Term -> Term
@@ -10,9 +10,9 @@ resolveGlobals declNames = mapTerm r
     r _ = Nothing
 
 -- | Resolve global variables in a declaration.
-resolveGlobalsInDecl :: [String] -> Decl -> Decl
-resolveGlobalsInDecl declNames (Decl name ty clauses) =
-  Decl name (resolveGlobals declNames ty) (map (resolveGlobalsInClause declNames) clauses)
+resolveGlobalsInDeclItem :: [String] -> DeclItem -> DeclItem
+resolveGlobalsInDeclItem declNames (DeclItem name ty clauses) =
+  DeclItem name (resolveGlobals declNames ty) (map (resolveGlobalsInClause declNames) clauses)
 
 -- | Resolve global variables in a clause.
 resolveGlobalsInClause :: [String] -> Clause -> Clause

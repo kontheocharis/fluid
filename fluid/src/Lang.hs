@@ -3,7 +3,10 @@ module Lang
     Var (..),
     Pat (..),
     Term (..),
-    Decl (..),
+    Item (..),
+    DataItem (..),
+    CtorItem (..),
+    DeclItem (..),
     Program (..),
     Clause (..),
     mapTerm,
@@ -46,6 +49,21 @@ data Pat
   | ReflP Pat
   | LTEZeroP
   | LTESuccP Pat
+  | CtorP CtorId [Pat]
+  deriving (Eq)
+
+-- | A data type identifier, referencing the global name of the data type.
+newtype DataId = DataId
+  { dataIdName :: String
+  }
+  deriving (Eq)
+
+-- | A constructor identifier
+data CtorId = CtorId
+  { ctorDataId :: DataId,
+    ctorIdx :: Int,
+    ctorName :: String
+  }
   deriving (Eq)
 
 -- | A term
@@ -56,6 +74,9 @@ data Term
   | App Term Term
   | SigmaT Var Type Type
   | Pair Term Term
+  | -- | Inductive data types and constructors:
+    DataT DataId [Term]
+  | Ctor CtorId [Term]
   | -- | Type of types (no universe polymorphism)
     TyT
   | -- | Variable
@@ -93,19 +114,48 @@ piTypeToList :: Type -> ([(Var, Type)], Type)
 piTypeToList (PiT v ty1 ty2) = let (tys, ty) = piTypeToList ty2 in ((v, ty1) : tys, ty)
 piTypeToList t = ([], t)
 
+-- | An item is either a declaration or a data item.
+data Item
+  = Decl DeclItem
+  | Data DataItem
+  deriving (Eq)
+
 -- | A declaration is a sequence of clauses, defining the equations for a function.
-data Decl = Decl {declName :: String, declTy :: Type, declClauses :: [Clause]}
+data DeclItem = DeclItem
+  { declName :: String,
+    declTy :: Type,
+    declClauses :: [Clause]
+  }
+  deriving (Eq)
+
+-- | A data item is an indexed inductive data type declaration, with a sequence
+-- of constructors.
+data DataItem = DataItem
+  { dataName :: String,
+    dataTy :: Type,
+    dataCtors :: [CtorItem]
+  }
+  deriving (Eq)
+
+-- | A constructor item is a constructor name and type.
+data CtorItem = CtorItem
+  { ctorItemName :: String,
+    ctorItemTy :: Type
+  }
+  deriving (Eq)
 
 -- | A clause is a sequence of patterns followed by a term.
 data Clause = Clause [Pat] Term | ImpossibleClause [Pat]
+  deriving (Eq)
 
 -- | Get the patterns from a clause.
 clausePats :: Clause -> [Pat]
 clausePats (Clause pats _) = pats
 clausePats (ImpossibleClause pats) = pats
 
--- | A program is a sequence of declarations.
-newtype Program = Program [Decl]
+-- | A program is a sequence of items.
+newtype Program = Program [Item]
+  deriving (Eq)
 
 -- | Apply a function to a term, if it is a Just, otherwise return the term.
 mapTerm :: (Term -> Maybe Term) -> Term -> Term
@@ -122,6 +172,8 @@ mapTermM f term = do
       (App t1 t2) -> App <$> mapTermM f t1 <*> mapTermM f t2
       (SigmaT v t1 t2) -> SigmaT v <$> mapTermM f t1 <*> mapTermM f t2
       (Pair t1 t2) -> Pair <$> mapTermM f t1 <*> mapTermM f t2
+      (DataT d ts) -> DataT d <$> mapM (mapTermM f) ts
+      (Ctor d ts) -> Ctor d <$> mapM (mapTermM f) ts
       TyT -> return TyT
       (V v) -> return $ V v
       (Global s) -> return $ Global s
@@ -208,6 +260,7 @@ instance Show Pat where
   show (ReflP p) = "(Refl " ++ show p ++ ")"
   show LTEZeroP = "LTEZero"
   show (LTESuccP p) = "(LTESucc " ++ show p ++ ")"
+  show (CtorP (CtorId _ _ s) ps) = s ++ " " ++ unwords (map show ps)
 
 instance Show Term where
   show (PiT v t1 t2) = "(" ++ show v ++ " : " ++ show t1 ++ ") -> " ++ show t2
@@ -215,6 +268,8 @@ instance Show Term where
   show (App t1 t2) = "(" ++ show t1 ++ " " ++ show t2 ++ ")"
   show (SigmaT v t1 t2) = "(" ++ show v ++ " : " ++ show t1 ++ ") ** " ++ show t2
   show (Pair t1 t2) = "(" ++ show t1 ++ ", " ++ show t2 ++ ")"
+  show (DataT (DataId s) ts) = s ++ " " ++ unwords (map show ts)
+  show (Ctor (CtorId _ _ s) ts) = s ++ " " ++ unwords (map show ts)
   show TyT = "Type"
   show (V v) = show v
   show (Global s) = s
@@ -240,8 +295,21 @@ instance Show Term where
   show LTEZero = "LTEZero"
   show (LTESucc t) = "(LTESucc " ++ show t ++ ")"
 
-instance Show Decl where
-  show (Decl v ty clauses) = intercalate "\n" ((v ++ " : " ++ show ty) : map (\c -> v ++ " " ++ show c) clauses)
+instance Show Item where
+  show (Decl d) = show d
+  show (Data d) = show d
+
+instance Show DataItem where
+  show (DataItem name ty ctors) =
+    "data "
+      ++ name
+      ++ " : "
+      ++ show ty
+      ++ " where\n"
+      ++ intercalate "\n" (map (\(CtorItem c t) -> "  " ++ c ++ " : " ++ show t) ctors)
+
+instance Show DeclItem where
+  show (DeclItem v ty clauses) = intercalate "\n" ((v ++ " : " ++ show ty) : map (\c -> v ++ " " ++ show c) clauses)
 
 instance Show Clause where
   show (Clause p t) = intercalate " " (map show p) ++ " = " ++ show t
