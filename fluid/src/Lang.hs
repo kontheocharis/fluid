@@ -14,6 +14,7 @@ module Lang
     clausePats,
     piTypeToList,
     termToPat,
+    itemName,
   )
 where
 
@@ -119,6 +120,11 @@ data Item
   = Decl DeclItem
   | Data DataItem
   deriving (Eq)
+
+-- | Get the name of an item.
+itemName :: Item -> String
+itemName (Decl (DeclItem name _ _)) = name
+itemName (Data (DataItem name _ _)) = name
 
 -- | A declaration is a sequence of clauses, defining the equations for a function.
 data DeclItem = DeclItem

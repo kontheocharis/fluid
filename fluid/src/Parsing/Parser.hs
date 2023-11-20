@@ -3,8 +3,8 @@ module Parsing.Parser (parseProgram, parseTerm) where
 import Data.Char (isSpace)
 import Data.String
 import Data.Text (Text)
-import Lang (Clause (..), DeclItem (..), Item (..), Pat (..), Program (..), Term (..), Type, Var (..), termToPat)
-import Parsing.Resolution (resolveGlobalsInDeclItem, resolveTerm)
+import Lang (Clause (..), CtorItem (..), DataItem (..), DeclItem (..), Item (..), Pat (..), Program (..), Term (..), Type, Var (..), itemName, termToPat)
+import Parsing.Resolution (resolveGlobalsInItem, resolveTerm)
 import Text.Parsec (Parsec, between, char, choice, eof, getState, many, many1, modifyState, newline, optionMaybe, putState, runParser, satisfy, string, (<|>))
 import Text.Parsec.Char (alphaNum, letter)
 import Text.Parsec.Prim (try)
@@ -74,10 +74,10 @@ anyWhite = do
     white
   return ()
 
--- | Parse vertical whitespace (i.e. a new line).
+-- | Parse vertical whitespace (i.e. a single new line).
 enter :: Parser ()
 enter = do
-  _ <- many1 newline
+  _ <- newline
   white
   return ()
 
@@ -121,18 +121,44 @@ parseProgram filename contents = case runParser (program <* eof) initialParserSt
 -- | Parse a program.
 program :: Parser Program
 program = do
-  ds <- many decl
-  let globals = map declName ds
+  ds <- many ((Data <$> dataItem) <|> (Decl <$> declItem))
+  let globals = map itemName ds
   -- Resolve the globals after getting all the declarations.
-  return $ Program (map (Decl . resolveGlobalsInDeclItem globals) ds)
+  return $ Program (map (resolveGlobalsInItem globals) ds)
+
+-- | Wrap a parser in whitespace.
+whiteWrap :: Parser a -> Parser a
+whiteWrap p = do
+  anyWhite
+  x <- p
+  anyWhite
+  return x
+
+-- | Parse a constructor item.
+-- @@Todo: how to deal with indentation?
+ctorItem :: Parser CtorItem
+ctorItem = whiteWrap $ do
+  name <- identifier
+  _ <- colon
+  ty <- term
+  enter
+  return $ CtorItem name ty
+
+-- | Parse a data item.
+dataItem :: Parser DataItem
+dataItem = whiteWrap $ do
+  reserved "data"
+  (name, ty) <- declSignature
+  reserved "where"
+  enter
+  clauses <- many ctorItem
+  return $ DataItem name ty clauses
 
 -- | Parse a declaration.
-decl :: Parser DeclItem
-decl = do
-  anyWhite
+declItem :: Parser DeclItem
+declItem = whiteWrap $ do
   (name, ty) <- declSignature
   clauses <- many (declClause name)
-  anyWhite
   return $ DeclItem name ty clauses
 
 -- | Parse the type signature of a declaration.
