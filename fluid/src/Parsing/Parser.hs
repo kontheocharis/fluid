@@ -16,9 +16,8 @@ import Lang
     Term (..),
     Type,
     Var (..),
-    termToPat,
   )
-import Parsing.Resolution (resolveGlobalsInItem, resolveTerm)
+import Parsing.Resolution (resolveGlobalsInItem, resolveTerm, termToPat)
 import Text.Parsec
   ( Parsec,
     between,
@@ -245,7 +244,7 @@ singleTerm = try $ choice [varOrHole, nil, pair, parens term]
 pat :: Parser Pat
 pat = do
   t <- singleTerm
-  case termToPat t of
+  case termToPat (resolveTerm t) of
     Just p -> return p
     Nothing -> fail $ "Cannot use term " ++ show t ++ " as a pattern"
 

@@ -1,7 +1,14 @@
-module Parsing.Resolution (resolveTerm, resolveGlobals, resolveGlobalsInItem, resolveGlobalsInClause) where
+module Parsing.Resolution
+  ( resolveTerm,
+    resolveGlobals,
+    resolveGlobalsInItem,
+    resolveGlobalsInClause,
+    termToPat,
+  )
+where
 
 import Checking.Context (GlobalCtx, lookupItemOrCtor)
-import Lang (Clause (Clause, ImpossibleClause), CtorItem (..), DataItem (..), DeclItem (..), Item (..), Term (..), Var (..), mapTerm)
+import Lang (Clause (Clause, ImpossibleClause), CtorItem (..), DataItem (..), DeclItem (..), Item (..), Pat (..), Term (..), Var (..), itemName, mapPat, mapTerm)
 
 -- | Resolve global variables in a term.
 resolveGlobals :: GlobalCtx -> Term -> Term
@@ -9,6 +16,16 @@ resolveGlobals ctx = mapTerm r
   where
     r (V (Var v _)) = case lookupItemOrCtor v ctx of
       Just _ -> Just (Global v)
+      Nothing -> Nothing
+    r _ = Nothing
+
+-- | Resolve global variables in a pattern.
+resolveGlobalsInPat :: GlobalCtx -> Pat -> Pat
+resolveGlobalsInPat ctx = mapPat r
+  where
+    r (VP (Var v _)) = case lookupItemOrCtor v ctx of
+      Just (Left item) -> Just (CtorP (itemName item) []) -- this is an error but will be caught later
+      Just (Right item) -> Just (CtorP (ctorItemName item) [])
       Nothing -> Nothing
     r _ = Nothing
 
@@ -37,8 +54,9 @@ resolveGlobalsInDeclItem ctx (DeclItem name ty clauses) =
 -- | Resolve global variables in a clause.
 resolveGlobalsInClause :: GlobalCtx -> Clause -> Clause
 resolveGlobalsInClause ctx (Clause pats term) =
-  Clause pats (resolveGlobals ctx term)
-resolveGlobalsInClause _ (ImpossibleClause pats) = ImpossibleClause pats
+  Clause (map (resolveGlobalsInPat ctx) pats) (resolveGlobals ctx term)
+resolveGlobalsInClause ctx (ImpossibleClause pats) =
+  ImpossibleClause (map (resolveGlobalsInPat ctx) pats)
 
 -- | Resolve the "primitive" data types and constructors in a term.
 resolveTerm :: Term -> Term
@@ -65,3 +83,52 @@ resolveTerm = mapTerm r
     r (V (Var "LTEZero" _)) = Just LTEZero
     r (App (V (Var "LTESucc" _)) t1) = Just (LTESucc (resolveTerm t1))
     r _ = Nothing
+
+-- | Convert a term to a pattern, if possible.
+termToPat :: Term -> Maybe Pat
+termToPat (App (V (Var v _)) b) = do
+  b' <- termToPat b
+  return $ CtorP v [b']
+termToPat (App a b) = do
+  a' <- termToPat a
+  case a' of
+    CtorP v ps -> do
+      b' <- termToPat b
+      return $ CtorP v (ps ++ [b'])
+    _ -> Nothing
+termToPat (V (Var "_" _)) = Just WildP
+termToPat (V v) = Just $ VP v
+termToPat (Pair p1 p2) = do
+  p1' <- termToPat p1
+  p2' <- termToPat p2
+  return $ PairP p1' p2'
+termToPat LNil = Just LNilP
+termToPat (LCons p1 p2) = do
+  p1' <- termToPat p1
+  p2' <- termToPat p2
+  return $ LConsP p1' p2'
+termToPat VNil = Just VNilP
+termToPat (VCons p1 p2) = do
+  p1' <- termToPat p1
+  p2' <- termToPat p2
+  return $ VConsP p1' p2'
+termToPat FZ = Just FZP
+termToPat (FS p) = do
+  p' <- termToPat p
+  return $ FSP p'
+termToPat Z = Just ZP
+termToPat (S p) = do
+  p' <- termToPat p
+  return $ SP p'
+termToPat (MJust p) = do
+  p' <- termToPat p
+  return $ MJustP p'
+termToPat MNothing = Just MNothingP
+termToPat (Refl p) = do
+  p' <- termToPat p
+  return $ ReflP p'
+termToPat LTEZero = Just LTEZeroP
+termToPat (LTESucc p) = do
+  p' <- termToPat p
+  return $ LTESuccP p'
+termToPat _ = Nothing

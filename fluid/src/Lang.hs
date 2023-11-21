@@ -12,9 +12,12 @@ module Lang
     Clause (..),
     mapTerm,
     mapTermM,
+    mapPat,
+    mapPatM,
     clausePats,
+    prependPatToClause,
     piTypeToList,
-    termToPat,
+    listToPiType,
     itemName,
   )
 where
@@ -65,9 +68,6 @@ data Term
   | App Term Term
   | SigmaT Var Type Type
   | Pair Term Term
-  | -- | Inductive data types and constructors:
-    DataT GlobalName
-  | Ctor GlobalName
   | -- | Type of types (no universe polymorphism)
     TyT
   | -- | Variable
@@ -104,6 +104,11 @@ data Term
 piTypeToList :: Type -> ([(Var, Type)], Type)
 piTypeToList (PiT v ty1 ty2) = let (tys, ty) = piTypeToList ty2 in ((v, ty1) : tys, ty)
 piTypeToList t = ([], t)
+
+-- | Convert a list of types and the return type to a pi type.
+listToPiType :: ([(Var, Type)], Type) -> Type
+listToPiType ([], ty) = ty
+listToPiType ((v, ty1) : tys, ty2) = PiT v ty1 (listToPiType (tys, ty2))
 
 -- | An item is either a declaration or a data item.
 data Item
@@ -150,6 +155,10 @@ clausePats :: Clause -> [Pat]
 clausePats (Clause pats _) = pats
 clausePats (ImpossibleClause pats) = pats
 
+prependPatToClause :: Pat -> Clause -> Clause
+prependPatToClause p (Clause ps t) = Clause (p : ps) t
+prependPatToClause p (ImpossibleClause ps) = ImpossibleClause (p : ps)
+
 -- | A program is a sequence of items.
 newtype Program = Program [Item]
   deriving (Eq)
@@ -169,8 +178,6 @@ mapTermM f term = do
       (App t1 t2) -> App <$> mapTermM f t1 <*> mapTermM f t2
       (SigmaT v t1 t2) -> SigmaT v <$> mapTermM f t1 <*> mapTermM f t2
       (Pair t1 t2) -> Pair <$> mapTermM f t1 <*> mapTermM f t2
-      (DataT d) -> return $ DataT d
-      (Ctor d) -> return $ Ctor d
       TyT -> return TyT
       (V v) -> return $ V v
       (Global s) -> return $ Global s
@@ -197,44 +204,34 @@ mapTermM f term = do
       (LTESucc t) -> LTESucc <$> mapTermM f t
     Just t' -> return t'
 
--- | Convert a term to a pattern, if possible.
-termToPat :: Term -> Maybe Pat
-termToPat (V (Var "_" _)) = Just WildP
-termToPat (V v) = Just $ VP v
-termToPat (Pair p1 p2) = do
-  p1' <- termToPat p1
-  p2' <- termToPat p2
-  return $ PairP p1' p2'
-termToPat LNil = Just LNilP
-termToPat (LCons p1 p2) = do
-  p1' <- termToPat p1
-  p2' <- termToPat p2
-  return $ LConsP p1' p2'
-termToPat VNil = Just VNilP
-termToPat (VCons p1 p2) = do
-  p1' <- termToPat p1
-  p2' <- termToPat p2
-  return $ VConsP p1' p2'
-termToPat FZ = Just FZP
-termToPat (FS p) = do
-  p' <- termToPat p
-  return $ FSP p'
-termToPat Z = Just ZP
-termToPat (S p) = do
-  p' <- termToPat p
-  return $ SP p'
-termToPat (MJust p) = do
-  p' <- termToPat p
-  return $ MJustP p'
-termToPat MNothing = Just MNothingP
-termToPat (Refl p) = do
-  p' <- termToPat p
-  return $ ReflP p'
-termToPat LTEZero = Just LTEZeroP
-termToPat (LTESucc p) = do
-  p' <- termToPat p
-  return $ LTESuccP p'
-termToPat _ = Nothing
+-- | Apply a function to a pattern, if it is a Just, otherwise return the pattern.
+mapPat :: (Pat -> Maybe Pat) -> Pat -> Pat
+mapPat f pat = runIdentity $ mapPatM (return . f) pat
+
+-- | Map a function over a pattern, if it is a Just, otherwise return the pattern.
+mapPatM :: (Monad m) => (Pat -> m (Maybe Pat)) -> Pat -> m Pat
+mapPatM f pat = do
+  pat' <- f pat
+  case pat' of
+    Nothing -> case pat of
+      (VP v) -> return $ VP v
+      WildP -> return WildP
+      (PairP p1 p2) -> PairP <$> mapPatM f p1 <*> mapPatM f p2
+      LNilP -> return LNilP
+      (LConsP p1 p2) -> LConsP <$> mapPatM f p1 <*> mapPatM f p2
+      VNilP -> return VNilP
+      (VConsP p1 p2) -> VConsP <$> mapPatM f p1 <*> mapPatM f p2
+      FZP -> return FZP
+      (FSP p) -> FSP <$> mapPatM f p
+      ZP -> return ZP
+      (SP p) -> SP <$> mapPatM f p
+      (MJustP p) -> MJustP <$> mapPatM f p
+      MNothingP -> return MNothingP
+      (ReflP p) -> ReflP <$> mapPatM f p
+      LTEZeroP -> return LTEZeroP
+      (LTESuccP p) -> LTESuccP <$> mapPatM f p
+      (CtorP s ps) -> CtorP s <$> mapM (mapPatM f) ps
+    Just t' -> return t'
 
 -- Show instances for pretty printing:
 instance Show Var where
@@ -257,7 +254,7 @@ instance Show Pat where
   show (ReflP p) = "(Refl " ++ show p ++ ")"
   show LTEZeroP = "LTEZero"
   show (LTESuccP p) = "(LTESucc " ++ show p ++ ")"
-  show (CtorP s ps) = s ++ " " ++ unwords (map show ps)
+  show (CtorP s ps) = "(" ++ s ++ " " ++ unwords (map show ps) ++ ")"
 
 instance Show Term where
   show (PiT v t1 t2) = "(" ++ show v ++ " : " ++ show t1 ++ ") -> " ++ show t2
@@ -265,8 +262,6 @@ instance Show Term where
   show (App t1 t2) = "(" ++ show t1 ++ " " ++ show t2 ++ ")"
   show (SigmaT v t1 t2) = "(" ++ show v ++ " : " ++ show t1 ++ ") ** " ++ show t2
   show (Pair t1 t2) = "(" ++ show t1 ++ ", " ++ show t2 ++ ")"
-  show (DataT s) = s
-  show (Ctor s) = s
   show TyT = "Type"
   show (V v) = show v
   show (Global s) = s

@@ -9,6 +9,7 @@ module Checking.Context
     inGlobalCtx,
     inCtx,
     enterCtxMod,
+    enterGlobalCtxMod,
     inState,
     addTyping,
     addItem,
@@ -151,6 +152,17 @@ enterCtxMod f op = do
   res <- op
   s' <- get
   put $ s' {ctx = prevCtx}
+  return res
+
+-- | Update the current global context.
+enterGlobalCtxMod :: (GlobalCtx -> GlobalCtx) -> Tc a -> Tc a -- todo: substitute in a
+enterGlobalCtxMod f op = do
+  s <- get
+  let prevCtx = globalCtx s
+  put $ s {globalCtx = f prevCtx}
+  res <- op
+  s' <- get
+  put $ s' {globalCtx = prevCtx}
   return res
 
 -- | Enter a new context and exit it after the operation.
