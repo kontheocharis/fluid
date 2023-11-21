@@ -4,7 +4,7 @@ import Checking.Context
   ( Tc,
     TcError (..),
     TcState (inPat),
-    addDeclItem,
+    addItem,
     addTyping,
     enterCtx,
     enterCtxMod,
@@ -16,7 +16,7 @@ import Checking.Context
     inGlobalCtx,
     inState,
     isPatBind,
-    lookupDeclItem,
+    lookupItemOrCtor,
     lookupType,
     modifyCtx,
     modifyGlobalCtx,
@@ -25,7 +25,7 @@ import Checking.Vars (Sub (..), Subst (sub), alphaRename, noSub, subVar)
 import Control.Monad (foldM)
 import Control.Monad.Except (catchError, throwError)
 import Data.Bifunctor (second)
-import Lang (Clause (..), DeclItem (..), Item (..), Pat (..), Program (..), Term (..), Type, Var, piTypeToList)
+import Lang (Clause (..), CtorItem (CtorItem), DeclItem (..), Item (..), Pat (..), Program (..), Term (..), Type, Var, piTypeToList)
 
 -- | Check the program
 checkProgram :: Program -> Tc ()
@@ -44,7 +44,7 @@ checkDeclItem decl = do
   checkTermSelfContained (declTy decl) TyT
   let tys = piTypeToList (declTy decl)
   -- The, add the declaration to the context.
-  modifyGlobalCtx (addDeclItem decl)
+  modifyGlobalCtx (addItem (Decl decl))
   -- Then, check each clause.
   mapM_ (enterCtx . checkClause tys) (declClauses decl)
 
@@ -78,8 +78,8 @@ checkTerm (Pair t1 t2) (SigmaT v ty1 ty2) = do
   s1 <- checkTerm t1 ty1
   s2 <- checkTerm (sub s1 t2) (subVar v (sub s1 t1) (sub s1 ty2))
   return $ s1 <> s2
-checkTerm (DataT _ _) _ = error "TODO"
-checkTerm (Ctor _ _) _ = error "TODO"
+checkTerm (DataT _) _ = error "TODO"
+checkTerm (Ctor _) _ = error "TODO"
 checkTerm (Pair t1 t2) typ = do
   fstTy <- freshHole
   sndTy <- freshHole
@@ -146,10 +146,12 @@ checkTerm (Hole _) ty = do
   hTy <- freshHoleVar
   return $ Sub [(hTy, ty)]
 checkTerm (Global g) typ = do
-  decl <- inGlobalCtx (lookupDeclItem g)
+  decl <- inGlobalCtx (lookupItemOrCtor g)
   case decl of
     Nothing -> throwError $ DeclItemNotFound g
-    Just decl' -> unifyTerms typ $ declTy decl'
+    Just (Left (Decl decl')) -> unifyTerms typ $ declTy decl'
+    Just (Left (Data _)) -> error "TODO"
+    Just (Right (CtorItem _ _ _)) -> error "TODO"
 checkTerm (Refl t) typ = do
   ty <- freshHoleVar
   checkCtor [ty] [V ty] (EqT t t) [t] typ
@@ -393,4 +395,4 @@ patToTerm (ReflP p) = Refl <$> patToTerm p
 patToTerm LTEZeroP = return LTEZero
 patToTerm (LTESuccP p) = LTESucc <$> patToTerm p
 patToTerm (PairP p1 p2) = Pair <$> patToTerm p1 <*> patToTerm p2
-patToTerm (CtorP i args) = Ctor i <$> mapM patToTerm args
+patToTerm (CtorP i args) = foldM (\t p -> App t <$> patToTerm p) (Ctor i) args

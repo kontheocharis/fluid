@@ -1,40 +1,43 @@
 module Parsing.Resolution (resolveTerm, resolveGlobals, resolveGlobalsInItem, resolveGlobalsInClause) where
 
+import Checking.Context (GlobalCtx, lookupItemOrCtor)
 import Lang (Clause (Clause, ImpossibleClause), CtorItem (..), DataItem (..), DeclItem (..), Item (..), Term (..), Var (..), mapTerm)
 
 -- | Resolve global variables in a term.
-resolveGlobals :: [String] -> Term -> Term
-resolveGlobals declNames = mapTerm r
+resolveGlobals :: GlobalCtx -> Term -> Term
+resolveGlobals ctx = mapTerm r
   where
-    r (V (Var v _)) | v `elem` declNames = Just (Global v)
+    r (V (Var v _)) = case lookupItemOrCtor v ctx of
+      Just _ -> Just (Global v)
+      Nothing -> Nothing
     r _ = Nothing
 
 -- @@Todo: factor out the functions below into `mapProgramM`
 
 -- | Resolve global variables in an item.
-resolveGlobalsInItem :: [String] -> Item -> Item
-resolveGlobalsInItem declNames (Decl declItem) = Decl (resolveGlobalsInDeclItem declNames declItem)
-resolveGlobalsInItem declNames (Data dataItem) = Data (resolveGlobalsInDataItem declNames dataItem)
+resolveGlobalsInItem :: GlobalCtx -> Item -> Item
+resolveGlobalsInItem ctx (Decl declItem) = Decl (resolveGlobalsInDeclItem ctx declItem)
+resolveGlobalsInItem ctx (Data dataItem) = Data (resolveGlobalsInDataItem ctx dataItem)
 
 -- | Resolve global variables in a data item.
-resolveGlobalsInDataItem :: [String] -> DataItem -> DataItem
-resolveGlobalsInDataItem declNames (DataItem name ty ctors) =
-  DataItem name (resolveGlobals declNames ty) (map (resolveGlobalsInCtorItem declNames) ctors)
+resolveGlobalsInDataItem :: GlobalCtx -> DataItem -> DataItem
+resolveGlobalsInDataItem ctx (DataItem name ty ctors) =
+  DataItem name (resolveGlobals ctx ty) (map (resolveGlobalsInCtorItem ctx) ctors)
 
 -- | Resolve global variables in a constructor item.
-resolveGlobalsInCtorItem :: [String] -> CtorItem -> CtorItem
-resolveGlobalsInCtorItem declNames (CtorItem name ty) =
-  CtorItem name (resolveGlobals declNames ty)
+resolveGlobalsInCtorItem :: GlobalCtx -> CtorItem -> CtorItem
+resolveGlobalsInCtorItem ctx (CtorItem name ty d) =
+  CtorItem name (resolveGlobals ctx ty) d
 
 -- | Resolve global variables in a declaration.
-resolveGlobalsInDeclItem :: [String] -> DeclItem -> DeclItem
-resolveGlobalsInDeclItem declNames (DeclItem name ty clauses) =
-  DeclItem name (resolveGlobals declNames ty) (map (resolveGlobalsInClause declNames) clauses)
+resolveGlobalsInDeclItem :: GlobalCtx -> DeclItem -> DeclItem
+resolveGlobalsInDeclItem ctx (DeclItem name ty clauses) =
+  DeclItem name (resolveGlobals ctx ty) (map (resolveGlobalsInClause ctx) clauses)
 
 -- | Resolve global variables in a clause.
-resolveGlobalsInClause :: [String] -> Clause -> Clause
-resolveGlobalsInClause declNames (Clause pats term) =
-  Clause pats (resolveGlobals declNames term)
+resolveGlobalsInClause :: GlobalCtx -> Clause -> Clause
+resolveGlobalsInClause ctx (Clause pats term) =
+  Clause pats (resolveGlobals ctx term)
 resolveGlobalsInClause _ (ImpossibleClause pats) = ImpossibleClause pats
 
 -- | Resolve the "primitive" data types and constructors in a term.

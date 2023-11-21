@@ -1,5 +1,6 @@
 module Parsing.Parser (parseProgram, parseTerm) where
 
+import Checking.Context (GlobalCtx (GlobalCtx))
 import Data.Char (isSpace)
 import Data.String
 import Data.Text (Text)
@@ -8,13 +9,13 @@ import Lang
     CtorItem (..),
     DataItem (..),
     DeclItem (..),
+    GlobalName,
     Item (..),
     Pat (..),
     Program (..),
     Term (..),
     Type,
     Var (..),
-    itemName,
     termToPat,
   )
 import Parsing.Resolution (resolveGlobalsInItem, resolveTerm)
@@ -159,9 +160,8 @@ parseProgram filename contents = case runParser (program <* eof) initialParserSt
 program :: Parser Program
 program = do
   ds <- many ((Data <$> dataItem) <|> (Decl <$> declItem))
-  let globals = map itemName ds
   -- Resolve the globals after getting all the declarations.
-  return $ Program (map (resolveGlobalsInItem globals) ds)
+  return $ Program (map (resolveGlobalsInItem (GlobalCtx ds)) ds)
 
 -- | Wrap a parser in whitespace.
 whiteWrap :: Parser a -> Parser a
@@ -173,13 +173,13 @@ whiteWrap p = do
 
 -- | Parse a constructor item.
 -- @@Todo: how to deal with indentation?
-ctorItem :: Parser CtorItem
-ctorItem = try $ do
+ctorItem :: GlobalName -> Parser CtorItem
+ctorItem d = try $ do
   name <- identifier
   _ <- colon
   ty <- term
   enter
-  return $ CtorItem name ty
+  return $ CtorItem name ty d
 
 -- | Parse a data item.
 dataItem :: Parser DataItem
@@ -188,7 +188,7 @@ dataItem = whiteWrap $ do
   (name, ty) <- declSignature
   symbol "where"
   enter
-  ctors <- many ctorItem
+  ctors <- many (ctorItem name)
   return $ DataItem name ty ctors
 
 -- | Parse a declaration.

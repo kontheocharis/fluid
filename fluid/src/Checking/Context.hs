@@ -11,10 +11,10 @@ module Checking.Context
     enterCtxMod,
     inState,
     addTyping,
-    addDeclItem,
+    addItem,
     withinCtx,
     lookupTypeOrError,
-    lookupDeclItem,
+    lookupItemOrCtor,
     isPatBind,
     enterPat,
     lookupType,
@@ -28,10 +28,21 @@ module Checking.Context
   )
 where
 
+import Control.Applicative ((<|>))
 import Control.Monad.Except (throwError)
 import Control.Monad.State (MonadState (..), StateT (runStateT))
-import Data.List (intercalate)
-import Lang (Clause, DeclItem (..), Pat, Term (..), Type, Var (..))
+import Data.List (find, intercalate)
+import Lang
+  ( Clause,
+    CtorItem (..),
+    DataItem (DataItem),
+    Item (..),
+    Pat,
+    Term (..),
+    Type,
+    Var (..),
+    itemName,
+  )
 
 -- | A typing judgement.
 data Judgement = Typing
@@ -51,7 +62,7 @@ instance Show Ctx where
   show (Ctx js) = intercalate "\n" $ map show js
 
 -- | The global context, represented as a list of string-decl pairs.
-newtype GlobalCtx = GlobalCtx [(String, DeclItem)]
+newtype GlobalCtx = GlobalCtx [Item]
 
 -- | A typechecking error.
 data TcError
@@ -176,17 +187,20 @@ lookupTypeOrError v c = case lookupType v c of
   Just ty -> return ty
 
 -- | Lookup the declaration of a global variable in the global context.
-lookupDeclItem :: String -> GlobalCtx -> Maybe DeclItem
-lookupDeclItem _ (GlobalCtx []) = Nothing
-lookupDeclItem s (GlobalCtx ((s', d) : c)) = if s == s' then Just d else lookupDeclItem s (GlobalCtx c)
+lookupItemOrCtor :: String -> GlobalCtx -> Maybe (Either Item CtorItem)
+lookupItemOrCtor _ (GlobalCtx []) = Nothing
+lookupItemOrCtor s (GlobalCtx (d : _)) | s == itemName d = Just (Left d)
+lookupItemOrCtor s (GlobalCtx ((Data (DataItem _ _ ctors)) : c)) =
+  (Right <$> find (\(CtorItem name _ _) -> name == s) ctors) <|> lookupItemOrCtor s (GlobalCtx c)
+lookupItemOrCtor s (GlobalCtx (_ : c)) = lookupItemOrCtor s (GlobalCtx c)
 
 -- | Add a variable to the current context.
 addTyping :: Var -> Type -> Bool -> Ctx -> Ctx
 addTyping v t b (Ctx c) = Ctx (Typing v t b : c)
 
 -- | Add a declaration to the global context.
-addDeclItem :: DeclItem -> GlobalCtx -> GlobalCtx
-addDeclItem d (GlobalCtx c) = GlobalCtx ((declName d, d) : c)
+addItem :: Item -> GlobalCtx -> GlobalCtx
+addItem d (GlobalCtx c) = GlobalCtx (d : c)
 
 -- | Get a fresh variable.
 freshVar :: Tc Var
