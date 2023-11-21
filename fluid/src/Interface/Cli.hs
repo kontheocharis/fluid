@@ -86,6 +86,7 @@ runCompiler (Args (CheckFile file) flags) = runInputT defaultSettings $ do
   msg $ "Parsing file " ++ file
   contents <- liftIO $ readFile file
   parsed <- handleParse err (parseProgram file contents)
+  when (dumpParsed flags) $ msg $ "Parsed program:\n" ++ show parsed
   checked <- handleTc err (checkProgram parsed)
   msg "\nTypechecked program successfully"
   when (dumpParsed flags) $ msg $ "Parsed + checked program:\n" ++ show checked

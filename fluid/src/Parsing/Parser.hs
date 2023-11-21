@@ -62,6 +62,14 @@ newVarIndex = do
   putState s {varCount = i + 1}
   return i
 
+-- | Generate a new variable.
+registerNewVar :: String -> Parser Var
+registerNewVar n = do
+  ns <- names <$> getState
+  v <- Var n <$> newVarIndex
+  modifyState $ \s -> s {names = (n, v) : ns}
+  return v
+
 -- | Get an already registered variable or generate a new one.
 registerVar :: String -> Parser Var
 registerVar n = do
@@ -254,6 +262,12 @@ var = try $ do
   name <- identifier
   registerVar name
 
+-- | Parse a variable binding.
+newVar :: Parser Var
+newVar = try $ do
+  name <- identifier
+  registerNewVar name
+
 -- | Generate a fresh variable.
 freshVar :: Parser Var
 freshVar = try $ do
@@ -266,7 +280,7 @@ named =
   ( try . parens $
       do
         optName <- optionMaybe . try $ do
-          name <- var
+          name <- newVar
           _ <- colon
           return name
         ty <- term
@@ -303,7 +317,7 @@ singleAppOrEqTOrCons = do
 lam :: Parser Term
 lam = do
   reservedOp "\\"
-  v <- var
+  v <- newVar
   reservedOp "->"
   Lam v <$> term
 
