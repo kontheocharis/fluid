@@ -91,7 +91,7 @@ white = do
         <|> try
           ( reservedOp "--"
               >> many (satisfy (/= '\n'))
-              >> (do _ <- newline; return ())
+              >> return ()
           )
   return ()
 
@@ -157,7 +157,7 @@ parseProgram filename contents = case runParser (program <* eof) initialParserSt
 
 -- | Parse a program.
 program :: Parser Program
-program = do
+program = whiteWrap $ do
   ds <- many ((Data <$> dataItem) <|> (Decl <$> declItem))
   -- Resolve the globals after getting all the declarations.
   return $ Program (map (resolveGlobalsInItem (GlobalCtx ds)) ds)
