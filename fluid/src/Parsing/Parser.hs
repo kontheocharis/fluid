@@ -3,9 +3,39 @@ module Parsing.Parser (parseProgram, parseTerm) where
 import Data.Char (isSpace)
 import Data.String
 import Data.Text (Text)
-import Lang (Clause (..), CtorItem (..), DataItem (..), DeclItem (..), Item (..), Pat (..), Program (..), Term (..), Type, Var (..), itemName, termToPat)
+import Lang
+  ( Clause (..),
+    CtorItem (..),
+    DataItem (..),
+    DeclItem (..),
+    Item (..),
+    Pat (..),
+    Program (..),
+    Term (..),
+    Type,
+    Var (..),
+    itemName,
+    termToPat,
+  )
 import Parsing.Resolution (resolveGlobalsInItem, resolveTerm)
-import Text.Parsec (Parsec, between, char, choice, eof, getState, many, many1, modifyState, newline, optionMaybe, putState, runParser, satisfy, string, (<|>))
+import Text.Parsec
+  ( Parsec,
+    between,
+    char,
+    choice,
+    eof,
+    getState,
+    many,
+    many1,
+    modifyState,
+    newline,
+    optionMaybe,
+    putState,
+    runParser,
+    satisfy,
+    string,
+    (<|>),
+  )
 import Text.Parsec.Char (alphaNum, letter)
 import Text.Parsec.Prim (try)
 import Text.Parsec.Text ()
@@ -81,12 +111,19 @@ enter = do
   white
   return ()
 
+-- | Reserved identifiers.
+reservedIdents :: [String]
+reservedIdents = ["data", "where", "impossible"]
+
 identifier :: Parser String
 identifier = try $ do
   first <- letter <|> char '_'
   rest <- many (alphaNum <|> char '_' <|> char '\'')
   white
-  return $ first : rest
+  let name = first : rest
+  if name `elem` reservedIdents
+    then fail $ "Identifier " ++ name ++ " is reserved"
+    else return name
 
 symbol :: String -> Parser ()
 symbol s = try $ do
@@ -137,7 +174,7 @@ whiteWrap p = do
 -- | Parse a constructor item.
 -- @@Todo: how to deal with indentation?
 ctorItem :: Parser CtorItem
-ctorItem = whiteWrap $ do
+ctorItem = try $ do
   name <- identifier
   _ <- colon
   ty <- term
@@ -147,27 +184,27 @@ ctorItem = whiteWrap $ do
 -- | Parse a data item.
 dataItem :: Parser DataItem
 dataItem = whiteWrap $ do
-  reserved "data"
+  symbol "data"
   (name, ty) <- declSignature
-  reserved "where"
+  symbol "where"
   enter
-  clauses <- many ctorItem
-  return $ DataItem name ty clauses
+  ctors <- many ctorItem
+  return $ DataItem name ty ctors
 
 -- | Parse a declaration.
 declItem :: Parser DeclItem
 declItem = whiteWrap $ do
   (name, ty) <- declSignature
+  enter
   clauses <- many (declClause name)
   return $ DeclItem name ty clauses
 
 -- | Parse the type signature of a declaration.
 declSignature :: Parser (String, Type)
-declSignature = try $ do
+declSignature = do
   name <- identifier
   _ <- colon
   ty <- term
-  enter
   return (name, ty)
 
 -- | Parse a clause of a declaration.
@@ -194,7 +231,7 @@ declClause name = do
 -- | Parse a term.
 -- Some are grouped to prevent lots of backtracking.
 term :: Parser Term
-term = try $ do
+term = do
   t <- choice [piTOrSigmaT, lam, singleAppOrEqTOrCons]
   return $ resolveTerm t
 
@@ -259,13 +296,13 @@ app = try $ do
 
 -- | Parse a single term, application, equality type or list cons.
 singleAppOrEqTOrCons :: Parser Term
-singleAppOrEqTOrCons = try $ do
+singleAppOrEqTOrCons = do
   t1 <- app
   (reservedOp "=" >> EqT t1 <$> term) <|> (reservedOp "::" >> LCons t1 <$> term) <|> return t1
 
 -- | Parse a lambda.
 lam :: Parser Term
-lam = try $ do
+lam = do
   reservedOp "\\"
   v <- var
   reservedOp "->"
@@ -286,13 +323,6 @@ varOrHole = try $ do
   case hole of
     Just _ -> return $ Hole v
     Nothing -> return $ V v
-
--- | Parse an equality type.
-eqT :: Parser Type
-eqT = try $ do
-  t1 <- term
-  reservedOp "="
-  EqT t1 <$> term
 
 -- | Parse a list nil.
 nil :: Parser Term
