@@ -148,7 +148,7 @@ checkTerm (Hole _) ty = do
 checkTerm (Global g) typ = do
   decl <- inGlobalCtx (lookupItemOrCtor g)
   case decl of
-    Nothing -> throwError $ DeclItemNotFound g
+    Nothing -> throwError $ ItemNotFound g
     Just (Left (Decl decl')) -> unifyTerms typ $ declTy decl'
     Just (Left (Data _)) -> error "TODO"
     Just (Right (CtorItem _ _ _)) -> error "TODO"

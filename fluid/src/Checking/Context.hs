@@ -68,7 +68,7 @@ newtype GlobalCtx = GlobalCtx [Item]
 data TcError
   = VariableNotFound Var
   | Mismatch Term Term
-  | DeclItemNotFound String
+  | ItemNotFound String
   | CannotUnifyTwoHoles Var Var
   | CannotInferHoleType Var
   | NeedMoreTypeHints [Var]
@@ -78,7 +78,7 @@ data TcError
 instance Show TcError where
   show (VariableNotFound v) = "Variable not found: " ++ show v
   show (Mismatch t1 t2) = "Term mismatch: " ++ show t1 ++ " vs " ++ show t2
-  show (DeclItemNotFound s) = "DeclItemaration not found: " ++ s
+  show (ItemNotFound s) = "Item not found: " ++ s
   show (CannotUnifyTwoHoles h1 h2) = "Cannot unify two holes: " ++ show h1 ++ " and " ++ show h2
   show (CannotInferHoleType h) = "Cannot infer hole type: " ++ show h
   show (NeedMoreTypeHints vs) = "Need more type hints to resolve the holes: " ++ show vs
