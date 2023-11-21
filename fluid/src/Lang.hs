@@ -254,7 +254,7 @@ instance Show Pat where
   show (ReflP p) = "(Refl " ++ show p ++ ")"
   show LTEZeroP = "LTEZero"
   show (LTESuccP p) = "(LTESucc " ++ show p ++ ")"
-  show (CtorP s ps) = "(" ++ s ++ " " ++ unwords (map show ps) ++ ")"
+  show (CtorP s ps) = "(" ++ s ++ (if null ps then "" else " ") ++ unwords (map show ps) ++ ")"
 
 instance Show Term where
   show (PiT v t1 t2) = "(" ++ show v ++ " : " ++ show t1 ++ ") -> " ++ show t2
