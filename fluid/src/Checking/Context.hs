@@ -9,12 +9,13 @@ module Checking.Context
     inGlobalCtx,
     inCtx,
     enterCtxMod,
+    enterGlobalCtxMod,
     inState,
     addTyping,
-    addDecl,
+    addItem,
     withinCtx,
     lookupTypeOrError,
-    lookupDecl,
+    lookupItemOrCtor,
     isPatBind,
     enterPat,
     lookupType,
@@ -28,10 +29,21 @@ module Checking.Context
   )
 where
 
+import Control.Applicative ((<|>))
 import Control.Monad.Except (throwError)
 import Control.Monad.State (MonadState (..), StateT (runStateT))
-import Data.List (intercalate)
-import Lang (Clause, Decl (..), Pat, Term (..), Type, Var (..))
+import Data.List (find, intercalate)
+import Lang
+  ( Clause,
+    CtorItem (..),
+    DataItem (DataItem),
+    Item (..),
+    Pat,
+    Term (..),
+    Type,
+    Var (..),
+    itemName,
+  )
 
 -- | A typing judgement.
 data Judgement = Typing
@@ -51,13 +63,13 @@ instance Show Ctx where
   show (Ctx js) = intercalate "\n" $ map show js
 
 -- | The global context, represented as a list of string-decl pairs.
-newtype GlobalCtx = GlobalCtx [(String, Decl)]
+newtype GlobalCtx = GlobalCtx [Item]
 
 -- | A typechecking error.
 data TcError
   = VariableNotFound Var
   | Mismatch Term Term
-  | DeclNotFound String
+  | ItemNotFound String
   | CannotUnifyTwoHoles Var Var
   | CannotInferHoleType Var
   | NeedMoreTypeHints [Var]
@@ -67,7 +79,7 @@ data TcError
 instance Show TcError where
   show (VariableNotFound v) = "Variable not found: " ++ show v
   show (Mismatch t1 t2) = "Term mismatch: " ++ show t1 ++ " vs " ++ show t2
-  show (DeclNotFound s) = "Declaration not found: " ++ s
+  show (ItemNotFound s) = "Item not found: " ++ s
   show (CannotUnifyTwoHoles h1 h2) = "Cannot unify two holes: " ++ show h1 ++ " and " ++ show h2
   show (CannotInferHoleType h) = "Cannot infer hole type: " ++ show h
   show (NeedMoreTypeHints vs) = "Need more type hints to resolve the holes: " ++ show vs
@@ -142,6 +154,17 @@ enterCtxMod f op = do
   put $ s' {ctx = prevCtx}
   return res
 
+-- | Update the current global context.
+enterGlobalCtxMod :: (GlobalCtx -> GlobalCtx) -> Tc a -> Tc a -- todo: substitute in a
+enterGlobalCtxMod f op = do
+  s <- get
+  let prevCtx = globalCtx s
+  put $ s {globalCtx = f prevCtx}
+  res <- op
+  s' <- get
+  put $ s' {globalCtx = prevCtx}
+  return res
+
 -- | Enter a new context and exit it after the operation.
 enterCtx :: Tc a -> Tc a
 enterCtx = enterCtxMod id
@@ -176,17 +199,20 @@ lookupTypeOrError v c = case lookupType v c of
   Just ty -> return ty
 
 -- | Lookup the declaration of a global variable in the global context.
-lookupDecl :: String -> GlobalCtx -> Maybe Decl
-lookupDecl _ (GlobalCtx []) = Nothing
-lookupDecl s (GlobalCtx ((s', d) : c)) = if s == s' then Just d else lookupDecl s (GlobalCtx c)
+lookupItemOrCtor :: String -> GlobalCtx -> Maybe (Either Item CtorItem)
+lookupItemOrCtor _ (GlobalCtx []) = Nothing
+lookupItemOrCtor s (GlobalCtx (d : _)) | s == itemName d = Just (Left d)
+lookupItemOrCtor s (GlobalCtx ((Data (DataItem _ _ ctors)) : c)) =
+  (Right <$> find (\(CtorItem name _ _) -> name == s) ctors) <|> lookupItemOrCtor s (GlobalCtx c)
+lookupItemOrCtor s (GlobalCtx (_ : c)) = lookupItemOrCtor s (GlobalCtx c)
 
 -- | Add a variable to the current context.
 addTyping :: Var -> Type -> Bool -> Ctx -> Ctx
 addTyping v t b (Ctx c) = Ctx (Typing v t b : c)
 
 -- | Add a declaration to the global context.
-addDecl :: Decl -> GlobalCtx -> GlobalCtx
-addDecl d (GlobalCtx c) = GlobalCtx ((declName d, d) : c)
+addItem :: Item -> GlobalCtx -> GlobalCtx
+addItem d (GlobalCtx c) = GlobalCtx (d : c)
 
 -- | Get a fresh variable.
 freshVar :: Tc Var

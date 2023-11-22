@@ -1,11 +1,42 @@
 module Parsing.Parser (parseProgram, parseTerm) where
 
+import Checking.Context (GlobalCtx (GlobalCtx))
 import Data.Char (isSpace)
 import Data.String
 import Data.Text (Text)
-import Lang (Clause (..), Decl (..), Pat (..), Program (..), Term (..), Type, Var (..), termToPat)
-import Parsing.Resolution (resolveGlobalsInDecl, resolveTerm)
-import Text.Parsec (Parsec, between, char, choice, eof, getState, many, many1, modifyState, newline, optionMaybe, putState, runParser, satisfy, string, (<|>))
+import Lang
+  ( Clause (..),
+    CtorItem (..),
+    DataItem (..),
+    DeclItem (..),
+    GlobalName,
+    Item (..),
+    Pat (..),
+    Program (..),
+    Term (..),
+    Type,
+    Var (..),
+    mapTermM,
+  )
+import Parsing.Resolution (resolveGlobalsInItem, termToPat)
+import Text.Parsec
+  ( Parsec,
+    between,
+    char,
+    choice,
+    eof,
+    getState,
+    many,
+    many1,
+    modifyState,
+    newline,
+    optionMaybe,
+    putState,
+    runParser,
+    satisfy,
+    string,
+    (<|>),
+  )
 import Text.Parsec.Char (alphaNum, letter)
 import Text.Parsec.Prim (try)
 import Text.Parsec.Text ()
@@ -14,14 +45,17 @@ import Text.Parsec.Text ()
 data ParserState = ParserState
   { varCount :: Int,
     -- Keep track of the names of variables so we can resolve them when encountering them.
-    names :: [(String, Var)]
+    names :: [(String, Var)],
+    -- Whether we are parsing a pattern.
+    parsingPat :: Bool
   }
 
 initialParserState :: ParserState
 initialParserState =
   ParserState
     { varCount = 0,
-      names = []
+      names = [],
+      parsingPat = False
     }
 
 -- | Get a new variable index and increment it.
@@ -31,6 +65,14 @@ newVarIndex = do
   let i = varCount s
   putState s {varCount = i + 1}
   return i
+
+-- | Generate a new variable.
+registerNewVar :: String -> Parser Var
+registerNewVar n = do
+  ns <- names <$> getState
+  v <- Var n <$> newVarIndex
+  modifyState $ \s -> s {names = (n, v) : ns}
+  return v
 
 -- | Get an already registered variable or generate a new one.
 registerVar :: String -> Parser Var
@@ -61,7 +103,7 @@ white = do
         <|> try
           ( reservedOp "--"
               >> many (satisfy (/= '\n'))
-              >> (do _ <- newline; return ())
+              >> return ()
           )
   return ()
 
@@ -74,19 +116,26 @@ anyWhite = do
     white
   return ()
 
--- | Parse vertical whitespace (i.e. a new line).
+-- | Parse vertical whitespace (i.e. a single new line).
 enter :: Parser ()
 enter = do
-  _ <- many1 newline
+  _ <- newline
   white
   return ()
+
+-- | Reserved identifiers.
+reservedIdents :: [String]
+reservedIdents = ["data", "where", "impossible"]
 
 identifier :: Parser String
 identifier = try $ do
   first <- letter <|> char '_'
   rest <- many (alphaNum <|> char '_' <|> char '\'')
   white
-  return $ first : rest
+  let name = first : rest
+  if name `elem` reservedIdents
+    then fail $ "Identifier " ++ name ++ " is reserved"
+    else return name
 
 symbol :: String -> Parser ()
 symbol s = try $ do
@@ -120,28 +169,53 @@ parseProgram filename contents = case runParser (program <* eof) initialParserSt
 
 -- | Parse a program.
 program :: Parser Program
-program = do
-  ds <- many decl
-  let globals = map declName ds
+program = whiteWrap $ do
+  ds <- many ((Data <$> dataItem) <|> (Decl <$> declItem))
   -- Resolve the globals after getting all the declarations.
-  return $ Program (map (resolveGlobalsInDecl globals) ds)
+  return $ Program (map (resolveGlobalsInItem (GlobalCtx ds)) ds)
 
--- | Parse a declaration.
-decl :: Parser Decl
-decl = do
+-- | Wrap a parser in whitespace.
+whiteWrap :: Parser a -> Parser a
+whiteWrap p = do
   anyWhite
-  (name, ty) <- declSignature
-  clauses <- many (declClause name)
+  x <- p
   anyWhite
-  return $ Decl name ty clauses
+  return x
 
--- | Parse the type signature of a declaration.
-declSignature :: Parser (String, Type)
-declSignature = try $ do
+-- | Parse a constructor item.
+-- @@Todo: how to deal with indentation?
+ctorItem :: GlobalName -> Parser CtorItem
+ctorItem d = try $ do
   name <- identifier
   _ <- colon
   ty <- term
   enter
+  return $ CtorItem name ty d
+
+-- | Parse a data item.
+dataItem :: Parser DataItem
+dataItem = whiteWrap $ do
+  symbol "data"
+  (name, ty) <- declSignature
+  symbol "where"
+  enter
+  ctors <- many (ctorItem name)
+  return $ DataItem name ty ctors
+
+-- | Parse a declaration.
+declItem :: Parser DeclItem
+declItem = whiteWrap $ do
+  (name, ty) <- declSignature
+  enter
+  clauses <- many (declClause name)
+  return $ DeclItem name ty clauses
+
+-- | Parse the type signature of a declaration.
+declSignature :: Parser (String, Type)
+declSignature = do
+  name <- identifier
+  _ <- colon
+  ty <- term
   return (name, ty)
 
 -- | Parse a clause of a declaration.
@@ -168,9 +242,9 @@ declClause name = do
 -- | Parse a term.
 -- Some are grouped to prevent lots of backtracking.
 term :: Parser Term
-term = try $ do
+term = do
   t <- choice [piTOrSigmaT, lam, singleAppOrEqTOrCons]
-  return $ resolveTerm t
+  resolveTerm t
 
 -- | Parse a single term.
 --
@@ -181,8 +255,11 @@ singleTerm = try $ choice [varOrHole, nil, pair, parens term]
 -- | Parse a pattern.
 pat :: Parser Pat
 pat = do
+  modifyState $ \s -> s {parsingPat = True}
   t <- singleTerm
-  case termToPat t of
+  t' <- resolveTerm t
+  modifyState $ \s -> s {parsingPat = False}
+  case termToPat t' of
     Just p -> return p
     Nothing -> fail $ "Cannot use term " ++ show t ++ " as a pattern"
 
@@ -191,6 +268,12 @@ var :: Parser Var
 var = try $ do
   name <- identifier
   registerVar name
+
+-- | Parse a variable binding.
+newVar :: Parser Var
+newVar = try $ do
+  name <- identifier
+  registerNewVar name
 
 -- | Generate a fresh variable.
 freshVar :: Parser Var
@@ -204,7 +287,7 @@ named =
   ( try . parens $
       do
         optName <- optionMaybe . try $ do
-          name <- var
+          name <- newVar
           _ <- colon
           return name
         ty <- term
@@ -233,15 +316,15 @@ app = try $ do
 
 -- | Parse a single term, application, equality type or list cons.
 singleAppOrEqTOrCons :: Parser Term
-singleAppOrEqTOrCons = try $ do
+singleAppOrEqTOrCons = do
   t1 <- app
   (reservedOp "=" >> EqT t1 <$> term) <|> (reservedOp "::" >> LCons t1 <$> term) <|> return t1
 
 -- | Parse a lambda.
 lam :: Parser Term
-lam = try $ do
+lam = do
   reservedOp "\\"
-  v <- var
+  v <- newVar
   reservedOp "->"
   Lam v <$> term
 
@@ -261,15 +344,39 @@ varOrHole = try $ do
     Just _ -> return $ Hole v
     Nothing -> return $ V v
 
--- | Parse an equality type.
-eqT :: Parser Type
-eqT = try $ do
-  t1 <- term
-  reservedOp "="
-  EqT t1 <$> term
-
 -- | Parse a list nil.
 nil :: Parser Term
 nil = do
   reservedOp "[]"
   return LNil
+
+-- | Resolve the "primitive" data types and constructors in a term.
+resolveTerm :: Term -> Parser Term
+resolveTerm = mapTermM r
+  where
+    r (V (Var "_" _)) = do
+      isInPat <- parsingPat <$> getState
+      if isInPat
+        then return Nothing
+        else do Just . Hole <$> freshVar
+    r (V (Var "Type" _)) = return $ Just TyT
+    r (V (Var "Nat" _)) = return $ Just NatT
+    r (App (V (Var "List" _)) t1) = Just . ListT <$> resolveTerm t1
+    r (App (V (Var "Maybe" _)) t1) = Just . MaybeT <$> resolveTerm t1
+    r (App (App (V (Var "Vect" _)) t1) t2) = Just <$> (VectT <$> resolveTerm t1 <*> resolveTerm t2)
+    r (App (V (Var "Fin" _)) t1) = Just . FinT <$> resolveTerm t1
+    r (App (App (V (Var "Eq" _)) t1) t2) = Just <$> (EqT <$> resolveTerm t1 <*> resolveTerm t2)
+    r (V (Var "Z" _)) = return $ Just Z
+    r (App (V (Var "S" _)) t1) = Just . S <$> resolveTerm t1
+    r (V (Var "FZ" _)) = return $ Just FZ
+    r (App (V (Var "FS" _)) t1) = Just . FS <$> resolveTerm t1
+    r (V (Var "LNil" _)) = return $ Just LNil
+    r (App (App (V (Var "LCons" _)) t1) t2) = Just <$> (LCons <$> resolveTerm t1 <*> resolveTerm t2)
+    r (V (Var "VNil" _)) = return $ Just VNil
+    r (App (App (V (Var "VCons" _)) t1) t2) = Just <$> (VCons <$> resolveTerm t1 <*> resolveTerm t2)
+    r (V (Var "Nothing" _)) = return $ Just MNothing
+    r (App (V (Var "Just" _)) t1) = Just . MJust <$> resolveTerm t1
+    r (App (V (Var "Refl" _)) t1) = Just . Refl <$> resolveTerm t1
+    r (V (Var "LTEZero" _)) = return $ Just LTEZero
+    r (App (V (Var "LTESucc" _)) t1) = Just . LTESucc <$> resolveTerm t1
+    r _ = return Nothing

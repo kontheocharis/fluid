@@ -1,16 +1,24 @@
 module Lang
   ( Type,
+    GlobalName,
     Var (..),
     Pat (..),
     Term (..),
-    Decl (..),
+    Item (..),
+    DataItem (..),
+    CtorItem (..),
+    DeclItem (..),
     Program (..),
     Clause (..),
     mapTerm,
     mapTermM,
+    mapPat,
+    mapPatM,
     clausePats,
+    prependPatToClause,
     piTypeToList,
-    termToPat,
+    listToPiType,
+    itemName,
   )
 where
 
@@ -19,6 +27,9 @@ import Data.List (intercalate)
 
 -- | Type alias for terms that are expected to be types (just for documentation purposes).
 type Type = Term
+
+-- | A global name is a string.
+type GlobalName = String
 
 -- | A variable
 -- Represented by a string name and a unique integer identifier (no shadowing).
@@ -46,6 +57,7 @@ data Pat
   | ReflP Pat
   | LTEZeroP
   | LTESuccP Pat
+  | CtorP GlobalName [Pat]
   deriving (Eq)
 
 -- | A term
@@ -93,19 +105,63 @@ piTypeToList :: Type -> ([(Var, Type)], Type)
 piTypeToList (PiT v ty1 ty2) = let (tys, ty) = piTypeToList ty2 in ((v, ty1) : tys, ty)
 piTypeToList t = ([], t)
 
+-- | Convert a list of types and the return type to a pi type.
+listToPiType :: ([(Var, Type)], Type) -> Type
+listToPiType ([], ty) = ty
+listToPiType ((v, ty1) : tys, ty2) = PiT v ty1 (listToPiType (tys, ty2))
+
+-- | An item is either a declaration or a data item.
+data Item
+  = Decl DeclItem
+  | Data DataItem
+  deriving (Eq)
+
+-- | Get the name of an item.
+itemName :: Item -> String
+itemName (Decl (DeclItem name _ _)) = name
+itemName (Data (DataItem name _ _)) = name
+
 -- | A declaration is a sequence of clauses, defining the equations for a function.
-data Decl = Decl {declName :: String, declTy :: Type, declClauses :: [Clause]}
+data DeclItem = DeclItem
+  { declName :: String,
+    declTy :: Type,
+    declClauses :: [Clause]
+  }
+  deriving (Eq)
+
+-- | A data item is an indexed inductive data type declaration, with a sequence
+-- of constructors.
+data DataItem = DataItem
+  { dataName :: String,
+    dataTy :: Type,
+    dataCtors :: [CtorItem]
+  }
+  deriving (Eq)
+
+-- | A constructor item is a constructor name and type.
+data CtorItem = CtorItem
+  { ctorItemName :: String,
+    ctorItemTy :: Type,
+    ctorItemDataName :: String
+  }
+  deriving (Eq)
 
 -- | A clause is a sequence of patterns followed by a term.
 data Clause = Clause [Pat] Term | ImpossibleClause [Pat]
+  deriving (Eq)
 
 -- | Get the patterns from a clause.
 clausePats :: Clause -> [Pat]
 clausePats (Clause pats _) = pats
 clausePats (ImpossibleClause pats) = pats
 
--- | A program is a sequence of declarations.
-newtype Program = Program [Decl]
+prependPatToClause :: Pat -> Clause -> Clause
+prependPatToClause p (Clause ps t) = Clause (p : ps) t
+prependPatToClause p (ImpossibleClause ps) = ImpossibleClause (p : ps)
+
+-- | A program is a sequence of items.
+newtype Program = Program [Item]
+  deriving (Eq)
 
 -- | Apply a function to a term, if it is a Just, otherwise return the term.
 mapTerm :: (Term -> Maybe Term) -> Term -> Term
@@ -148,44 +204,34 @@ mapTermM f term = do
       (LTESucc t) -> LTESucc <$> mapTermM f t
     Just t' -> return t'
 
--- | Convert a term to a pattern, if possible.
-termToPat :: Term -> Maybe Pat
-termToPat (V (Var "_" _)) = Just WildP
-termToPat (V v) = Just $ VP v
-termToPat (Pair p1 p2) = do
-  p1' <- termToPat p1
-  p2' <- termToPat p2
-  return $ PairP p1' p2'
-termToPat LNil = Just LNilP
-termToPat (LCons p1 p2) = do
-  p1' <- termToPat p1
-  p2' <- termToPat p2
-  return $ LConsP p1' p2'
-termToPat VNil = Just VNilP
-termToPat (VCons p1 p2) = do
-  p1' <- termToPat p1
-  p2' <- termToPat p2
-  return $ VConsP p1' p2'
-termToPat FZ = Just FZP
-termToPat (FS p) = do
-  p' <- termToPat p
-  return $ FSP p'
-termToPat Z = Just ZP
-termToPat (S p) = do
-  p' <- termToPat p
-  return $ SP p'
-termToPat (MJust p) = do
-  p' <- termToPat p
-  return $ MJustP p'
-termToPat MNothing = Just MNothingP
-termToPat (Refl p) = do
-  p' <- termToPat p
-  return $ ReflP p'
-termToPat LTEZero = Just LTEZeroP
-termToPat (LTESucc p) = do
-  p' <- termToPat p
-  return $ LTESuccP p'
-termToPat _ = Nothing
+-- | Apply a function to a pattern, if it is a Just, otherwise return the pattern.
+mapPat :: (Pat -> Maybe Pat) -> Pat -> Pat
+mapPat f pat = runIdentity $ mapPatM (return . f) pat
+
+-- | Map a function over a pattern, if it is a Just, otherwise return the pattern.
+mapPatM :: (Monad m) => (Pat -> m (Maybe Pat)) -> Pat -> m Pat
+mapPatM f pat = do
+  pat' <- f pat
+  case pat' of
+    Nothing -> case pat of
+      (VP v) -> return $ VP v
+      WildP -> return WildP
+      (PairP p1 p2) -> PairP <$> mapPatM f p1 <*> mapPatM f p2
+      LNilP -> return LNilP
+      (LConsP p1 p2) -> LConsP <$> mapPatM f p1 <*> mapPatM f p2
+      VNilP -> return VNilP
+      (VConsP p1 p2) -> VConsP <$> mapPatM f p1 <*> mapPatM f p2
+      FZP -> return FZP
+      (FSP p) -> FSP <$> mapPatM f p
+      ZP -> return ZP
+      (SP p) -> SP <$> mapPatM f p
+      (MJustP p) -> MJustP <$> mapPatM f p
+      MNothingP -> return MNothingP
+      (ReflP p) -> ReflP <$> mapPatM f p
+      LTEZeroP -> return LTEZeroP
+      (LTESuccP p) -> LTESuccP <$> mapPatM f p
+      (CtorP s ps) -> CtorP s <$> mapM (mapPatM f) ps
+    Just t' -> return t'
 
 -- Show instances for pretty printing:
 instance Show Var where
@@ -208,6 +254,7 @@ instance Show Pat where
   show (ReflP p) = "(Refl " ++ show p ++ ")"
   show LTEZeroP = "LTEZero"
   show (LTESuccP p) = "(LTESucc " ++ show p ++ ")"
+  show (CtorP s ps) = "(" ++ s ++ (if null ps then "" else " ") ++ unwords (map show ps) ++ ")"
 
 instance Show Term where
   show (PiT v t1 t2) = "(" ++ show v ++ " : " ++ show t1 ++ ") -> " ++ show t2
@@ -240,8 +287,21 @@ instance Show Term where
   show LTEZero = "LTEZero"
   show (LTESucc t) = "(LTESucc " ++ show t ++ ")"
 
-instance Show Decl where
-  show (Decl v ty clauses) = intercalate "\n" ((v ++ " : " ++ show ty) : map (\c -> v ++ " " ++ show c) clauses)
+instance Show Item where
+  show (Decl d) = show d
+  show (Data d) = show d
+
+instance Show DataItem where
+  show (DataItem name ty ctors) =
+    "data "
+      ++ name
+      ++ " : "
+      ++ show ty
+      ++ " where\n"
+      ++ intercalate "\n" (map (\(CtorItem s t _) -> "  " ++ s ++ " : " ++ show t) ctors)
+
+instance Show DeclItem where
+  show (DeclItem v ty clauses) = intercalate "\n" ((v ++ " : " ++ show ty) : map (\c -> v ++ " " ++ show c) clauses)
 
 instance Show Clause where
   show (Clause p t) = intercalate " " (map show p) ++ " = " ++ show t
