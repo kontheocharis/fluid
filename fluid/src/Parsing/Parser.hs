@@ -16,8 +16,9 @@ import Lang
     Term (..),
     Type,
     Var (..),
+    mapTermM,
   )
-import Parsing.Resolution (resolveGlobalsInItem, resolveTerm, termToPat)
+import Parsing.Resolution (resolveGlobalsInItem, termToPat)
 import Text.Parsec
   ( Parsec,
     between,
@@ -44,14 +45,17 @@ import Text.Parsec.Text ()
 data ParserState = ParserState
   { varCount :: Int,
     -- Keep track of the names of variables so we can resolve them when encountering them.
-    names :: [(String, Var)]
+    names :: [(String, Var)],
+    -- Whether we are parsing a pattern.
+    parsingPat :: Bool
   }
 
 initialParserState :: ParserState
 initialParserState =
   ParserState
     { varCount = 0,
-      names = []
+      names = [],
+      parsingPat = False
     }
 
 -- | Get a new variable index and increment it.
@@ -240,7 +244,7 @@ declClause name = do
 term :: Parser Term
 term = do
   t <- choice [piTOrSigmaT, lam, singleAppOrEqTOrCons]
-  return $ resolveTerm t
+  resolveTerm t
 
 -- | Parse a single term.
 --
@@ -251,8 +255,11 @@ singleTerm = try $ choice [varOrHole, nil, pair, parens term]
 -- | Parse a pattern.
 pat :: Parser Pat
 pat = do
+  modifyState $ \s -> s {parsingPat = True}
   t <- singleTerm
-  case termToPat (resolveTerm t) of
+  t' <- resolveTerm t
+  modifyState $ \s -> s {parsingPat = False}
+  case termToPat t' of
     Just p -> return p
     Nothing -> fail $ "Cannot use term " ++ show t ++ " as a pattern"
 
@@ -342,3 +349,34 @@ nil :: Parser Term
 nil = do
   reservedOp "[]"
   return LNil
+
+-- | Resolve the "primitive" data types and constructors in a term.
+resolveTerm :: Term -> Parser Term
+resolveTerm = mapTermM r
+  where
+    r (V (Var "_" _)) = do
+      isInPat <- parsingPat <$> getState
+      if isInPat
+        then return Nothing
+        else do Just . Hole <$> freshVar
+    r (V (Var "Type" _)) = return $ Just TyT
+    r (V (Var "Nat" _)) = return $ Just NatT
+    r (App (V (Var "List" _)) t1) = Just . ListT <$> resolveTerm t1
+    r (App (V (Var "Maybe" _)) t1) = Just . MaybeT <$> resolveTerm t1
+    r (App (App (V (Var "Vect" _)) t1) t2) = Just <$> (VectT <$> resolveTerm t1 <*> resolveTerm t2)
+    r (App (V (Var "Fin" _)) t1) = Just . FinT <$> resolveTerm t1
+    r (App (App (V (Var "Eq" _)) t1) t2) = Just <$> (EqT <$> resolveTerm t1 <*> resolveTerm t2)
+    r (V (Var "Z" _)) = return $ Just Z
+    r (App (V (Var "S" _)) t1) = Just . S <$> resolveTerm t1
+    r (V (Var "FZ" _)) = return $ Just FZ
+    r (App (V (Var "FS" _)) t1) = Just . FS <$> resolveTerm t1
+    r (V (Var "LNil" _)) = return $ Just LNil
+    r (App (App (V (Var "LCons" _)) t1) t2) = Just <$> (LCons <$> resolveTerm t1 <*> resolveTerm t2)
+    r (V (Var "VNil" _)) = return $ Just VNil
+    r (App (App (V (Var "VCons" _)) t1) t2) = Just <$> (VCons <$> resolveTerm t1 <*> resolveTerm t2)
+    r (V (Var "Nothing" _)) = return $ Just MNothing
+    r (App (V (Var "Just" _)) t1) = Just . MJust <$> resolveTerm t1
+    r (App (V (Var "Refl" _)) t1) = Just . Refl <$> resolveTerm t1
+    r (V (Var "LTEZero" _)) = return $ Just LTEZero
+    r (App (V (Var "LTESucc" _)) t1) = Just . LTESucc <$> resolveTerm t1
+    r _ = return Nothing

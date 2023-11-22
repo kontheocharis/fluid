@@ -25,3 +25,7 @@ cong a b f x y (Reflex a x) = Reflex b (f x)
 
 subst : (a : Type) -> (P : a -> Type) -> (x : a) -> (y : a) -> Equality a x y -> P x -> P y
 subst a P x y (Reflex a x) p = p
+
+main : Array Nat
+main = Cons _ Z (Cons _ (S Z) (Nil _))
+

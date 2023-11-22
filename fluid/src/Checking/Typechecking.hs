@@ -203,11 +203,13 @@ checkTerm (V v) typ = do
       _ -> unifyTerms typ vTyp'
 checkTerm (App t1 t2) typ = do
   bodyTy <- freshHole
-  varTy <- inferTerm t2
+  (s1, varTy) <- inferTermWithSub t2
   v <- freshHoleVar
   let inferredTy = PiT v varTy bodyTy
-  s <- checkTerm t1 inferredTy
-  unifyTerms typ $ subVar v (sub s t2) (sub s bodyTy)
+  s2 <- checkTerm (sub s1 t1) (sub s1 inferredTy)
+  let s12 = s1 <> s2
+  s3 <- unifyTerms (sub s12 typ) $ subVar v (sub s12 t2) (sub s12 bodyTy)
+  return (s12 <> s3)
 checkTerm (Hole _) ty = do
   hTy <- freshHoleVar
   return $ Sub [(hTy, ty)]
@@ -273,12 +275,16 @@ checkCtor implicitVars ctorParams ctorRet ctorArgs annotType = do
     (implicitVarSub <> retSub)
     (zip ctorParams ctorArgs)
 
--- | Infer the type of a term.
-inferTerm :: Term -> Tc Type
-inferTerm t = do
+-- | Infer the type of a term and return the substitution.
+inferTermWithSub :: Term -> Tc (Sub, Type)
+inferTermWithSub t = do
   ty <- freshHole
   s <- checkTerm t ty
-  return $ sub s ty
+  return (s, sub s ty)
+
+-- | Infer the type of a term.
+inferTerm :: Term -> Tc Type
+inferTerm t = snd <$> inferTermWithSub t
 
 -- | Reduce a term to normal form (one step).
 -- If this is not possible, return Nothing.
