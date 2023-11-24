@@ -1,0 +1,144 @@
+import Decidable.Equality
+-- start off with an undexed data type and
+-- possible refactoring could be to transform it
+-- to an indexed version. 
+{-
+data Tree : (a : Type) -> Type where 
+   Nil : Tree 
+-}
+
+data Tree a = Nil | Node a (Tree a) (Tree a)
+
+height : Tree a -> Nat  
+height Nil = Z
+height (Node k l r) = S (max (height l) (height r))
+
+balanced : Tree a -> Bool 
+balanced Nil = True
+balanced (Node k l r) = case not (balanced l) of 
+        True  => False 
+        False => case not (balanced r) of 
+                  True => False 
+                  False => case (minus (height l) (height r)) > 1 of 
+                             True => False 
+                             _    => True 
+
+
+test1 = (Node 3 (Node 2 (Node 1 Nil Nil) Nil) Nil)
+test2 = (Node 5 (Node 3 (Node 1 Nil Nil) (Node 4 Nil Nil)) (Node 8 (Node 7 Nil Nil) Nil))
+
+-------------------------------------------------------------------------
+{- we might want to arrive at a new definition of Tree which embeds the balanced property
+   within it 
+-}
+
+data Height : (h : Nat) -> Type where 
+    HNil  : Height Z 
+    HNode : (l : Height lh) -> (r : Height rh) -> Height (S (max lh rh))
+  
+height2 : Tree a -> (h ** Height h)
+height2 Nil = (Z ** HNil)
+height2 (Node k l r) = case height2 l of 
+                         (lh ** prflh) => case height2 r of 
+                                            (rh ** prfrh) => (S (max lh rh) ** HNode prflh prfrh) 
+
+
+balanced2 : Tree a -> Bool 
+balanced2 Nil = True
+balanced2 (Node k l r) = case not (balanced2 l) of 
+    True  => False 
+    False => case not (balanced2 r) of 
+        True => False 
+        False => case (minus (height l) (height r)) > 1 of 
+                    True => False 
+                    _    => True 
+                                            
+
+-- next step is to fold balanced2 against new definition, height2...
+balanced3 : Tree a -> Bool 
+balanced3 Nil = True
+balanced3 (Node k l r) = case not (balanced3 l) of 
+    True  => False 
+    False => case not (balanced3 r) of 
+        True => False 
+        False => case height2 l of 
+                    (r1 ** p1) => case height2 r of 
+                                    (r2 ** p2) => case (minus r1 r2) > 1 of 
+                                                    True => False 
+                                                    _    => True
+
+-- we want to introduce a type Balanced...
+-- data Balanced : Type where 
+-- this should be derived from the type balanced3... 
+-- we will first invert the not cases...
+   
+balanced4 : Tree a -> Bool 
+balanced4 Nil = True
+balanced4 (Node k l r) = case (balanced4 l) of 
+    False  => False 
+    True => case (balanced4 r) of 
+        False => False 
+        True => case height2 l of 
+                    (r1 ** p1) => case height2 r of 
+                                    (r2 ** p2) => case (minus r1 r2) > 1 of 
+                                                    True => False 
+                                                    _    => True
+
+
+-- We want a type to handle the cases where balanced4 returns True...
+data Balanced : (t : Tree a) -> Type where
+    MkBalancedNil : Balanced Nil
+    MkBalanced : (node : a) -> (l : Tree a) -> (Balanced l) -> (r : Tree a) -> (Balanced r) 
+              -> (lh ** Height lh) -> (rh ** Height rh) -> ((minus lh rh > 1) = True -> Void) -> Balanced (Node node l r)
+
+-- we adjust function and return a maybe to handle Nothing cases.
+balanced5 : (t : Tree a) -> Maybe (Balanced t )
+balanced5 Nil = Just MkBalancedNil
+balanced5 (Node k l r) = case (balanced5 l) of 
+    Nothing  => Nothing  
+    Just b => case (balanced5 r) of 
+        Nothing => Nothing
+        Just b2 => case height2 l of 
+                    (r1 ** p1) => case height2 r of 
+                                    (r2 ** p2) => case (minus r1 r2) > 1 of 
+                                                    True => Nothing  
+                                                    _    => ?h -- we need to get a proof that (minus r1 r2) > 1 is true... 
+                                                               -- it is not an assumption, so we cannot complete the definition
+
+
+data DecPred : (p : Nat -> Bool) -> (x : Nat) -> Dec (p x = True) -> Type where
+    DPYes : (p : Nat -> Bool) -> (x : Nat) -> (q : ((p x) = True))
+         -> DecPred p x (Yes q)
+    DPNo  : (p : Nat -> Bool) -> (x : Nat) -> (q : Not ((p x) = True))
+         -> DecPred p x (No q)
+  
+decPred : (p : Nat -> Bool) -> (x : Nat)
+       -> (q : Dec (p x = True) ** DecPred p x q)
+decPred p x = case decEq (p x) True of
+    Yes q => let prf = DPYes p x q in (Yes q ** prf)
+    No nq => let prf = DPNo p x nq in (No nq ** prf)
+
+-- we adjust function and return a maybe to handle Nothing cases.
+balanced6 : (t : Tree a) -> Maybe (Balanced t)
+balanced6 Nil = Just MkBalancedNil
+balanced6 (Node k l r) = case (balanced6 l) of 
+    Nothing  => Nothing  
+    Just b => case (balanced6 r) of 
+        Nothing => Nothing
+        Just b2 => case height2 l of 
+                    (r1 ** p1) => case height2 r of 
+                                    (r2 ** p2) => case decPred (\y => (minus r1 r2) > y) 1 of 
+                                                    (Yes p ** prf1) => Nothing  
+                                                    (No c ** prf2) => Just (MkBalanced k l b r b2 (r1 ** p1) (r2 ** p2) c) -- we need to get a proof that (minus r1 r2) > 1 is true... 
+                                                               -- it is not an assumption, so we cannot complete the definition
+
+                                                                          
+                                                             
+
+
+
+
+-- do we want to lift max to the type level as well?
+
+max2 : Nat -> Nat -> Nat
+max2 x y = if x > y then x else y
