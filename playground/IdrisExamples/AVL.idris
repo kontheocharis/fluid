@@ -84,6 +84,7 @@ balanced4 (Node k l r) = case (balanced4 l) of
                                                     True => False 
                                                     _    => True
 
+-- data Tree a = Nil | Node a (Tree a) (Tree a)
 
 -- We want a type to handle the cases where balanced4 returns True...
 data Balanced : (t : Tree a) -> Type where
@@ -132,10 +133,24 @@ balanced6 (Node k l r) = case (balanced6 l) of
                                                     (No c ** prf2) => Just (MkBalanced k l b r b2 (r1 ** p1) (r2 ** p2) c) -- we need to get a proof that (minus r1 r2) > 1 is true... 
                                                                -- it is not an assumption, so we cannot complete the definition
 
-                                                                          
-                                                             
+data Balanced2 : Type where 
+    MkBalanced2Nil : Balanced2 -- a tree with nothing in it is balanced
+    MkBalanced2Node : (node : a) -> (l : Balanced2) -> (r : Balanced2)
+                   -> (lh ** Height lh) -> (rh ** Height rh) -> ((minus lh rh > 1) = True -> Void) -> Balanced2                                                                           
 
-
+-- we adjust function and return a maybe to handle Nothing cases.
+balanced7 : (t : Tree a) -> Maybe Balanced2
+balanced7 Nil = Just MkBalanced2Nil
+balanced7 (Node k l r) = case (balanced7 l) of 
+    Nothing  => Nothing  
+    Just b => case (balanced7 r) of 
+        Nothing => Nothing
+        Just b2 => case height2 l of 
+                    (r1 ** p1) => case height2 r of 
+                                    (r2 ** p2) => case decPred (\y => (minus r1 r2) > y) 1 of 
+                                                    (Yes p ** prf1) => Nothing  
+                                                    (No c ** prf2) => Just (MkBalanced2Node k b b2 (r1 ** p1) (r2 ** p2) c) -- we need to get a proof that (minus r1 r2) > 1 is true... 
+                                                               -- it is not an assumption, so we cannot complete the definition
 
 
 -- do we want to lift max to the type level as well?
