@@ -59,4 +59,24 @@ sum6 : (xs : List Nat) -> (b : Nat) -> Fold2 (+) xs b
 sum6 [] Z = C12'' (+) Z
 sum6 [] (S n) = C12'' (+) (S n) 
 sum6 (h::t) b = case sum6 t b of 
-                sp => C22'' ?h5 ?h4 ?H3 ?h2 ?h1 -- C22'' (+) h t t' sp)
+                sp => ?y -- C22'' (+) h t t' sp)
+
+--- abandon... we cannot formulate the type..
+-- we want to capture in the type that x' is related to xs
+-- by replacing cons with some f ... 
+-- something like ...
+-- Fold (+) n xs
+
+-- step 3 (again)
+-- manually adjust the type here... 
+data Fold3 : (Nat -> Nat -> Nat) -> Nat -> List Nat -> Type where 
+   C123 : (f : Nat -> Nat -> Nat) -> (b : Nat) -> Fold3 f b []
+   C223 : (f : Nat -> Nat -> Nat) -> (h : Nat) -> (t : List Nat) -> (rec : Fold3 f b t) -> Fold3 f b (h::t) -- (f h t')
+
+sum7 : (xs : List Nat) -> (f : Nat -> Nat -> Nat) -> (b : Nat) -> Fold3 f b xs
+sum7 [] f b  = C123 f b -- (Z ** C12' Z)
+sum7 (h::t) f b = case sum7 t f b of
+                    rec => C223 f h t rec -- case sum7 t of 
+                -- (t' ** sp) => (((+) h t') ** C22' (+) h t t' sp)
+
+main3 = sum7 [1,2,3,4] (+) Z
