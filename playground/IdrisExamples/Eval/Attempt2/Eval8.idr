@@ -1,18 +1,16 @@
 import Data.List.Elem
 
 -- assume we have
-data Union : List Nat -> List Nat -> List Nat -> Type where 
-    Nil : (ys: List Nat) -> Union [] ys ys 
-    Cons : (x : Nat) -> (xs, ys, zs : List Nat) -> Union xs ys zs -> Union (x :: xs) ys (x :: zs)
+data Unzip : List (Nat, Nat) -> List Nat -> List Nat -> Type where
+    NilUZ : Unzip [] [] []
+    ConsUZ : Unzip xs vs ws -> Unzip ((x,y) :: xs) (x :: vs) (y :: ws)
+
 
 -- introduced proof in Var 
 data Expr : (vars : List Nat) -> Type where    
         Num : (vars : List Nat) -> Nat -> Expr []  
         Var : (vars : List Nat) -> (n : Nat) -> Elem n vars -> Expr vars  
-        Add : (vars : List Nat) -> (vars1 : List Nat) 
-          -> (vars2 : List Nat) -> (Expr vars1) -> (Expr vars2)
-          -> (p : Union vars1 vars2 vars)
-          -> Expr vars 
+        Add : (vars : List Nat) ->  (Expr vars) -> (Expr vars) -> Expr vars  -- probably seperate to unify and remove params
 
 lookupVar : (vars : List Nat) -> (x : Nat) -> (env : List (Nat, Nat)) -> (Elem x vars) -> Maybe Nat 
 lookupVar (x::vars) x [] Here = Nothing 
@@ -21,14 +19,12 @@ lookupVar (x::vars) x ((y,val)::ys) Here = if x == y then Just val
                                                      else lookupVar (x::vars) x ys Here 
 lookupVar (v::vars) x ((y,val)::ys) (There p) = if x == y then Just val 
                                                           else lookupVar (v::vars) x ys (There p)
-
-
-
-eval : (vars : List Nat) -> (env : List (Nat, Nat)) -> (Expr vars) -> Maybe Nat 
-eval [] env (Num vars n) = Just n 
-eval vars env (Var vars x r) = lookupVar vars x env r
-eval vars env (Add vars v1 v2 e1 e2 p) = case eval v1 env e1 of 
-                            Just e1' => case eval v2 env e2 of 
+        
+eval : (vs, ws : List Nat) -> (vars : List Nat) -> (env : List (Nat, Nat)) -> (Expr vars) -> (Unzip env vs ws) -> Maybe Nat 
+eval vs ws [] env (Num vars n) u = Just n 
+eval vs ws vars env (Var vars x r) u = lookupVar vars x env r
+eval vs ws vars env (Add vars e1 e2) u = case eval vs ws vars env e1 u of 
+                            Just e1' => case eval vs ws vars env e2 u of 
                                             Just e2' => Just (plus e1' e2')
                                             Nothing  => Nothing 
                             Nothing => Nothing 
