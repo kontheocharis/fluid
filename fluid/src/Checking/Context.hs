@@ -26,13 +26,25 @@ module Checking.Context
     enterCtx,
     modifyGlobalCtx,
     runTc,
+    inNextProblem,
+    pushProblem,
+    resolveHole,
+    resolveSub,
+    deferProblem,
+    remainingHoles,
+    remainingProblems,
+    NextProblem (..),
+    Problem (..),
   )
 where
 
+import Checking.Vars (Sub (..))
 import Control.Applicative ((<|>))
-import Control.Monad.Except (throwError)
+import Control.Monad.Error.Class (tryError)
+import Control.Monad.Except (MonadError (catchError), throwError)
 import Control.Monad.State (MonadState (..), StateT (runStateT))
 import Data.List (find, intercalate)
+import Data.Map (Map, empty, insert)
 import Lang
   ( Clause,
     CtorItem (..),
@@ -71,6 +83,7 @@ data TcError
   | Mismatch Term Term
   | ItemNotFound String
   | CannotUnifyTwoHoles Var Var
+  | CannotSolveProblems [Problem]
   | CannotInferHoleType Var
   | NeedMoreTypeHints [Var]
   | TooManyPatterns Clause Pat
@@ -81,10 +94,25 @@ instance Show TcError where
   show (Mismatch t1 t2) = "Term mismatch: " ++ show t1 ++ " vs " ++ show t2
   show (ItemNotFound s) = "Item not found: " ++ s
   show (CannotUnifyTwoHoles h1 h2) = "Cannot unify two holes: " ++ show h1 ++ " and " ++ show h2
+  show (CannotSolveProblems ps) = "Cannot unify:" ++ intercalate "\n" (map (\p -> "\t" ++ show (problemSrc p) ++ " with " ++ show (problemTarget p)) ps)
   show (CannotInferHoleType h) = "Cannot infer hole type: " ++ show h
   show (NeedMoreTypeHints vs) = "Need more type hints to resolve the holes: " ++ show vs
   show (TooManyPatterns c p) = "Too many patterns in '" ++ show c ++ "' . Unexpected: " ++ show p
   show (TooFewPatterns c t) = "Too few patterns in '" ++ show c ++ "'. Expected pattern for: " ++ show t
+
+-- | A unification problem.
+data Problem = Problem
+  { -- The context to enter when solving the problem.
+    problemCtx :: Ctx,
+    -- Whether we are in a pattern.
+    problemInPat :: Bool,
+    -- The variables that are implicit.
+    problemImplicitVars :: [Var], -- TODO: delete
+    -- Source term to unify.
+    problemSrc :: Term,
+    -- Target term to unify.
+    problemTarget :: Term
+  }
 
 -- | The typechecking state.
 data TcState = TcState
@@ -92,15 +120,23 @@ data TcState = TcState
     ctx :: Ctx,
     -- | The global context.
     globalCtx :: GlobalCtx,
+    -- | Unique hole counter.
+    holeCounter :: Int,
     -- | Unique variable counter.
     varCounter :: Int,
     -- | Whether we are in a pattern
-    inPat :: Bool
+    inPat :: Bool,
+    -- | Partial map from holes to terms
+    resolvedHoles :: Map Var Term,
+    -- | Unification problems
+    problems :: [Problem]
   }
+
+-- \| Unification problems
 
 -- | The empty typechecking state.
 emptyTcState :: TcState
-emptyTcState = TcState (Ctx []) (GlobalCtx []) 0 False
+emptyTcState = TcState (Ctx []) (GlobalCtx []) 0 0 False empty []
 
 -- | The typechecking monad.
 type Tc a = StateT TcState (Either TcError) a
@@ -141,6 +177,17 @@ enterPat p = do
   res <- p
   s' <- get
   put $ s' {inPat = False}
+  return res
+
+-- | Set the inPat flag to the given `b`.
+enterPatMod :: Bool -> Tc a -> Tc a
+enterPatMod b p = do
+  s <- get
+  let prevB = inPat s
+  put $ s {inPat = b}
+  res <- p
+  s' <- get
+  put $ s' {inPat = prevB}
   return res
 
 -- | Update the current context.
@@ -226,10 +273,70 @@ freshVar = do
 freshHoleVar :: Tc Var
 freshHoleVar = do
   s <- get
-  let h = varCounter s
-  put $ s {varCounter = h + 1}
+  let h = holeCounter s
+  put $ s {holeCounter = h + 1}
   return $ Var ("h" ++ show h) h
 
 -- | Get a fresh hole.
 freshHole :: Tc Term
 freshHole = Hole <$> freshHoleVar
+
+-- | Result of running a computation on a unification problem.
+data NextProblem a = NoNextProblem | Success Problem a | Failure Problem TcError
+
+-- | Progress to the next unification problem and run the given computation.
+--
+-- If the computation returns Nothing, the problem is "not solved".
+inNextProblem :: ([Var] -> Term -> Term -> Tc a) -> Tc (NextProblem a)
+inNextProblem f = do
+  s <- get
+  case problems s of
+    [] -> return NoNextProblem
+    (p@(Problem pCtx pInPat pImplicitVars pSrc pTarget) : ps) -> do
+      res <- enterPatMod pInPat . enterCtxMod (const pCtx) $ tryError (f pImplicitVars pSrc pTarget)
+      case res of
+        Right r -> do
+          put $ s {problems = ps}
+          return $ Success p r
+        Left e -> do
+          put $ s {problems = ps}
+          return $ Failure p e
+
+-- | Add a unification problem.
+pushProblem :: [Var] -> Term -> Term -> Tc ()
+pushProblem vs t1 t2 = do
+  s <- get
+  put $ s {problems = problems s ++ [Problem (ctx s) (inPat s) vs t1 t2]}
+
+-- | Defer the current unification problem.
+deferProblem :: Tc ()
+deferProblem = do
+  s <- get
+  case problems s of
+    [] -> return ()
+    (p : ps) -> put $ s {problems = ps ++ [p]}
+
+-- | Resolve a hole to a term.
+resolveHole :: Var -> Term -> Tc ()
+resolveHole h t = do
+  s <- get
+  put $ s {resolvedHoles = insert h t (resolvedHoles s)}
+
+-- | Resolve a substitution.
+resolveSub :: Sub -> Tc ()
+resolveSub (Sub ((v, t) : xs)) = do
+  resolveHole v t
+  resolveSub (Sub xs)
+resolveSub (Sub []) = return ()
+
+-- | Get the amount of remaining holes.
+remainingHoles :: Tc Int
+remainingHoles = do
+  s <- get
+  return $ length (problems s) - length (resolvedHoles s)
+
+-- | Get the amount of remaining problems.
+remainingProblems :: Tc Int
+remainingProblems = do
+  s <- get
+  return $ length (problems s)

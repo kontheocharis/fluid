@@ -43,8 +43,9 @@ library
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -Wno-unused-top-binds
   build-depends:
       base >=4.7 && <5
+    , containers
     , haskeline
-    , mtl
+    , mtl >=2.3 && <3
     , optparse-applicative
     , parsec
     , text
@@ -63,9 +64,10 @@ executable fluid-exe
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -Wno-unused-top-binds -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
+    , containers
     , fluid
     , haskeline
-    , mtl
+    , mtl >=2.3 && <3
     , optparse-applicative
     , parsec
     , text
@@ -83,9 +85,10 @@ test-suite fluid-test
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -Wno-unused-top-binds -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
+    , containers
     , fluid
     , haskeline
-    , mtl
+    , mtl >=2.3 && <3
     , optparse-applicative
     , parsec
     , text

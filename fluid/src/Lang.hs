@@ -33,7 +33,7 @@ type GlobalName = String
 
 -- | A variable
 -- Represented by a string name and a unique integer identifier (no shadowing).
-data Var = Var String Int deriving (Eq)
+data Var = Var String Int deriving (Eq, Ord)
 
 -- | A pattern
 data Pat

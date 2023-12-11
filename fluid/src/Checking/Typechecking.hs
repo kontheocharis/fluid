@@ -1,11 +1,23 @@
-module Checking.Typechecking (checkTerm, unifyTerms, unifyToLeft, inferTerm, normaliseTermFully, checkProgram) where
+module Checking.Typechecking
+  ( checkTerm,
+    unifyTerms,
+    unifyToLeft,
+    inferTerm,
+    normaliseTermFully,
+    checkProgram,
+    runUntilFixpoint,
+  )
+where
 
 import Checking.Context
-  ( Tc,
+  ( NextProblem (..),
+    Problem,
+    Tc,
     TcError (..),
-    TcState (inPat),
+    TcState (holeCounter, inPat),
     addItem,
     addTyping,
+    deferProblem,
     enterCtx,
     enterCtxMod,
     enterGlobalCtxMod,
@@ -15,14 +27,19 @@ import Checking.Context
     freshVar,
     inCtx,
     inGlobalCtx,
+    inNextProblem,
     inState,
     isPatBind,
     lookupItemOrCtor,
     lookupType,
     modifyCtx,
     modifyGlobalCtx,
+    pushProblem,
+    remainingHoles,
+    remainingProblems,
+    resolveSub,
   )
-import Checking.Vars (Sub (..), Subst (sub), alphaRename, noSub, subVar)
+import Checking.Vars (Sub (..), Subst (sub), alphaRename, noSub, subSize, subVar)
 import Control.Monad (foldM, replicateM)
 import Control.Monad.Except (catchError, throwError)
 import Data.Bifunctor (second)
@@ -41,6 +58,33 @@ import Lang
     piTypeToList,
     prependPatToClause,
   )
+
+-- | Run the typechecker on a job until there are no more problems.
+runUntilFixpoint :: Tc a -> Tc a
+runUntilFixpoint job = do
+  res <- job
+  p <- remainingProblems
+  if p == 0
+    then return res
+    else do
+      (nSubbed, seenProblems) <- runNextProblems 0 []
+      case nSubbed of
+        0 -> throwError $ CannotSolveProblems seenProblems
+        _ -> runUntilFixpoint job
+  where
+    runNextProblems :: Int -> [Problem] -> Tc (Int, [Problem])
+    runNextProblems nSubbed seenProblems = do
+      result <- inNextProblem unifyTermsWH
+      case result of
+        NoNextProblem -> return (nSubbed, seenProblems)
+        Success p s -> do
+          resolveSub s
+          runNextProblems (nSubbed + subSize s) (p : seenProblems)
+        Failure p e -> do
+          case e of
+            CannotUnifyTwoHoles _ _ -> do
+              runNextProblems nSubbed (p : seenProblems)
+            _ -> throwError e
 
 -- | Check the program
 checkProgram :: Program -> Tc Program

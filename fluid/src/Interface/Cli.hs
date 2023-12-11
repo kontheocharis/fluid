@@ -1,9 +1,9 @@
 module Interface.Cli (runCli) where
 
 import Checking.Context (Tc, runTc)
-import Checking.Typechecking (checkProgram, inferTerm, normaliseTermFully)
+import Checking.Typechecking (checkProgram, inferTerm, normaliseTermFully, runUntilFixpoint)
 import Control.Monad (when)
-import Control.Monad.Cont (MonadIO (liftIO))
+import Control.Monad.IO.Class (liftIO)
 import Data.Char (isSpace)
 import Data.String
 import Data.Text.IO (hPutStrLn)
@@ -120,6 +120,6 @@ handleParse er res = do
 -- | Handle a checking result.
 handleTc :: (String -> InputT IO a) -> Tc a -> InputT IO a
 handleTc er a = do
-  case runTc a of
+  case runTc (runUntilFixpoint a) of
     Left e -> er $ "Error: " ++ show e
     Right p -> return p

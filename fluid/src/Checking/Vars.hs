@@ -1,4 +1,4 @@
-module Checking.Vars (var, Sub (..), Subst, sub, subVar, alphaRename, noSub) where
+module Checking.Vars (var, Sub (..), Subst, sub, subVar, alphaRename, noSub, subSize) where
 
 import Data.List (intercalate)
 import Lang
@@ -16,6 +16,10 @@ instance Show Sub where
 -- | Empty substitution.
 noSub :: Sub
 noSub = Sub []
+
+-- | The size of a substitution.
+subSize :: Sub -> Int
+subSize (Sub s) = length s
 
 instance Monoid Sub where
   mempty = noSub
