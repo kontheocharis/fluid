@@ -43,6 +43,7 @@ import Checking.Vars (Sub (..), insertSub, lookupSub, noSub, subSize)
 import Control.Applicative ((<|>))
 import Control.Monad.Error.Class (tryError)
 import Control.Monad.Except (MonadError (catchError), throwError)
+import Control.Monad.Identity (Identity)
 import Control.Monad.State (MonadState (..), StateT (runStateT))
 import Data.List (find, intercalate)
 import Data.Map (Map, empty, insert)
@@ -96,7 +97,7 @@ instance Show TcError where
   show (Mismatch t1 t2) = "Term mismatch: " ++ show t1 ++ " vs " ++ show t2
   show (ItemNotFound s) = "Item not found: " ++ s
   show (CannotUnifyTwoHoles h1 h2) = "Cannot unify two holes: " ++ show h1 ++ " and " ++ show h2
-  show (CannotSolveProblems ps) = "Cannot unify:" ++ intercalate "\n" (map (\p -> "\t" ++ show (problemSrc p) ++ " with " ++ show (problemTarget p)) ps)
+  show (CannotSolveProblems ps) = "Cannot unify:\n" ++ intercalate "\n" (map (\p -> "\t" ++ show (problemSrc p) ++ " with " ++ show (problemTarget p)) ps)
   show (CannotInferHoleType h) = "Cannot infer hole type: " ++ show h
   show (NeedMoreTypeHints vs) = "Need more type hints to resolve the holes: " ++ show vs
   show (TooManyPatterns c p) = "Too many patterns in '" ++ show c ++ "' . Unexpected: " ++ show p
@@ -115,6 +116,7 @@ data Problem = Problem
     -- Target term to unify.
     problemTarget :: Term
   }
+  deriving (Show)
 
 -- | The typechecking state.
 data TcState = TcState
@@ -284,7 +286,7 @@ freshHole :: Tc Term
 freshHole = Hole <$> freshHoleVar
 
 -- | Result of running a computation on a unification problem.
-data NextProblem a = NoNextProblem | Success Problem a | Failure Problem TcError
+data NextProblem a = NoNextProblem | Success Problem a
 
 -- | Progress to the next unification problem and run the given computation.
 --
@@ -295,14 +297,9 @@ inNextProblem f = do
   case problems s of
     [] -> return NoNextProblem
     (p@(Problem pCtx pInPat pImplicitVars pSrc pTarget) : ps) -> do
-      res <- enterPatMod pInPat . enterCtxMod (const pCtx) $ tryError (f pImplicitVars pSrc pTarget)
-      case res of
-        Right r -> do
-          put $ s {problems = ps}
-          return $ Success p r
-        Left e -> do
-          put $ s {problems = ps}
-          return $ Failure p e
+      res <- enterPatMod pInPat . enterCtxMod (const pCtx) $ f pImplicitVars pSrc pTarget
+      put $ s {problems = ps}
+      return $ Success p res
 
 -- | Add a unification problem.
 pushProblem :: [Var] -> Term -> Term -> Tc ()

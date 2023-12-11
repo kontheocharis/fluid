@@ -51,12 +51,19 @@ class Subst a where
   -- | Substitute a variable for a term in a term.
   subVar :: Var -> Term -> a -> a
 
+  -- | Alpha rename a variable in a term.
+  alphaRename :: Var -> Var -> a -> a
+  alphaRename v1 v2 = subVar v1 (V v2)
+
 instance Subst Term where
   subVar v t' =
     mapTerm
       ( \t'' -> case t'' of
           V v' | v == v' -> Just t'
           Hole v' | v == v' -> Just t'
+          PiT v' ty t | v == v' -> Just (PiT v' (subVar v t' ty) t)
+          Lam v' t | v == v' -> Just (Lam v' (subVar v t' t))
+          SigmaT v' ty t | v == v' -> Just (SigmaT v' (subVar v t' ty) t)
           _ -> Nothing
       )
 
@@ -80,7 +87,3 @@ subInM (Sub []) t = return t
 instance Subst Sub where
   subVar v' t' (Sub ((v, t) : s)) = Sub ((v, subVar v' t' t) : let Sub rs = subVar v' t' (Sub s) in rs)
   subVar _ _ (Sub []) = Sub []
-
--- | Alpha rename a variable in a term.
-alphaRename :: Var -> Var -> Term -> Term
-alphaRename v1 v2 = subVar v1 (V v2)

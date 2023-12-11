@@ -120,7 +120,7 @@ handleParse er res = do
     Right p -> return p
 
 -- | Handle a checking result.
-handleTc :: (TermMappable a) => (String -> InputT IO a) -> Tc a -> InputT IO a
+handleTc :: (Eq a, TermMappable a) => (String -> InputT IO a) -> Tc a -> InputT IO a
 handleTc er a = do
   case runTc (runUntilFixpoint a) of
     Left e -> er $ "Error: " ++ show e

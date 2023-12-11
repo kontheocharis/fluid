@@ -219,8 +219,8 @@ mapCtorItemM f (CtorItem name ty d) = CtorItem name <$> mapTermM f ty <*> pure d
 
 -- | Apply a term function to a declaration item.
 mapItemM :: (Monad m) => (Term -> m (Maybe Term)) -> Item -> m Item
-mapItemM f (Decl (DeclItem name ty clauses)) = Decl . DeclItem name ty <$> mapM (mapClauseM f) clauses
-mapItemM f (Data (DataItem name ty ctors)) = Data . DataItem name ty <$> mapM (mapCtorItemM f) ctors
+mapItemM f (Decl (DeclItem name ty clauses)) = Decl <$> (DeclItem name <$> mapTermM f ty <*> mapM (mapClauseM f) clauses)
+mapItemM f (Data (DataItem name ty ctors)) = Data <$> (DataItem name <$> mapTermM f ty <*> mapM (mapCtorItemM f) ctors)
 
 -- | Apply a term function to a program.
 mapProgramM :: (Monad m) => (Term -> m (Maybe Term)) -> Program -> m Program

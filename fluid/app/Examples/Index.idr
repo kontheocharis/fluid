@@ -27,7 +27,12 @@ data Array : Type -> Type where
   Nil : (a : Type) -> Array a
   Cons : (a : Type) -> a -> Array a -> Array a
 
+
+
+
+
 main : Array Nat
 main = Cons _ Z (Cons _ (S Z) (Nil _))
 
-
+bain : (a: Type) -> (m: a) -> (Array a) ** (Array a)
+bain _ q = (Nil _, Cons _ q (Nil _))
