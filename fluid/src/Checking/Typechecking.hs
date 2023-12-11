@@ -6,6 +6,7 @@ module Checking.Typechecking
     normaliseTermFully,
     checkProgram,
     runUntilFixpoint,
+    substituteHolesIn,
   )
 where
 
@@ -14,7 +15,7 @@ import Checking.Context
     Problem,
     Tc,
     TcError (..),
-    TcState (holeCounter, inPat),
+    TcState (holeCounter, inPat, resolvedHoles),
     addItem,
     addTyping,
     deferProblem,
@@ -30,6 +31,7 @@ import Checking.Context
     inNextProblem,
     inState,
     isPatBind,
+    lookupHole,
     lookupItemOrCtor,
     lookupType,
     modifyCtx,
@@ -39,7 +41,7 @@ import Checking.Context
     remainingProblems,
     resolveSub,
   )
-import Checking.Vars (Sub (..), Subst (sub), alphaRename, noSub, subSize, subVar)
+import Checking.Vars (Sub (..), Subst (sub), alphaRename, noSub, subInM, subSize, subVar)
 import Control.Monad (foldM, replicateM)
 import Control.Monad.Except (catchError, throwError)
 import Data.Bifunctor (second)
@@ -52,6 +54,7 @@ import Lang
     Pat (..),
     Program (..),
     Term (..),
+    TermMappable,
     Type,
     Var,
     listToPiType,
@@ -59,13 +62,19 @@ import Lang
     prependPatToClause,
   )
 
+-- | Substitute all holes in a term from the context.
+substituteHolesIn :: (TermMappable a) => a -> Tc a
+substituteHolesIn t = do
+  s <- inState resolvedHoles
+  subInM s t
+
 -- | Run the typechecker on a job until there are no more problems.
-runUntilFixpoint :: Tc a -> Tc a
+runUntilFixpoint :: (TermMappable a) => Tc a -> Tc a
 runUntilFixpoint job = do
   res <- job
   p <- remainingProblems
   if p == 0
-    then return res
+    then substituteHolesIn res
     else do
       (nSubbed, seenProblems) <- runNextProblems 0 []
       case nSubbed of
@@ -254,9 +263,13 @@ checkTerm (App t1 t2) typ = do
   let s12 = s1 <> s2
   s3 <- unifyTerms (sub s12 typ) $ subVar v (sub s12 t2) (sub s12 bodyTy)
   return (s12 <> s3)
-checkTerm (Hole _) ty = do
-  hTy <- freshHoleVar
-  return $ Sub [(hTy, ty)]
+checkTerm (Hole h) ty = do
+  hTerm <- lookupHole h
+  case hTerm of
+    Nothing -> do
+      hTy <- freshHoleVar
+      return $ Sub [(hTy, ty)]
+    Just t -> checkTerm t ty
 checkTerm (Global g) typ = do
   decl <- inGlobalCtx (lookupItemOrCtor g)
   case decl of
@@ -351,6 +364,18 @@ normaliseTermFully t = do
     Nothing -> return t
     Just t'' -> normaliseTermFully t''
 
+-- | Unify two terms in place.
+unifyTermsInPlace :: Term -> Term -> Tc ()
+unifyTermsInPlace l r = do
+  s1 <- unifyTerms l r
+  resolveSub s1
+
+-- | Unify two terms in place (with weak holes).
+unifyTermsInPlaceWH :: [Var] -> Term -> Term -> Tc ()
+unifyTermsInPlaceWH wh l r = do
+  s1 <- unifyTermsWH wh l r
+  resolveSub s1
+
 -- | Unify two terms.
 -- This might produce a substitution.
 -- Unification is currently symmetric.
@@ -379,10 +404,18 @@ unifyTermsWH wh (Hole l) (Hole r)
   | l `elem` wh = return $ Sub [(l, Hole r)]
   | r `elem` wh = return $ Sub [(r, Hole l)]
   | otherwise = throwError $ CannotUnifyTwoHoles l r
-unifyTermsWH _ (Hole h) t = do
-  return $ Sub [(h, t)]
-unifyTermsWH _ t (Hole h) = do
-  return $ Sub [(h, t)]
+unifyTermsWH wh (Hole h) t = do
+  hTerm <- lookupHole h
+  case hTerm of
+    Nothing -> do
+      return $ Sub [(h, t)]
+    Just t' -> unifyTermsWH wh t' t
+unifyTermsWH wh t (Hole h) = do
+  hTerm <- lookupHole h
+  case hTerm of
+    Nothing -> do
+      return $ Sub [(h, t)]
+    Just t' -> unifyTermsWH wh t t'
 unifyTermsWH _ (V l) (V r) | l == r = return noSub
 unifyTermsWH _ (V v) t = do
   -- Pattern bindings can always be unified with.
@@ -457,7 +490,7 @@ unifyTermsWH wh l r = normaliseAndUnifyTerms wh l r
 
 -- | Unify two terms.
 unifyTerms :: Term -> Term -> Tc Sub
-unifyTerms a b = unifyTermsWH [] a b
+unifyTerms = unifyTermsWH []
 
 -- | Unify two terms and return the substituted left term
 unifyToLeft :: Term -> Term -> Tc Term

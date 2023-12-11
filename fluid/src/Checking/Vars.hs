@@ -1,4 +1,6 @@
-module Checking.Vars (var, Sub (..), Subst, sub, subVar, alphaRename, noSub, subSize) where
+{-# LANGUAGE FlexibleInstances #-}
+
+module Checking.Vars (var, Sub (..), Subst, sub, subVar, alphaRename, noSub, subSize, insertSub, lookupSub, subInM) where
 
 import Data.List (intercalate)
 import Lang
@@ -20,6 +22,14 @@ noSub = Sub []
 -- | The size of a substitution.
 subSize :: Sub -> Int
 subSize (Sub s) = length s
+
+-- | Insert into a substitution.
+insertSub :: Var -> Term -> Sub -> Sub
+insertSub v t (Sub s) = Sub ((v, t) : s)
+
+-- | Get an element from a substitution.
+lookupSub :: Var -> Sub -> Maybe Term
+lookupSub v (Sub s) = lookup v s
 
 instance Monoid Sub where
   mempty = noSub
@@ -49,6 +59,23 @@ instance Subst Term where
           Hole v' | v == v' -> Just t'
           _ -> Nothing
       )
+
+-- | Substitute in a term mappable.
+subVarInM :: (Monad m, TermMappable t) => Var -> Term -> t -> m t
+subVarInM v t' =
+  mapTermMappableM
+    ( \t'' -> case t'' of
+        V v' | v == v' -> return $ Just t'
+        Hole v' | v == v' -> return $ Just t'
+        _ -> return Nothing
+    )
+
+-- | Substitute in a term mappable.
+subInM :: (Monad m, TermMappable t) => Sub -> t -> m t
+subInM (Sub ((v, t') : ss)) t = do
+  t'' <- subVarInM v t' t
+  subInM (Sub ss) t''
+subInM (Sub []) t = return t
 
 instance Subst Sub where
   subVar v' t' (Sub ((v, t) : s)) = Sub ((v, subVar v' t' t) : let Sub rs = subVar v' t' (Sub s) in rs)

@@ -1,6 +1,5 @@
 module Parsing.Resolution
-  (
-    resolveGlobals,
+  ( resolveGlobals,
     resolveGlobalsInItem,
     resolveGlobalsInClause,
     termToPat,

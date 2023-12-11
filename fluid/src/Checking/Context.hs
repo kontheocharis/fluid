@@ -33,18 +33,20 @@ module Checking.Context
     deferProblem,
     remainingHoles,
     remainingProblems,
+    lookupHole,
     NextProblem (..),
     Problem (..),
   )
 where
 
-import Checking.Vars (Sub (..))
+import Checking.Vars (Sub (..), insertSub, lookupSub, noSub, subSize)
 import Control.Applicative ((<|>))
 import Control.Monad.Error.Class (tryError)
 import Control.Monad.Except (MonadError (catchError), throwError)
 import Control.Monad.State (MonadState (..), StateT (runStateT))
 import Data.List (find, intercalate)
 import Data.Map (Map, empty, insert)
+import qualified Data.Map as Map
 import Lang
   ( Clause,
     CtorItem (..),
@@ -127,7 +129,7 @@ data TcState = TcState
     -- | Whether we are in a pattern
     inPat :: Bool,
     -- | Partial map from holes to terms
-    resolvedHoles :: Map Var Term,
+    resolvedHoles :: Sub,
     -- | Unification problems
     problems :: [Problem]
   }
@@ -136,7 +138,7 @@ data TcState = TcState
 
 -- | The empty typechecking state.
 emptyTcState :: TcState
-emptyTcState = TcState (Ctx []) (GlobalCtx []) 0 0 False empty []
+emptyTcState = TcState (Ctx []) (GlobalCtx []) 0 0 False noSub []
 
 -- | The typechecking monad.
 type Tc a = StateT TcState (Either TcError) a
@@ -320,7 +322,13 @@ deferProblem = do
 resolveHole :: Var -> Term -> Tc ()
 resolveHole h t = do
   s <- get
-  put $ s {resolvedHoles = insert h t (resolvedHoles s)}
+  put $ s {resolvedHoles = insertSub h t (resolvedHoles s)}
+
+-- | Lookup a hole.
+lookupHole :: Var -> Tc (Maybe Term)
+lookupHole h = do
+  s <- get
+  return $ lookupSub h (resolvedHoles s)
 
 -- | Resolve a substitution.
 resolveSub :: Sub -> Tc ()
@@ -333,7 +341,7 @@ resolveSub (Sub []) = return ()
 remainingHoles :: Tc Int
 remainingHoles = do
   s <- get
-  return $ length (problems s) - length (resolvedHoles s)
+  return $ length (problems s) - subSize (resolvedHoles s)
 
 -- | Get the amount of remaining problems.
 remainingProblems :: Tc Int

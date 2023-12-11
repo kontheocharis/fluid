@@ -19,6 +19,7 @@ module Lang
     piTypeToList,
     listToPiType,
     itemName,
+    TermMappable (..),
   )
 where
 
@@ -203,6 +204,42 @@ mapTermM f term = do
       LTEZero -> return LTEZero
       (LTESucc t) -> LTESucc <$> mapTermM f t
     Just t' -> return t'
+
+class TermMappable t where
+  -- | Apply a term function to an item.
+  mapTermMappableM :: (Monad m) => (Term -> m (Maybe Term)) -> t -> m t
+
+mapClauseM :: (Monad m) => (Term -> m (Maybe Term)) -> Clause -> m Clause
+mapClauseM f (Clause p t) = Clause p <$> mapTermM f t
+mapClauseM _ (ImpossibleClause p) = return $ ImpossibleClause p
+
+-- | Apply a term function to a constructor item.
+mapCtorItemM :: (Monad m) => (Term -> m (Maybe Term)) -> CtorItem -> m CtorItem
+mapCtorItemM f (CtorItem name ty d) = CtorItem name <$> mapTermM f ty <*> pure d
+
+-- | Apply a term function to a declaration item.
+mapItemM :: (Monad m) => (Term -> m (Maybe Term)) -> Item -> m Item
+mapItemM f (Decl (DeclItem name ty clauses)) = Decl . DeclItem name ty <$> mapM (mapClauseM f) clauses
+mapItemM f (Data (DataItem name ty ctors)) = Data . DataItem name ty <$> mapM (mapCtorItemM f) ctors
+
+-- | Apply a term function to a program.
+mapProgramM :: (Monad m) => (Term -> m (Maybe Term)) -> Program -> m Program
+mapProgramM f (Program items) = Program <$> mapM (mapItemM f) items
+
+instance TermMappable Term where
+  mapTermMappableM = mapTermM
+
+instance TermMappable Clause where
+  mapTermMappableM = mapClauseM
+
+instance TermMappable CtorItem where
+  mapTermMappableM = mapCtorItemM
+
+instance TermMappable Item where
+  mapTermMappableM = mapItemM
+
+instance TermMappable Program where
+  mapTermMappableM = mapProgramM
 
 -- | Apply a function to a pattern, if it is a Just, otherwise return the pattern.
 mapPat :: (Pat -> Maybe Pat) -> Pat -> Pat
