@@ -1,7 +1,8 @@
 module Refactoring.Ornamenting (ornamentDeclItem, ornamentType) where
 
 import Checking.Vars (var)
-import Lang (Clause (..), DeclItem (..), Pat (..), Term (..), Type, Var (..), mapTerm, piTypeToList)
+import Control.Arrow (second)
+import Lang (Clause (..), DeclItem (..), Pat (..), PiMode (..), Term (..), Type, Var (..), mapTerm, piTypeToList)
 
 -- | Ornament a declaration.
 ornamentDeclItem :: DeclItem -> (DeclItem, DeclItem)
@@ -13,10 +14,11 @@ ornamentDeclItem (DeclItem name ty clauses) = (ornItem, indexPropItem)
     indexPropItem = generateIndicesPropItem indexPropItemName i
     tyOrnWithProp =
       PiT
+        Explicit
         (var "prf")
-        (foldl (\term v -> App term (V (var ("n" ++ show v)))) (Global indexPropItemName) [0 .. i - 1])
+        (foldl (\term v -> App Explicit term (V (var ("n" ++ show v)))) (Global indexPropItemName) [0 .. i - 1])
         tyOrn
-    tyOrnWithIndices = foldr (\v t -> PiT (var ("n" ++ show v)) NatT t) tyOrnWithProp [0 .. i - 1]
+    tyOrnWithIndices = foldr (\v t -> PiT Explicit (var ("n" ++ show v)) NatT t) tyOrnWithProp [0 .. i - 1]
 
     (_, ornRetType) = piTypeToList tyOrn
     ornClauses = map (ornamentClause indicesAndPropLength name ornRetType) clauses
@@ -29,8 +31,8 @@ ornamentDeclItem (DeclItem name ty clauses) = (ornItem, indexPropItem)
 -- patterns and recursive calls.
 ornamentClause :: Int -> String -> Type -> Clause -> Clause
 ornamentClause newIndices decl newRetType clause = case clause of
-  Clause pats term -> Clause (replicate newIndices WildP ++ map ornamentPat pats) (ornamentClauseTerm newIndices decl newRetType term)
-  ImpossibleClause pats -> ImpossibleClause (replicate newIndices WildP ++ map ornamentPat pats)
+  Clause pats term -> Clause (replicate newIndices (Explicit, WildP) ++ map (second ornamentPat) pats) (ornamentClauseTerm newIndices decl newRetType term)
+  ImpossibleClause pats -> ImpossibleClause (replicate newIndices (Explicit, WildP) ++ map (second ornamentPat) pats)
 
 -- | Ornament a term that appears as part of a clause of an ornamented declaration of the given name.
 --
@@ -49,7 +51,7 @@ ornamentClauseTerm i decl newRetType term = substitutedRecTerm
     substitutedRecTerm =
       mapTerm
         ( \t -> case t of
-            Global s | s == decl -> Just (foldl (\inner v -> App inner (Hole (var (show v)))) (Global s) [0 .. i - 1])
+            Global s | s == decl -> Just (foldl (\inner v -> App Explicit inner (Hole (var (show v)))) (Global s) [0 .. i - 1])
             _ -> Nothing
         )
         typeFixedTerm
@@ -96,8 +98,8 @@ generateIndicesPropItem :: String -> Int -> DeclItem
 generateIndicesPropItem name i = DeclItem name piType [holeClause]
   where
     vars = map (\n -> Var ("n" ++ show n) n) [0 .. i - 1]
-    piType = foldr (\v ty -> PiT v NatT ty) TyT vars
-    holeClause = Clause (map VP vars) (Hole (var "proof"))
+    piType = foldr (\v ty -> PiT Explicit v NatT ty) TyT vars
+    holeClause = Clause (map (\v -> (Explicit, VP v)) vars) (Hole (var "proof"))
 
 -- | Ornament a type signature.
 --
@@ -109,7 +111,7 @@ ornamentType ty = ornamentType' ty 0
     ornamentType' :: Type -> Int -> (Type, Int)
     ornamentType' NatT i = (FinT (V (var ("n" ++ show i))), i + 1)
     ornamentType' (ListT t) i = (VectT t (V (var ("n" ++ show i))), i + 1)
-    ornamentType' (PiT v t1 t2) i = (PiT v ot1 ot2, i2)
+    ornamentType' (PiT m v t1 t2) i = (PiT m v ot1 ot2, i2)
       where
         (ot1, i1) = ornamentType' t1 i
         (ot2, i2) = ornamentType' t2 i1

@@ -61,8 +61,8 @@ instance Subst Term where
       ( \t'' -> case t'' of
           V v' | v == v' -> Just t'
           Hole v' | v == v' -> Just t'
-          PiT v' ty t | v == v' -> Just (PiT v' (subVar v t' ty) t)
-          Lam v' t | v == v' -> Just (Lam v' (subVar v t' t))
+          PiT m v' ty t | v == v' -> Just (PiT m v' (subVar v t' ty) t)
+          Lam m v' t | v == v' -> Just (Lam m v' (subVar v t' t))
           SigmaT v' ty t | v == v' -> Just (SigmaT v' (subVar v t' ty) t)
           _ -> Nothing
       )
@@ -74,8 +74,8 @@ subVarInM v t' =
     ( \t'' -> case t'' of
         V v' | v == v' -> return $ Just t'
         Hole v' | v == v' -> return $ Just t'
-        PiT v' ty t | v == v' -> return $ Just (PiT v' (subVar v t' ty) t)
-        Lam v' t | v == v' -> return $ Just (Lam v' (subVar v t' t))
+        PiT m v' ty t | v == v' -> return $ Just (PiT m v' (subVar v t' ty) t)
+        Lam m v' t | v == v' -> return $ Just (Lam m v' (subVar v t' t))
         SigmaT v' ty t | v == v' -> return $ Just (SigmaT v' (subVar v t' ty) t)
         _ -> return Nothing
     )

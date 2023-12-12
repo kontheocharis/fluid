@@ -42,6 +42,7 @@ import Checking.Context
     resolveSub,
   )
 import Checking.Vars (Sub (..), Subst (sub), alphaRename, noSub, subInM, subSize, subVar)
+import Control.Arrow (first)
 import Control.Monad (foldM, foldM_, mapAndUnzipM, replicateM)
 import Control.Monad.Except (catchError, throwError)
 import Control.Monad.State (modify)
@@ -55,6 +56,7 @@ import Lang
     DeclItem (..),
     Item (..),
     Pat (..),
+    PiMode (..),
     Program (..),
     Term (..),
     TermMappable,
@@ -137,17 +139,23 @@ checkDataItem dItem@(DataItem name ty ctors) = do
 checkCtorItem :: Type -> CtorItem -> Tc ()
 checkCtorItem dTy (CtorItem _ ty dTyName) = do
   -- The amount of arguments of the data type
-  let dTyArgCount = length . fst $ piTypeToList dTy
+  let dTyArgModes = map (\(m, _, _) -> m) $ fst $ piTypeToList dTy
 
   -- Check the signature of the constructor.
   checkTerm ty TyT
   let (tys, ret) = piTypeToList ty
 
   -- \| Add all the arguments to the context
-  enterCtxMod (\c -> foldr (\(v, t) c' -> addTyping v t False c') c tys) $ do
+  enterCtxMod (\c -> foldr (\(_, v, t) c' -> addTyping v t False c') c tys) $ do
     -- \| Check that the return type is the data type.
-    dummyArgs <- replicateM dTyArgCount freshHole
-    let dummyRet = foldl App (Global dTyName) dummyArgs
+    dummyArgs <-
+      mapM
+        ( \m -> do
+            h <- freshHole
+            return (m, h)
+        )
+        dTyArgModes
+    let dummyRet = foldl (\r (m, h) -> App m r h) (Global dTyName) dummyArgs
     unifyTerms ret dummyRet
 
 -- | Check a declaration.
@@ -168,30 +176,31 @@ checkDeclItem decl = do
   modifyGlobalCtx (addItem (Decl decl))
 
 -- | Check a clause against a list of types which are its signature.
-checkClause :: ([(Var, Type)], Type) -> Clause -> Tc ()
+checkClause :: ([(PiMode, Var, Type)], Type) -> Clause -> Tc ()
 checkClause ([], t) (Clause [] r) = do
   checkTerm r t
-checkClause ((v, a) : as, t) (Clause (p : ps) r) = do
+checkClause ((tm, v, a) : as, t) (Clause ((cm, p) : ps) r) = do
+  -- TODO: Check tm = cm
   (pt, _) <- patToTerm p -- TODO: substitute back vars
   enterPat $ checkTerm pt a
   let s = Sub [(v, pt)]
   checkClause (map (second (sub s)) as, sub s t) (Clause ps r)
-checkClause ([], _) cl@(Clause (p : _) _) = throwError $ TooManyPatterns cl p
-checkClause ((_, t) : _, _) cl@(Clause [] _) = throwError $ TooFewPatterns cl t
+checkClause ([], _) cl@(Clause ((m, p) : _) _) = throwError $ TooManyPatterns cl p
+checkClause ((_, _, t) : _, _) cl@(Clause [] _) = throwError $ TooFewPatterns cl t
 checkClause _ (ImpossibleClause _) = error "Impossible clauses not yet supported"
 
 -- | Check the type of a term. (The type itself should already be checked.)
 -- This might produce a substitution.
 checkTerm :: Term -> Type -> Tc ()
 checkTerm Wild _ = return ()
-checkTerm (Lam v t) (PiT var' ty1 ty2) = do
+checkTerm (Lam lm v t) (PiT pm var' ty1 ty2) | lm == pm = do
   enterCtxMod (addTyping v ty1 False) $ checkTerm t (alphaRename var' v ty2)
-checkTerm (Lam v t) typ = do
+checkTerm (Lam lm v t) typ = do
   varTy <- freshHole
   bodyTy <- enterCtxMod (addTyping v varTy False) $ inferTerm t
-  let inferredTy = PiT v varTy bodyTy
+  let inferredTy = PiT lm v varTy bodyTy
   _ <- unifyTerms typ inferredTy
-  checkTerm (Lam v t) inferredTy
+  checkTerm (Lam lm v t) inferredTy
 checkTerm (Pair t1 t2) (SigmaT v ty1 ty2) = do
   _ <- checkTerm t1 ty1
   resolvedTy2 <- substituteHolesIn ty2
@@ -203,7 +212,7 @@ checkTerm (Pair t1 t2) typ = do
   let inferredTy = SigmaT v fstTy sndTy
   _ <- checkTerm (Pair t1 t2) inferredTy
   unifyTerms typ inferredTy
-checkTerm (PiT v t1 t2) typ = do
+checkTerm (PiT _ v t1 t2) typ = do
   checkTerm t1 TyT
   _ <- enterCtxMod (addTyping v t1 False) $ inferTerm t2
   unifyTerms typ TyT
@@ -249,14 +258,23 @@ checkTerm (V v) typ = do
     Just vTyp' -> case typ of
       Hole h -> resolveHole h vTyp'
       _ -> unifyTerms typ vTyp'
-checkTerm (App t1 t2) typ = do
-  bodyTy <- freshHole
-  varTy <- inferTerm t2
-  v <- freshVar
-  let inferredTy = PiT v varTy bodyTy
-  checkTerm t1 inferredTy
-  resolvedBodyTy <- substituteHolesIn bodyTy
-  unifyTerms typ $ subVar v t2 resolvedBodyTy
+checkTerm (App m t1 t2) typ = do
+  piTy <- inferTerm t1
+  case piTy of
+    PiT Implicit _ _ _ | m == Explicit -> do
+      h <- freshHole
+      let newTerm = App Explicit (App Implicit t1 h) t2
+      checkTerm newTerm typ
+    PiT m' v varTy bodyTy | m == m' -> do
+      checkTerm t2 varTy
+      resolvedBodyTy <- substituteHolesIn bodyTy
+      unifyTerms typ $ subVar v t2 resolvedBodyTy
+    _ -> do
+      var <- freshVar
+      varTy <- freshHole
+      bodyTy <- freshHole
+      let inferredTy = PiT m var varTy bodyTy
+      unifyTerms piTy inferredTy
 checkTerm (Hole h) ty = do
   hTerm <- lookupHole h
   case hTerm of
@@ -331,19 +349,19 @@ inferTerm :: Term -> Tc Type
 inferTerm t = do
   ty <- freshHole
   _ <- checkTerm t ty
-  return ty
+  substituteHolesIn ty
 
 -- | Reduce a term to normal form (one step).
 -- If this is not possible, return Nothing.
 normaliseTerm :: Term -> Tc (Maybe Term)
-normaliseTerm (App (Lam v t1) t2) = do
+normaliseTerm (App am (Lam lm v t1) t2) | am == lm = do
   return . Just $ subVar v t2 t1
-normaliseTerm (App t1 t2) = do
+normaliseTerm (App m t1 t2) = do
   t1' <- normaliseTerm t1
   case t1' of
     Nothing -> return Nothing
     Just t1'' -> do
-      return . Just $ App t1'' t2
+      return . Just $ App m t1'' t2
 normaliseTerm _ = return Nothing -- TODO: normalise declarations
 
 -- | Reduce a term to normal form (fully).
@@ -368,7 +386,7 @@ unifyTermsWH wh l r = do
 -- This also accepts a list of "weak holes" to always unify with the other side,
 -- even if the other side is a hole.
 unifyTermsWH' :: [Var] -> Term -> Term -> Tc Sub
-unifyTermsWH' wh (PiT lv l1 l2) (PiT rv r1 r2) = do
+unifyTermsWH' wh (PiT lm lv l1 l2) (PiT rm rv r1 r2) | lm == rm = do
   s1 <- unifyTermsWH' wh l1 r1
   s2 <- unifyTermsWH' wh l2 (alphaRename rv lv r2)
   return (s1 <> s2)
@@ -376,7 +394,7 @@ unifyTermsWH' wh (SigmaT lv l1 l2) (SigmaT rv r1 r2) = do
   s1 <- unifyTermsWH' wh l1 r1
   s2 <- unifyTermsWH' wh l2 (alphaRename rv lv r2)
   return $ s1 <> s2
-unifyTermsWH' wh (Lam lv l) (Lam rv r) = do
+unifyTermsWH' wh (Lam lm lv l) (Lam rm rv r) | lm == rm = do
   unifyTermsWH' wh l (alphaRename rv lv r)
 unifyTermsWH' wh (Pair l1 l2) (Pair r1 r2) = do
   s1 <- unifyTermsWH' wh l1 r1
@@ -476,12 +494,14 @@ unifyTermsWH' wh (Refl l) (Refl r) = do
 unifyTermsWH' _ LTEZero LTEZero = return noSub
 unifyTermsWH' wh (LTESucc l) (LTESucc r) = do
   unifyTermsWH' wh l r
-unifyTermsWH' wh (App l1 l2) (App r1 r2) =
-  do
-    s1 <- unifyTermsWH' wh l1 r1
-    s2 <- unifyTermsWH' wh l2 r2
-    return $ s1 <> s2
-    `catchError` (\_ -> normaliseAndUnifyTerms wh (App l1 l2) (App r1 r2))
+unifyTermsWH' wh (App lm l1 l2) (App rm r1 r2)
+  | lm == rm =
+      do
+        s1 <- unifyTermsWH' wh l1 r1
+        s2 <- unifyTermsWH' wh l2 r2
+        return $ s1 <> s2
+        `catchError` (\_ -> normaliseAndUnifyTerms wh (App lm l1 l2) (App rm r1 r2))
+unifyTermsWH' wh (App lm l1 l2) (App rm r1 r2) = normaliseAndUnifyTerms wh (App lm l1 l2) (App rm r1 r2)
 unifyTermsWH' wh l r = normaliseAndUnifyTerms wh l r
 
 -- | Unify two terms.
@@ -549,4 +569,4 @@ patToTerm (PairP p1 p2) = do
   return (Pair t1 t2, vs1 ++ vs2)
 patToTerm (CtorP i args) = do
   (args', vss) <- mapAndUnzipM patToTerm args
-  return (foldl App (Global i) args', concat vss)
+  return (foldl (App Explicit) (Global i) args', concat vss)

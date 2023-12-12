@@ -1,3 +1,5 @@
+{-# LANGUAGE TupleSections #-}
+
 module Parsing.Parser (parseProgram, parseTerm) where
 
 import Checking.Context (GlobalCtx (GlobalCtx))
@@ -12,6 +14,7 @@ import Lang
     GlobalName,
     Item (..),
     Pat (..),
+    PiMode (..),
     Program (..),
     Term (..),
     Type,
@@ -92,6 +95,9 @@ type Parser a = Parsec Text ParserState a
 
 parens :: Parser a -> Parser a
 parens = between (symbol "(") (symbol ")")
+
+braces :: Parser a -> Parser a
+braces = between (symbol "{") (symbol "}")
 
 -- | Parse whitespace or comments.
 white :: Parser ()
@@ -222,13 +228,15 @@ declSignature = do
 declClause :: String -> Parser Clause
 declClause name = do
   _ <- symbol name
-  ps' <- many pat
+  ps' <- many $ do
+    ((Implicit,) <$> braces pat)
+      <|> ((Explicit,) <$> pat)
   -- Check if this is an impossible clause by looking at the last pattern.
   let (im, ps) =
         if null ps'
           then (False, [])
           else case last ps' of
-            (VP (Var "impossible" _)) -> (True, init ps')
+            (Explicit, VP (Var "impossible" _)) -> (True, init ps')
             _ -> (False, ps')
   clause <-
     if im
@@ -282,37 +290,40 @@ freshVar = try $ do
   return $ Var ("n" ++ show idx) idx
 
 -- | Parse a named parameter like `(n : Nat)`.
-named :: Parser (Var, Type)
+named :: Parser (PiMode, Var, Type)
 named =
-  ( try . parens $
-      do
-        optName <- optionMaybe . try $ do
-          name <- newVar
-          _ <- colon
-          return name
-        ty <- term
-        actualName <- maybe freshVar return optName
-        return (actualName, ty)
-  )
+  (try . braces $ namedContents Implicit)
+    <|> (try . parens $ namedContents Explicit)
     <|> try
       ( do
           name <- freshVar
           ty <- singleAppOrEqTOrCons
-          return (name, ty)
+          return (Explicit, name, ty)
       )
+  where
+    namedContents :: PiMode -> Parser (PiMode, Var, Type)
+    namedContents m = do
+      optName <- optionMaybe . try $ do
+        name <- newVar
+        _ <- colon
+        return name
+      ty <- term
+      actualName <- maybe freshVar return optName
+      return (m, actualName, ty)
 
 -- | Parse a pi type or sigma type.
 piTOrSigmaT :: Parser Type
 piTOrSigmaT = try $ do
-  (name, ty1) <- named
-  (reservedOp "->" >> PiT name ty1 <$> term)
+  (m, name, ty1) <- named
+  (reservedOp "->" >> PiT m name ty1 <$> term)
     <|> (reservedOp "**" >> SigmaT name ty1 <$> term)
 
 -- | Parse an application.
 app :: Parser Term
 app = try $ do
-  ts <- many1 singleTerm
-  return $ foldl1 App ts
+  t <- singleTerm
+  ts <- many (((Implicit,) <$> braces term) <|> ((Explicit,) <$> singleTerm))
+  return $ foldl (\r (mode, t') -> App mode r t') t ts
 
 -- | Parse a single term, application, equality type or list cons.
 singleAppOrEqTOrCons :: Parser Term
@@ -324,9 +335,9 @@ singleAppOrEqTOrCons = do
 lam :: Parser Term
 lam = do
   reservedOp "\\"
-  v <- newVar
+  (m, v) <- ((Implicit,) <$> braces newVar) <|> ((Explicit,) <$> newVar)
   reservedOp "->"
-  Lam v <$> term
+  Lam m v <$> term
 
 -- | Parse a pair.
 pair :: Parser Term
@@ -361,22 +372,37 @@ resolveTerm = mapTermM r
         else do Just . Hole <$> freshVar
     r (V (Var "Type" _)) = return $ Just TyT
     r (V (Var "Nat" _)) = return $ Just NatT
-    r (App (V (Var "List" _)) t1) = Just . ListT <$> resolveTerm t1
-    r (App (V (Var "Maybe" _)) t1) = Just . MaybeT <$> resolveTerm t1
-    r (App (App (V (Var "Vect" _)) t1) t2) = Just <$> (VectT <$> resolveTerm t1 <*> resolveTerm t2)
-    r (App (V (Var "Fin" _)) t1) = Just . FinT <$> resolveTerm t1
-    r (App (App (V (Var "Eq" _)) t1) t2) = Just <$> (EqT <$> resolveTerm t1 <*> resolveTerm t2)
+    r (App Explicit (V (Var "List" _)) t1) = Just . ListT <$> resolveTerm t1
+    r (App Explicit (V (Var "Maybe" _)) t1) = Just . MaybeT <$> resolveTerm t1
+    r (App Explicit (App Explicit (V (Var "Vect" _)) t1) t2) = Just <$> (VectT <$> resolveTerm t1 <*> resolveTerm t2)
+    r (App Explicit (V (Var "Fin" _)) t1) = Just . FinT <$> resolveTerm t1
+    r (App Explicit (App Explicit (V (Var "Eq" _)) t1) t2) = Just <$> (EqT <$> resolveTerm t1 <*> resolveTerm t2)
     r (V (Var "Z" _)) = return $ Just Z
-    r (App (V (Var "S" _)) t1) = Just . S <$> resolveTerm t1
+    r (App Explicit (V (Var "S" _)) t1) = Just . S <$> resolveTerm t1
     r (V (Var "FZ" _)) = return $ Just FZ
-    r (App (V (Var "FS" _)) t1) = Just . FS <$> resolveTerm t1
+    r (App Explicit (V (Var "FS" _)) t1) = Just . FS <$> resolveTerm t1
     r (V (Var "LNil" _)) = return $ Just LNil
-    r (App (App (V (Var "LCons" _)) t1) t2) = Just <$> (LCons <$> resolveTerm t1 <*> resolveTerm t2)
+    r (App Explicit (App Explicit (V (Var "LCons" _)) t1) t2) = Just <$> (LCons <$> resolveTerm t1 <*> resolveTerm t2)
     r (V (Var "VNil" _)) = return $ Just VNil
-    r (App (App (V (Var "VCons" _)) t1) t2) = Just <$> (VCons <$> resolveTerm t1 <*> resolveTerm t2)
+    r (App Explicit (App Explicit (V (Var "VCons" _)) t1) t2) = Just <$> (VCons <$> resolveTerm t1 <*> resolveTerm t2)
     r (V (Var "Nothing" _)) = return $ Just MNothing
-    r (App (V (Var "Just" _)) t1) = Just . MJust <$> resolveTerm t1
-    r (App (V (Var "Refl" _)) t1) = Just . Refl <$> resolveTerm t1
+    r (App Explicit (V (Var "Just" _)) t1) = Just . MJust <$> resolveTerm t1
+    r (App Explicit (V (Var "Refl" _)) t1) = Just . Refl <$> resolveTerm t1
     r (V (Var "LTEZero" _)) = return $ Just LTEZero
-    r (App (V (Var "LTESucc" _)) t1) = Just . LTESucc <$> resolveTerm t1
+    r (App Explicit (V (Var "LTESucc" _)) t1) = Just . LTESucc <$> resolveTerm t1
     r _ = return Nothing
+
+-- | Get the number of leading implicit arguments for a pi type.
+getLeadingImplicitArgs :: Type -> Int
+getLeadingImplicitArgs (PiT Implicit _ _ ty) = 1 + getLeadingImplicitArgs ty
+getLeadingImplicitArgs _ = 0
+
+-- | Get the number of leading implicit arguments for an item.
+wrapItemRefInImplicitApp :: Either Item CtorItem -> Parser Term
+wrapItemRefInImplicitApp v@(Left (Data (DataItem _ ty _))) = wrapItemRefInImplicitApp v ty
+wrapItemRefInImplicitApp v@(Left (Decl (DeclItem _ ty _))) = wrapItemRefInImplicitApp v ty
+wrapItemRefInImplicitApp v@(Right (CtorItem _ ty _)) = wrapItemRefInImplicitApp v ty
+  where
+    wrapGlobalInImplicitApp :: Either Item CtorItem -> Type -> Parser Term
+    wrapGlobalInImplicitApp v ty = do
+      replicateM (getLeadingImplicitArgs ty) ()

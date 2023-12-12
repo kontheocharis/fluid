@@ -16,29 +16,30 @@
 -- subst a P x y (Reflex a x) p = p
 
 
-data Array : Type -> Type where
-  Nil : (a : Type) -> Array a
-  Cons : (a : Type) -> a -> Array a -> Array a
+data Array : (a : Type) -> Type where
+  Nil : {a : Type} -> Array a
+  Cons : {a : Type} -> a -> Array a -> Array a
 
-
-
-
-
-
--- main : Array Nat
--- main = Cons _ Z (Cons _ (S Z) (Nil _))
 
 data Natural : Type where
   Zero : Natural
   Successor : Natural -> Natural
+
+-- data Vec : {a : Type} -> (n : Natural) -> Type where
+--   Nil : {a : Type} -> Vec {a} Zero
+--   Cons : {a : Type} -> {n : Natural} -> a -> Vec {a} n -> Vec {a} (Successor n)
+
+
+main : Array Nat
+main = Cons Z (Cons (S Z) (Nil {_}))
 
 add : Natural -> Natural -> Natural
 add Zero n = n
 add (Successor m) n = Successor (add m n)
 
 
-bain : (a: Type) -> (m: a) -> (Array a) ** (Array a)
-bain _ q = (Nil _, Cons _ q (Nil _))
+-- bain : (a: Type) -> (m: a) -> (Array a) ** (Array a)
+-- bain _ q = (Nil _, Cons _ q (Nil _))
 
 
 -- main : _

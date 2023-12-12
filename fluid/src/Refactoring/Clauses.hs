@@ -1,3 +1,5 @@
+{-# LANGUAGE TupleSections #-}
+
 module Refactoring.Clauses (expandDeclItemPat, expandDeclItemFully) where
 
 import Lang (Clause (..), DeclItem (..), Pat (..), Term (..), Type, piTypeToList)
@@ -21,11 +23,11 @@ expandClausePat :: Type -> Int -> Clause -> [Clause]
 expandClausePat ty idx clause = expandedClauses
   where
     (piTypes, _) = piTypeToList ty
-    (_, targetType) = piTypes !! idx
+    (targetMode, _, targetType) = piTypes !! idx
     (targetPat, pats, term) = case clause of
-      Clause ps t -> (ps !! idx, ps, Just t)
-      ImpossibleClause ps -> (ps !! idx, ps, Nothing)
-    expandedPats = expandPat targetType targetPat
+      Clause ps t -> (snd (ps !! idx), ps, Just t)
+      ImpossibleClause ps -> (snd (ps !! idx), ps, Nothing)
+    expandedPats = map (targetMode,) (expandPat targetType targetPat)
     expandedClauses =
       map
         ( \p ->

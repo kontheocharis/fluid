@@ -7,7 +7,9 @@ module Parsing.Resolution
 where
 
 import Checking.Context (GlobalCtx, lookupItemOrCtor)
-import Lang (Clause (Clause, ImpossibleClause), CtorItem (..), DataItem (..), DeclItem (..), Item (..), Pat (..), Term (..), Var (..), itemName, mapPat, mapTerm)
+import Control.Arrow (second)
+import Control.Monad (replicateM)
+import Lang (Clause (Clause, ImpossibleClause), CtorItem (..), DataItem (..), DeclItem (..), Item (..), Pat (..), PiMode (..), Term (..), Type, Var (..), itemName, mapPat, mapTerm)
 
 -- | Resolve global variables in a term.
 resolveGlobals :: GlobalCtx -> Term -> Term
@@ -53,16 +55,17 @@ resolveGlobalsInDeclItem ctx (DeclItem name ty clauses) =
 -- | Resolve global variables in a clause.
 resolveGlobalsInClause :: GlobalCtx -> Clause -> Clause
 resolveGlobalsInClause ctx (Clause pats term) =
-  Clause (map (resolveGlobalsInPat ctx) pats) (resolveGlobals ctx term)
+  Clause (map (second (resolveGlobalsInPat ctx)) pats) (resolveGlobals ctx term)
 resolveGlobalsInClause ctx (ImpossibleClause pats) =
-  ImpossibleClause (map (resolveGlobalsInPat ctx) pats)
+  ImpossibleClause (map (second (resolveGlobalsInPat ctx)) pats)
 
 -- | Convert a term to a pattern, if possible.
 termToPat :: Term -> Maybe Pat
-termToPat (App (V (Var v _)) b) = do
+termToPat (App Explicit (V (Var v _)) b) = do
   b' <- termToPat b
   return $ CtorP v [b']
-termToPat (App a b) = do
+termToPat (App Explicit a b) = do
+  -- TODO: Implicit
   a' <- termToPat a
   case a' of
     CtorP v ps -> do

@@ -10,6 +10,7 @@ module Lang
     DeclItem (..),
     Program (..),
     Clause (..),
+    PiMode (..),
     mapTerm,
     mapTermM,
     mapPat,
@@ -61,12 +62,15 @@ data Pat
   | CtorP GlobalName [Pat]
   deriving (Eq)
 
+-- | A term mode is either implicit or explicit.
+data PiMode = Implicit | Explicit deriving (Eq)
+
 -- | A term
 data Term
   = -- Dependently-typed lambda calculus with Pi and Sigma:
-    PiT Var Type Type
-  | Lam Var Term
-  | App Term Term
+    PiT PiMode Var Type Type
+  | Lam PiMode Var Term
+  | App PiMode Term Term
   | SigmaT Var Type Type
   | Pair Term Term
   | -- | Type of types (no universe polymorphism)
@@ -104,14 +108,14 @@ data Term
   deriving (Eq)
 
 -- | Convert a pi type to a list of types and the return type.
-piTypeToList :: Type -> ([(Var, Type)], Type)
-piTypeToList (PiT v ty1 ty2) = let (tys, ty) = piTypeToList ty2 in ((v, ty1) : tys, ty)
+piTypeToList :: Type -> ([(PiMode, Var, Type)], Type)
+piTypeToList (PiT m v ty1 ty2) = let (tys, ty) = piTypeToList ty2 in ((m, v, ty1) : tys, ty)
 piTypeToList t = ([], t)
 
 -- | Convert a list of types and the return type to a pi type.
-listToPiType :: ([(Var, Type)], Type) -> Type
+listToPiType :: ([(PiMode, Var, Type)], Type) -> Type
 listToPiType ([], ty) = ty
-listToPiType ((v, ty1) : tys, ty2) = PiT v ty1 (listToPiType (tys, ty2))
+listToPiType ((m, v, ty1) : tys, ty2) = PiT m v ty1 (listToPiType (tys, ty2))
 
 -- | An item is either a declaration or a data item.
 data Item
@@ -150,17 +154,17 @@ data CtorItem = CtorItem
   deriving (Eq)
 
 -- | A clause is a sequence of patterns followed by a term.
-data Clause = Clause [Pat] Term | ImpossibleClause [Pat]
+data Clause = Clause [(PiMode, Pat)] Term | ImpossibleClause [(PiMode, Pat)]
   deriving (Eq)
 
 -- | Get the patterns from a clause.
-clausePats :: Clause -> [Pat]
+clausePats :: Clause -> [(PiMode, Pat)]
 clausePats (Clause pats _) = pats
 clausePats (ImpossibleClause pats) = pats
 
-prependPatToClause :: Pat -> Clause -> Clause
-prependPatToClause p (Clause ps t) = Clause (p : ps) t
-prependPatToClause p (ImpossibleClause ps) = ImpossibleClause (p : ps)
+prependPatToClause :: PiMode -> Pat -> Clause -> Clause
+prependPatToClause m p (Clause ps t) = Clause ((m, p) : ps) t
+prependPatToClause m p (ImpossibleClause ps) = ImpossibleClause ((m, p) : ps)
 
 -- | A program is a sequence of items.
 newtype Program = Program [Item]
@@ -176,9 +180,9 @@ mapTermM f term = do
   term' <- f term
   case term' of
     Nothing -> case term of
-      (PiT v t1 t2) -> PiT v <$> mapTermM f t1 <*> mapTermM f t2
-      (Lam v t) -> Lam v <$> mapTermM f t
-      (App t1 t2) -> App <$> mapTermM f t1 <*> mapTermM f t2
+      (PiT m v t1 t2) -> PiT m v <$> mapTermM f t1 <*> mapTermM f t2
+      (Lam m v t) -> Lam m v <$> mapTermM f t
+      (App m t1 t2) -> App m <$> mapTermM f t1 <*> mapTermM f t2
       (SigmaT v t1 t2) -> SigmaT v <$> mapTermM f t1 <*> mapTermM f t2
       (Pair t1 t2) -> Pair <$> mapTermM f t1 <*> mapTermM f t2
       TyT -> return TyT
@@ -300,9 +304,12 @@ instance Show Pat where
   show (CtorP s ps) = "(" ++ s ++ (if null ps then "" else " ") ++ unwords (map show ps) ++ ")"
 
 instance Show Term where
-  show (PiT v t1 t2) = "(" ++ show v ++ " : " ++ show t1 ++ ") -> " ++ show t2
-  show (Lam v t) = "(\\" ++ show v ++ " -> " ++ show t ++ ")"
-  show (App t1 t2) = "(" ++ show t1 ++ " " ++ show t2 ++ ")"
+  show (PiT Explicit v t1 t2) = "(" ++ show v ++ " : " ++ show t1 ++ ") -> " ++ show t2
+  show (PiT Implicit v t1 t2) = "{" ++ show v ++ " : " ++ show t1 ++ "} -> " ++ show t2
+  show (Lam Explicit v t) = "(\\" ++ show v ++ " -> " ++ show t ++ ")"
+  show (Lam Implicit v t) = "(\\{" ++ show v ++ "} -> " ++ show t ++ ")"
+  show (App Explicit t1 t2) = "(" ++ show t1 ++ " " ++ show t2 ++ ")"
+  show (App Implicit t1 t2) = "(" ++ show t1 ++ " {" ++ show t2 ++ "})"
   show (SigmaT v t1 t2) = "(" ++ show v ++ " : " ++ show t1 ++ ") ** " ++ show t2
   show (Pair t1 t2) = "(" ++ show t1 ++ ", " ++ show t2 ++ ")"
   show TyT = "Type"
@@ -348,8 +355,12 @@ instance Show DeclItem where
   show (DeclItem v ty clauses) = intercalate "\n" ((v ++ " : " ++ show ty) : map (\c -> v ++ " " ++ show c) clauses)
 
 instance Show Clause where
-  show (Clause p t) = intercalate " " (map show p) ++ " = " ++ show t
-  show (ImpossibleClause p) = intercalate " " (map show p) ++ " impossible"
+  show (Clause ((Implicit, p) : ps) t) = "{" ++ show p ++ "} " ++ show (Clause ps t)
+  show (Clause ((Explicit, p) : ps) t) = show p ++ " " ++ show (Clause ps t)
+  show (Clause [] t) = "= " ++ show t
+  show (ImpossibleClause ((Implicit, p) : ps)) = "{" ++ show p ++ "} " ++ show (ImpossibleClause ps)
+  show (ImpossibleClause ((Explicit, p) : ps)) = "(" ++ show p ++ ") " ++ show (ImpossibleClause ps)
+  show (ImpossibleClause []) = "impossible"
 
 instance Show Program where
   show (Program ds) = intercalate "\n\n" $ map show ds
