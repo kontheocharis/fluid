@@ -74,6 +74,9 @@ subVarInM v t' =
     ( \t'' -> case t'' of
         V v' | v == v' -> return $ Just t'
         Hole v' | v == v' -> return $ Just t'
+        PiT v' ty t | v == v' -> return $ Just (PiT v' (subVar v t' ty) t)
+        Lam v' t | v == v' -> return $ Just (Lam v' (subVar v t' t))
+        SigmaT v' ty t | v == v' -> return $ Just (SigmaT v' (subVar v t' ty) t)
         _ -> return Nothing
     )
 

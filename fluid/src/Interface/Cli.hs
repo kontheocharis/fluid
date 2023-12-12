@@ -6,6 +6,7 @@ import Checking.Vars (subInM)
 import Control.Monad (when)
 import Control.Monad.IO.Class (liftIO)
 import Data.Char (isSpace)
+import Data.Functor ((<&>))
 import Data.String
 import Data.Text.IO (hPutStrLn)
 import Lang (TermMappable)

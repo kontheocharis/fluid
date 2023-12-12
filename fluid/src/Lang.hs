@@ -73,6 +73,8 @@ data Term
     TyT
   | -- | Variable
     V Var
+  | -- | Wildcard
+    Wild
   | -- | Global variable (declaration)
     Global String
   | -- | Hole identified by an integer
@@ -181,6 +183,7 @@ mapTermM f term = do
       (Pair t1 t2) -> Pair <$> mapTermM f t1 <*> mapTermM f t2
       TyT -> return TyT
       (V v) -> return $ V v
+      Wild -> return Wild
       (Global s) -> return $ Global s
       (Hole i) -> return $ Hole i
       NatT -> return NatT
@@ -240,6 +243,9 @@ instance TermMappable Item where
 
 instance TermMappable Program where
   mapTermMappableM = mapProgramM
+
+instance TermMappable () where
+  mapTermMappableM _ = return
 
 -- | Apply a function to a pattern, if it is a Just, otherwise return the pattern.
 mapPat :: (Pat -> Maybe Pat) -> Pat -> Pat
@@ -301,6 +307,7 @@ instance Show Term where
   show (Pair t1 t2) = "(" ++ show t1 ++ ", " ++ show t2 ++ ")"
   show TyT = "Type"
   show (V v) = show v
+  show Wild = "_"
   show (Global s) = s
   show (Hole i) = "?" ++ show i
   show NatT = "Nat"

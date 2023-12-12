@@ -70,6 +70,7 @@ termToPat (App a b) = do
       return $ CtorP v (ps ++ [b'])
     _ -> Nothing
 termToPat (V (Var "_" _)) = Just WildP
+termToPat Wild = Just WildP
 termToPat (V v) = Just $ VP v
 termToPat (Pair p1 p2) = do
   p1' <- termToPat p1

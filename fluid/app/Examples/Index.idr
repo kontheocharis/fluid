@@ -1,13 +1,6 @@
--- data Natural : Type where
---   Zero : Natural
---   Successor : Natural -> Natural
 
 -- data Equality : (a : Type) -> a -> a -> Type where
 --   Reflex : (a : Type) -> (x : a) -> Equality a x x
-
--- add : Natural -> Natural -> Natural
--- add Zero n = n
--- add (Successor m) n = Successor (add m n)
 
 -- length : (a : Type) -> Array a -> Natural
 -- length a (Nil _) = Zero
@@ -31,8 +24,25 @@ data Array : Type -> Type where
 
 
 
-main : Array Nat
-main = Cons _ Z (Cons _ (S Z) (Nil _))
+
+-- main : Array Nat
+-- main = Cons _ Z (Cons _ (S Z) (Nil _))
+
+data Natural : Type where
+  Zero : Natural
+  Successor : Natural -> Natural
+
+add : Natural -> Natural -> Natural
+add Zero n = n
+add (Successor m) n = Successor (add m n)
+
 
 bain : (a: Type) -> (m: a) -> (Array a) ** (Array a)
 bain _ q = (Nil _, Cons _ q (Nil _))
+
+
+-- main : _
+-- main = (\x -> x)
+
+-- ba : Nat
+-- ba = main (Z)
