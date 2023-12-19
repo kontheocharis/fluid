@@ -24,6 +24,10 @@ where
 
 import Control.Monad.Identity (runIdentity)
 import Data.List (intercalate)
+import Text.Parsec.Pos
+
+defaultPos :: SourcePos
+defaultPos = newPos "unknown location" 0 0
 
 -- | Type alias for terms that are expected to be types (just for documentation purposes).
 type Type = Term
@@ -35,181 +39,217 @@ type GlobalName = String
 -- Represented by a string name and a unique integer identifier (no shadowing).
 data Var = Var String Int deriving (Eq)
 
+data Located a = Located SourcePos a
+
+data LocatedPat = LocatedPat (Located (Pat LocatedPat))
+
 -- | A pattern
-data Pat
+data Pat a 
   = -- | Variable binding pattern
     VP Var
   | -- | Wildcard pattern
     WildP
   | -- | Pair pattern
-    PairP Pat Pat
+    PairP a a
   | -- Constructors:
     LNilP
-  | LConsP Pat Pat
+  | LConsP a a
   | VNilP
-  | VConsP Pat Pat
+  | VConsP a a
   | FZP
-  | FSP Pat
+  | FSP a
   | ZP
-  | SP Pat
-  | MJustP Pat
+  | SP a
+  | MJustP a
   | MNothingP
-  | ReflP Pat
+  | ReflP a
   | LTEZeroP
-  | LTESuccP Pat
-  | CtorP GlobalName [Pat]
+  | LTESuccP a
+  | CtorP GlobalName [a]
   deriving (Eq)
 
+data LocatedTerm = LocatedTerm (Located (Term LocatedTerm))
+
+type LocatedType = LocatedTerm
+
 -- | A term
-data Term
+data Term t
   = -- Dependently-typed lambda calculus with Pi and Sigma:
-    PiT Var Type Type
-  | Lam Var Term
-  | App Term Term
-  | SigmaT Var Type Type
-  | Pair Term Term
+    PiT Var t t
+  | Lam Var t
+  | App t t
+  | SigmaT Var t t
+  | Pair t t
   | -- | Type of types (no universe polymorphism)
     TyT
   | -- | Variable
-    V Var
+    V Var  
   | -- | Global variable (declaration)
     Global String
   | -- | Hole identified by an integer
     Hole Var
   | -- Data types:
     NatT
-  | ListT Type
-  | MaybeT Type
-  | VectT Type Term
-  | FinT Term
-  | EqT Term Term
-  | LteT Term Term
+  | ListT t
+  | MaybeT t
+  | VectT t t 
+  | FinT t 
+  | EqT t t 
+  | LteT t t 
   | -- Constructors:
     FZ
-  | FS Term
+  | FS t 
   | Z
-  | S Term
+  | S t 
   | LNil
-  | LCons Term Term
+  | LCons t t 
   | VNil
-  | VCons Term Term
-  | MJust Term
+  | VCons t t 
+  | MJust t 
   | MNothing
-  | Refl Term
+  | Refl t 
   | LTEZero
-  | LTESucc Term
+  | LTESucc t 
   deriving (Eq)
 
 -- | Convert a pi type to a list of types and the return type.
-piTypeToList :: Type -> ([(Var, Type)], Type)
-piTypeToList (PiT v ty1 ty2) = let (tys, ty) = piTypeToList ty2 in ((v, ty1) : tys, ty)
+piTypeToList :: LocatedType -> ([(Var, LocatedType)], LocatedType)
+piTypeToList (LocatedTerm (Located s (PiT v ty1 ty2))) = let (tys, ty) = piTypeToList ty2 in ((v, ty1) : tys, ty)
 piTypeToList t = ([], t)
 
 -- | Convert a list of types and the return type to a pi type.
-listToPiType :: ([(Var, Type)], Type) -> Type
+listToPiType :: ([(Var, LocatedType)], LocatedType) -> LocatedType
 listToPiType ([], ty) = ty
-listToPiType ((v, ty1) : tys, ty2) = PiT v ty1 (listToPiType (tys, ty2))
+listToPiType ((v, ty1) : tys, ty2) = LocatedTerm (Located defaultPos (PiT v ty1 (listToPiType (tys, ty2))))
 
 -- | An item is either a declaration or a data item.
-data Item
-  = Decl DeclItem
-  | Data DataItem
+data Item p t
+  = Decl (DeclItem p t)
+  | Data (DataItem t)
   deriving (Eq)
 
 -- | Get the name of an item.
-itemName :: Item -> String
+itemName :: Item p t -> String
 itemName (Decl (DeclItem name _ _)) = name
 itemName (Data (DataItem name _ _)) = name
 
 -- | A declaration is a sequence of clauses, defining the equations for a function.
-data DeclItem = DeclItem
+data DeclItem p t = DeclItem
   { declName :: String,
-    declTy :: Type,
-    declClauses :: [Clause]
+    declTy :: Type t,
+    declClauses :: [Clause p t]
   }
   deriving (Eq)
 
 -- | A data item is an indexed inductive data type declaration, with a sequence
 -- of constructors.
-data DataItem = DataItem
+data DataItem a = DataItem
   { dataName :: String,
-    dataTy :: Type,
-    dataCtors :: [CtorItem]
+    dataTy :: Type a,
+    dataCtors :: [CtorItem a]
   }
   deriving (Eq)
 
 -- | A constructor item is a constructor name and type.
-data CtorItem = CtorItem
+data CtorItem a = CtorItem
   { ctorItemName :: String,
-    ctorItemTy :: Type,
+    ctorItemTy :: Type a,
     ctorItemDataName :: String
   }
   deriving (Eq)
 
 -- | A clause is a sequence of patterns followed by a term.
-data Clause = Clause [Pat] Term | ImpossibleClause [Pat]
+data Clause p t = Clause [Pat p] (Term t) | ImpossibleClause [Pat p]
   deriving (Eq)
 
 -- | Get the patterns from a clause.
-clausePats :: Clause -> [Pat]
+clausePats :: Clause p t -> [Pat p]
 clausePats (Clause pats _) = pats
 clausePats (ImpossibleClause pats) = pats
 
-prependPatToClause :: Pat -> Clause -> Clause
+prependPatToClause :: Pat p -> Clause p t -> Clause p t
 prependPatToClause p (Clause ps t) = Clause (p : ps) t
 prependPatToClause p (ImpossibleClause ps) = ImpossibleClause (p : ps)
 
 -- | A program is a sequence of items.
-newtype Program = Program [Item]
+newtype Program p t = Program [Item p t]
   deriving (Eq)
 
 -- | Apply a function to a term, if it is a Just, otherwise return the term.
-mapTerm :: (Term -> Maybe Term) -> Term -> Term
+mapTerm :: (LocatedTerm -> Maybe LocatedTerm) -> LocatedTerm -> LocatedTerm
 mapTerm f term = runIdentity $ mapTermM (return . f) term
 
+{-
 -- | Apply a function to a term, if it is a Just, otherwise return the term (monadic).
-mapTermM :: (Monad m) => (Term -> m (Maybe Term)) -> Term -> m Term
+mapTermM :: (Monad m) => (LocatedTerm -> m (Maybe LocatedTerm)) -> LocatedTerm -> m LocatedTerm
 mapTermM f term = do
   term' <- f term
   case term' of
     Nothing -> case term of
-      (PiT v t1 t2) -> PiT v <$> mapTermM f t1 <*> mapTermM f t2
-      (Lam v t) -> Lam v <$> mapTermM f t
-      (App t1 t2) -> App <$> mapTermM f t1 <*> mapTermM f t2
-      (SigmaT v t1 t2) -> SigmaT v <$> mapTermM f t1 <*> mapTermM f t2
-      (Pair t1 t2) -> Pair <$> mapTermM f t1 <*> mapTermM f t2
-      TyT -> return TyT
-      (V v) -> return $ V v
-      (Global s) -> return $ Global s
-      (Hole i) -> return $ Hole i
-      NatT -> return NatT
-      (ListT t) -> ListT <$> mapTermM f t
-      (MaybeT t) -> MaybeT <$> mapTermM f t
-      (VectT t n) -> VectT <$> mapTermM f t <*> mapTermM f n
-      (FinT t) -> FinT <$> mapTermM f t
-      (EqT t1 t2) -> EqT <$> mapTermM f t1 <*> mapTermM f t2
-      (LteT t1 t2) -> LteT <$> mapTermM f t1 <*> mapTermM f t2
-      FZ -> return FZ
-      (FS t) -> FS <$> mapTermM f t
-      Z -> return Z
-      (S t) -> S <$> mapTermM f t
-      LNil -> return LNil
-      (LCons t1 t2) -> LCons <$> mapTermM f t1 <*> mapTermM f t2
-      VNil -> return VNil
-      (VCons t1 t2) -> VCons <$> mapTermM f t1 <*> mapTermM f t2
-      (MJust t) -> MJust <$> mapTermM f t
-      MNothing -> return MNothing
-      (Refl t) -> Refl <$> mapTermM f t
-      LTEZero -> return LTEZero
-      (LTESucc t) -> LTESucc <$> mapTermM f t
+      (LocatedTerm (Located s (PiT v t1 t2))) -> do r1 <- mapTermM f t1 
+                                                    r2 <- mapTermM f t2
+                                                    return LocatedTerm (Located s (PiT v r1 r2))
+      (LocatedTerm (Located s (Lam v t))) -> do r1 <- mapTermM f t
+                                                return LocatedTerm (Located s (Lam v r1))
+      (LocatedTerm (Located s (App t1 t2))) -> do r1 <- mapTermM f t1
+                                                  r2 <- mapTermM f  t2 
+                                                  return LocatedTerm (Located s (App r1 r2))
+      (LocatedTerm (Located s (SigmaT v t1 t2))) -> do r1 <- mapTermM f t1
+                                                       r2 <- mapTermM f t2    
+                                                       return LocatedTerm (Located s (SigmaT v r1 r2))
+      (LocatedTerm (Located s (Pair t1 t2))) -> do r1 <- mapTermM f t1
+                                                   r2 <- mapTermM f t2
+                                                   return LocatedTerm (Located s (Pair r1 r2))
+      (LocatedTerm (Located s TyT)) -> return LocatedTerm (Located s TyT)
+      (LocatedTerm (Located s (V v))) -> return LocatedTerm (Located s (V v))
+      (LocatedTerm (Located s (Global s1))) -> return LocatedTerm (Located s (Global s1))
+      (LocatedTerm (Located s (Hole i))) -> return LocatedTerm (Located s (Hole i))
+      (LocatedTerm (Located s NatT)) -> return LocatedTerm (Located s NatT)
+      (LocatedTerm (Located s (ListT t))) -> do r1 <- mapTermM f t 
+                                                return LocatedTerm (Located s (ListT r1))
+      (LocatedTerm (Located s (MaybeT t))) -> do r1 <- mapTermM f t
+                                                 return LocatedTerm (Located s (MaybeT r1))
+      (LocatedTerm (Located s (VectT t n))) -> do r1 <- mapTermM f t
+                                                  r2 <- mapTermM f n
+                                                  return LocatedTerm (Located s (VectT r1 r2))
+      (LocatedTerm (Located s (FinT t))) -> do r1 <- mapTermM f t
+                                               return LocatedTerm (Located s (FinT r1))
+      (LocatedTerm (Located s (EqT t1 t2))) -> do r1 <- mapTermM f t1
+                                                  r2 <- mapTermM f t2
+                                                  return LocatedTerm (Located s (EqT r1 r2))
+      (LocatedTerm (Located s (LteT t1 t2))) -> do r1 <- mapTermM f t1
+                                                   r2 <- mapTermM f t2
+                                                   return LocatedTerm (Located s (LteT r1 r2 ))
+      (LocatedTerm (Located s FZ)) -> return LocatedTerm (Located s FZ)
+      (LocatedTerm (Located s (FS t))) -> do r1 <- mapTermM f t 
+                                             return LocatedTerm (Located s (FS r1))
+      (LocatedTerm (Located s Z)) -> return LocatedTerm (Located s Z)
+      (LocatedTerm (Located s (S t))) -> do r1 <- mapTermM f t
+                                            return LocatedTerm (Located s (S r1))
+      (LocatedTerm (Located s LNil)) -> return LocatedTerm (Located s LNil)
+      (LocatedTerm (Located s (LCons t1 t2))) -> do r1 <- mapTermM f t1
+                                                    r2 <- mapTermM f t2
+                                                    return LocatedTerm (Located s (LCons r1 r2))
+      (LocatedTerm (Located s VNil)) -> return LocatedTerm (Located s VNil)
+      (LocatedTerm (Located s (VCons t1 t2))) -> do r1 <- mapTermM f t1
+                                                    r2 <- mapTermM f t2
+                                                    return LocatedTerm (Located s (VCons r1 r2))
+      (LocatedTerm (Located s (MJust t))) -> do r1 <- mapTermM f t
+                                                return LocatedTerm (Located s (MJust r1))
+      (LocatedTerm (Located s MNothing)) -> return LocatedTerm (Located s MNothing)
+      (LocatedTerm (Located s (Refl t))) -> do r1 <- mapTermM f t
+                                               return LocatedTerm (Located s (Refl r1))
+      (LocatedTerm (Located s LTEZero)) -> return LocatedTerm (Located s LTEZero)
+      (LocatedTerm (Located s (LTESucc t))) -> do r1 <- mapTermM f t 
+                                                  return LocatedTerm (Located s (LTESucc r1))
     Just t' -> return t'
 
 -- | Apply a function to a pattern, if it is a Just, otherwise return the pattern.
-mapPat :: (Pat -> Maybe Pat) -> Pat -> Pat
+mapPat :: (Pat p -> Maybe (Pat p)) -> Pat p -> Pat p
 mapPat f pat = runIdentity $ mapPatM (return . f) pat
 
 -- | Map a function over a pattern, if it is a Just, otherwise return the pattern.
-mapPatM :: (Monad m) => (Pat -> m (Maybe Pat)) -> Pat -> m Pat
+mapPatM :: (Monad m) => (Pat p -> m (Maybe (Pat p))) -> Pat p -> m (Pat p)
 mapPatM f pat = do
   pat' <- f pat
   case pat' of
@@ -232,12 +272,12 @@ mapPatM f pat = do
       (LTESuccP p) -> LTESuccP <$> mapPatM f p
       (CtorP s ps) -> CtorP s <$> mapM (mapPatM f) ps
     Just t' -> return t'
-
+-}
 -- Show instances for pretty printing:
 instance Show Var where
   show (Var s _) = s
 
-instance Show Pat where
+instance Show a => Show (Pat a) where
   show (VP v) = show v
   show WildP = "_"
   show (PairP p1 p2) = "(" ++ show p1 ++ ", " ++ show p2 ++ ")"
@@ -256,7 +296,7 @@ instance Show Pat where
   show (LTESuccP p) = "(LTESucc " ++ show p ++ ")"
   show (CtorP s ps) = "(" ++ s ++ (if null ps then "" else " ") ++ unwords (map show ps) ++ ")"
 
-instance Show Term where
+instance Show a => Show (Term a) where
   show (PiT v t1 t2) = "(" ++ show v ++ " : " ++ show t1 ++ ") -> " ++ show t2
   show (Lam v t) = "(\\" ++ show v ++ " -> " ++ show t ++ ")"
   show (App t1 t2) = "(" ++ show t1 ++ " " ++ show t2 ++ ")"
@@ -287,11 +327,11 @@ instance Show Term where
   show LTEZero = "LTEZero"
   show (LTESucc t) = "(LTESucc " ++ show t ++ ")"
 
-instance Show Item where
+instance (Show p, Show t) => Show (Item p t) where
   show (Decl d) = show d
   show (Data d) = show d
 
-instance Show DataItem where
+instance (Show t) => Show (DataItem t) where
   show (DataItem name ty ctors) =
     "data "
       ++ name
@@ -300,12 +340,12 @@ instance Show DataItem where
       ++ " where\n"
       ++ intercalate "\n" (map (\(CtorItem s t _) -> "  " ++ s ++ " : " ++ show t) ctors)
 
-instance Show DeclItem where
+instance (Show p, Show t) => Show (DeclItem p t) where
   show (DeclItem v ty clauses) = intercalate "\n" ((v ++ " : " ++ show ty) : map (\c -> v ++ " " ++ show c) clauses)
 
-instance Show Clause where
+instance (Show p, Show t) => Show (Clause p t) where
   show (Clause p t) = intercalate " " (map show p) ++ " = " ++ show t
   show (ImpossibleClause p) = intercalate " " (map show p) ++ " impossible"
 
-instance Show Program where
+instance (Show p, Show t) => Show (Program p t) where
   show (Program ds) = intercalate "\n\n" $ map show ds
