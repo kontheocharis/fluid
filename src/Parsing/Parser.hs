@@ -187,6 +187,7 @@ whiteWrap p = do
 -- @@Todo: how to deal with indentation?
 ctorItem :: GlobalName -> Parser CtorItem
 ctorItem d = try $ do
+  symbol "|"
   name <- identifier
   _ <- colon
   ty <- term
@@ -326,7 +327,7 @@ lam :: Parser Term
 lam = do
   reservedOp "\\"
   v <- newVar
-  reservedOp "->"
+  reservedOp "=>"
   Lam v <$> term
 
 -- | Parse a pair.

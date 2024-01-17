@@ -190,7 +190,7 @@ instance Show Var where
 
 instance Show Term where
   show (PiT v t1 t2) = "(" ++ show v ++ " : " ++ show t1 ++ ") -> " ++ show t2
-  show (Lam v t) = "(\\" ++ show v ++ " -> " ++ show t ++ ")"
+  show (Lam v t) = "(\\" ++ show v ++ " => " ++ show t ++ ")"
   show (App t1 t2) = "(" ++ show t1 ++ " " ++ show t2 ++ ")"
   show (SigmaT v t1 t2) = "(" ++ show v ++ " : " ++ show t1 ++ ") ** " ++ show t2
   show (Pair t1 t2) = "(" ++ show t1 ++ ", " ++ show t2 ++ ")"
@@ -231,7 +231,7 @@ instance Show DataItem where
       ++ " : "
       ++ show ty
       ++ " where\n"
-      ++ intercalate "\n" (map (\(CtorItem s t _) -> "  " ++ s ++ " : " ++ show t) ctors)
+      ++ intercalate "\n" (map (\(CtorItem s t _) -> "  | " ++ s ++ " : " ++ show t) ctors)
 
 instance Show DeclItem where
   show (DeclItem v ty clauses) = intercalate "\n" ((v ++ " : " ++ show ty) : map (\c -> v ++ " " ++ show c) clauses)
