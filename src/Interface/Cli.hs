@@ -1,3 +1,5 @@
+{-# LANGUAGE LambdaCase #-}
+
 module Interface.Cli (runCli) where
 
 import Checking.Context (Tc, runTc)
@@ -7,14 +9,23 @@ import Control.Monad.Cont (MonadIO (liftIO))
 import Data.Char (isSpace)
 import Data.String
 import Data.Text.IO (hPutStrLn)
-import Options.Applicative (execParser, (<**>), (<|>))
-import Options.Applicative.Builder (fullDesc, header, help, info, long, progDesc, short, strOption, switch)
+import Options.Applicative (execParser, value, (<**>), (<|>))
+import Options.Applicative.Builder (fullDesc, header, help, info, long, maybeReader, option, progDesc, short, strOption, switch)
 import Options.Applicative.Common (Parser)
 import Options.Applicative.Extra (helper)
 import Parsing.Parser (parseProgram, parseTerm)
 import System.Console.Haskeline (InputT, defaultSettings, getInputLine, outputStrLn, runInputT)
 import System.Exit (exitFailure)
 import System.IO (stderr)
+import Text.Read (readMaybe)
+
+-- | The kind of an argument that might be given to a refactoring.
+data RefactorArgKind = Name String | Idx Int | Loc Int Int deriving (Show)
+
+-- | Opaque arguments given to a refactoring as key-value pairs.
+--
+-- These depend on the refactoring being applied.
+newtype RefactorArgs = RefactorArgs [(String, RefactorArgKind)] deriving (Show)
 
 -- | What mode to run in.
 data Mode
@@ -22,11 +33,23 @@ data Mode
     CheckFile String
   | -- | Run a REPL
     Repl
+  | -- | Apply a refactoring to a file.
+    Refactor String
   deriving (Show)
 
-newtype Flags = Flags
+-- | How to apply changes to a file
+data ApplyChanges = InPlace | Print | NewFile
+  deriving (Show)
+
+data Flags = Flags
   { -- | Whether to dump the parsed program.
-    dumpParsed :: Bool
+    dumpParsed :: Bool,
+    -- | How to apply a refactoring.
+    applyChanges :: ApplyChanges,
+    -- | Refactoring to apply.
+    refactorName :: Maybe String,
+    -- | Refactoring-specific arguments.
+    refactorArgs :: RefactorArgs
   }
   deriving (Show)
 
@@ -38,11 +61,62 @@ data Args = Args
 
 -- | Parse the command-line flags.
 parseFlags :: Parser Flags
-parseFlags = Flags <$> switch (long "dump-parsed" <> help "Print the parsed program")
+parseFlags =
+  Flags
+    <$> switch (long "dump-parsed" <> help "Print the parsed program")
+    <*> option
+      ( maybeReader $ \case
+          "in-place" -> Just InPlace
+          "print" -> Just Print
+          "new-file" -> Just NewFile
+          _ -> Nothing
+      )
+      ( long "apply-changes"
+          <> help "Select how to apply changes induced by a refactoring ('print' [default] / 'in-place' / 'new-file')"
+          <> value Print
+      )
+    <*> option (maybeReader (Just . Just)) (short 'n' <> long "refactor-name" <> help "Name of the refactoring to apply" <> value Nothing)
+    <*> option
+      ( maybeReader $ \s -> do
+          parsedArgs <- mapM readRefactorArg (words s)
+          return $ RefactorArgs parsedArgs
+      )
+      ( long "refactor-args"
+          <> short 'a'
+          <> help
+            ( "If -r and -n are chosen, provide arguments relevant to the chosen refactoring."
+                ++ " Arguments are of the form <name>=<argument> where <argument> is either an index <n>, name <x> or location <l>:<c>"
+            )
+          <> value (RefactorArgs [])
+      )
+
+-- | Parse a refactoring argument.
+readRefactorArg :: String -> Maybe (String, RefactorArgKind)
+readRefactorArg v = do
+  (l, c) <- split '=' v
+  k <- readRefactorArgKind c
+  return (l, k)
+
+-- | Parse a refactoring argument kind.
+readRefactorArgKind :: String -> Maybe RefactorArgKind
+readRefactorArgKind v = case split ':' v of
+  Just (l, c) -> Loc <$> readMaybe l <*> readMaybe c
+  Nothing -> case readMaybe v of
+    Just i -> Just $ Idx i
+    Nothing -> Just $ Name v
+
+-- | Split a string on a character at the first occurrence (not including the character itself).
+split :: Char -> String -> Maybe (String, String)
+split ch s = case break (== ch) s of
+  (k, x : v) | x == ch -> Just (k, v)
+  _ -> Nothing
 
 -- | Parse the mode to run in.
 parseMode :: Parser Mode
-parseMode = (CheckFile <$> strOption (long "check" <> short 'c' <> help "File to check")) <|> pure Repl
+parseMode =
+  (CheckFile <$> strOption (long "check" <> short 'c' <> help "File to check"))
+    <|> (Refactor <$> strOption (long "refactor" <> short 'r' <> help "File to refactor. Provide the name of the refactoring with -n and any relevant arguments using -a."))
+    <|> pure Repl
 
 -- | Parse the command line arguments.
 parseArgs :: Parser Args
@@ -91,6 +165,7 @@ runCompiler (Args (CheckFile file) flags) = runInputT defaultSettings $ do
   msg "\nTypechecked program successfully"
   when (dumpParsed flags) $ msg $ "Parsed + checked program:\n" ++ show checked
 runCompiler (Args Repl _) = runInputT defaultSettings runRepl
+runCompiler (Args (Refactor f) Flags {refactorArgs = a, refactorName = n}) = putStrLn $ "Got file " ++ show f ++ " and args " ++ show a ++ " and name " ++ show n
 
 -- | Run the REPL.
 runRepl :: InputT IO a
