@@ -1,7 +1,7 @@
 module Examples.Index (indexDecl, allIndexDecls) where
 
 import Checking.Vars (var)
-import Lang (Clause (..), DeclItem (..), Item (..), Pat (..), Term (..))
+import Lang (Clause (..), DeclItem (..), Item (..), Term (..))
 
 indexDecl :: Item
 indexDecl =
@@ -9,9 +9,9 @@ indexDecl =
     DeclItem
       "index"
       (PiT (var "i") NatT (PiT (var "l") (ListT (V (var "t"))) (MaybeT (V (var "t")))))
-      [ Clause [WildP, LNilP] MNothing,
-        Clause [ZP, LConsP (VP (var "x")) WildP] (MJust (V (var "x"))),
-        Clause [SP (VP (var "n")), LConsP WildP (VP (var "xs"))] (App (App (Global "index") (V (var "n"))) (V (var "xs")))
+      [ Clause [Wild, LNil] MNothing,
+        Clause [Z, LCons (V (var "x")) Wild] (MJust (V (var "x"))),
+        Clause [S (V (var "n")), LCons Wild (V (var "xs"))] (App (App (Global "index") (V (var "n"))) (V (var "xs")))
       ]
 
 -- | First step: change normal types to dependent types through ornamental relation.
@@ -29,22 +29,22 @@ indexDeclR1 =
               NatT
               ( PiT
                   (var "prf")
-                  (App (App (Global "indexP") (V (var "n1"))) (V (var "n2")))
+                  (App (App (Global "index") (V (var "n1"))) (V (var "n2")))
                   (PiT (var "i") (FinT (V (var "n1"))) (PiT (var "l") (VectT (V (var "t")) (V (var "n2"))) (MaybeT (V (var "t")))))
               )
           )
       )
-      [ Clause [WildP, WildP, WildP, WildP, LNilP] MNothing,
-        Clause [WildP, WildP, WildP, FZP, VConsP (VP (var "x")) WildP] (MJust (V (var "x"))),
-        Clause [WildP, WildP, WildP, FSP (VP (var "n")), VConsP WildP (VP (var "xs"))] (App (App (App (App (App (Global "index") (Hole (var "1"))) (Hole (var "2"))) (Hole (var "3"))) (V (var "n"))) (V (var "xs")))
+      [ Clause [Wild, Wild, Wild, Wild, LNil] MNothing,
+        Clause [Wild, Wild, Wild, FZ, VCons (V (var "x")) Wild] (MJust (V (var "x"))),
+        Clause [Wild, Wild, Wild, FS (V (var "n")), VCons Wild (V (var "xs"))] (App (App (App (App (App (Global "index") (Hole (var "1"))) (Hole (var "2"))) (Hole (var "3"))) (V (var "n"))) (V (var "xs")))
       ]
 
 -- |  Proposition about ornament indices given by the user.
-indexP :: Item
-indexP =
+index :: Item
+index =
   Decl $
     DeclItem
-      "indexP"
+      "index"
       ( PiT
           (var "n1")
           NatT
@@ -54,7 +54,7 @@ indexP =
               TyT
           )
       )
-      [ Clause [VP (var "n1"), VP (var "n2")] (EqT (V (var "n1")) (V (var "n2")))
+      [ Clause [V (var "n1"), V (var "n2")] (EqT (V (var "n1")) (V (var "n2")))
       ]
 
 -- | Second step: case split on indices
@@ -71,30 +71,30 @@ indexDeclR2 =
               NatT
               ( PiT
                   (var "prf")
-                  (App (App (Global "indexP") (V (var "n1"))) (V (var "n2")))
+                  (App (App (Global "index") (V (var "n1"))) (V (var "n2")))
                   (PiT (var "i") (FinT (V (var "n1"))) (PiT (var "l") (VectT (V (var "t")) (V (var "n2"))) (MaybeT (V (var "t")))))
               )
           )
       )
-      [ Clause [ZP, ZP, WildP, WildP, LNilP] MNothing,
-        Clause [ZP, SP (VP (var "i2")), WildP, WildP, LNilP] MNothing,
-        Clause [SP (VP (var "i1")), ZP, WildP, WildP, LNilP] MNothing,
-        Clause [SP (VP (var "i1")), SP (VP (var "i2")), WildP, WildP, LNilP] MNothing,
-        Clause [ZP, ZP, WildP, FZP, VConsP (VP (var "x")) WildP] (MJust (V (var "x"))),
-        Clause [ZP, SP (VP (var "i2")), WildP, FZP, VConsP (VP (var "x")) WildP] (MJust (V (var "x"))),
-        Clause [SP (VP (var "i1")), ZP, WildP, FZP, VConsP (VP (var "x")) WildP] (MJust (V (var "x"))),
-        Clause [SP (VP (var "i1")), SP (VP (var "i2")), WildP, FZP, VConsP (VP (var "x")) WildP] (MJust (V (var "x"))),
+      [ Clause [Z, Z, Wild, Wild, LNil] MNothing,
+        Clause [Z, S (V (var "i2")), Wild, Wild, LNil] MNothing,
+        Clause [S (V (var "i1")), Z, Wild, Wild, LNil] MNothing,
+        Clause [S (V (var "i1")), S (V (var "i2")), Wild, Wild, LNil] MNothing,
+        Clause [Z, Z, Wild, FZ, VCons (V (var "x")) Wild] (MJust (V (var "x"))),
+        Clause [Z, S (V (var "i2")), Wild, FZ, VCons (V (var "x")) Wild] (MJust (V (var "x"))),
+        Clause [S (V (var "i1")), Z, Wild, FZ, VCons (V (var "x")) Wild] (MJust (V (var "x"))),
+        Clause [S (V (var "i1")), S (V (var "i2")), Wild, FZ, VCons (V (var "x")) Wild] (MJust (V (var "x"))),
         Clause
-          [ZP, ZP, WildP, FSP (VP (var "n")), VConsP WildP (VP (var "xs"))]
+          [Z, Z, Wild, FS (V (var "n")), VCons Wild (V (var "xs"))]
           (App (App (App (App (App (Global "index") (Hole (var "1"))) (Hole (var "2"))) (Hole (var "3"))) (V (var "n"))) (V (var "xs"))),
         Clause
-          [ZP, SP (VP (var "i2")), WildP, FSP (VP (var "n")), VConsP WildP (VP (var "xs"))]
+          [Z, S (V (var "i2")), Wild, FS (V (var "n")), VCons Wild (V (var "xs"))]
           (App (App (App (App (App (Global "index") (Hole (var "1"))) (Hole (var "2"))) (Hole (var "3"))) (V (var "n"))) (V (var "xs"))),
         Clause
-          [SP (VP (var "i1")), ZP, WildP, FSP (VP (var "n")), VConsP WildP (VP (var "xs"))]
+          [S (V (var "i1")), Z, Wild, FS (V (var "n")), VCons Wild (V (var "xs"))]
           (App (App (App (App (App (Global "index") (Hole (var "1"))) (Hole (var "2"))) (Hole (var "3"))) (V (var "n"))) (V (var "xs"))),
         Clause
-          [SP (VP (var "i1")), SP (VP (var "i2")), WildP, FSP (VP (var "n")), VConsP WildP (VP (var "xs"))]
+          [S (V (var "i1")), S (V (var "i2")), Wild, FS (V (var "n")), VCons Wild (V (var "xs"))]
           (App (App (App (App (App (Global "index") (Hole (var "1"))) (Hole (var "2"))) (Hole (var "3"))) (V (var "n"))) (V (var "xs")))
       ]
 
@@ -112,27 +112,27 @@ indexDeclR3 =
               NatT
               ( PiT
                   (var "prf")
-                  (App (App (Global "indexP") (V (var "n1"))) (V (var "n2")))
+                  (App (App (Global "index") (V (var "n1"))) (V (var "n2")))
                   (PiT (var "i") (FinT (V (var "n1"))) (PiT (var "l") (VectT (V (var "t")) (V (var "n2"))) (MaybeT (V (var "t")))))
               )
           )
       )
-      [ ImpossibleClause [ZP, ZP, WildP, WildP, LNilP],
-        ImpossibleClause [ZP, SP (VP (var "i2")), WildP, WildP, LNilP],
-        Clause [SP (VP (var "i1")), ZP, WildP, WildP, LNilP] MNothing,
-        ImpossibleClause [SP (VP (var "i1")), SP (VP (var "i2")), WildP, WildP, LNilP],
-        ImpossibleClause [ZP, ZP, WildP, FZP, VConsP (VP (var "x")) WildP],
-        ImpossibleClause [ZP, SP (VP (var "i2")), WildP, FZP, VConsP (VP (var "x")) WildP],
-        ImpossibleClause [SP (VP (var "i1")), ZP, WildP, FZP, VConsP (VP (var "x")) WildP],
-        Clause [SP (VP (var "i1")), SP (VP (var "i2")), WildP, FZP, VConsP (VP (var "x")) WildP] (MJust (V (var "x"))),
+      [ ImpossibleClause [Z, Z, Wild, Wild, LNil],
+        ImpossibleClause [Z, S (V (var "i2")), Wild, Wild, LNil],
+        Clause [S (V (var "i1")), Z, Wild, Wild, LNil] MNothing,
+        ImpossibleClause [S (V (var "i1")), S (V (var "i2")), Wild, Wild, LNil],
+        ImpossibleClause [Z, Z, Wild, FZ, VCons (V (var "x")) Wild],
+        ImpossibleClause [Z, S (V (var "i2")), Wild, FZ, VCons (V (var "x")) Wild],
+        ImpossibleClause [S (V (var "i1")), Z, Wild, FZ, VCons (V (var "x")) Wild],
+        Clause [S (V (var "i1")), S (V (var "i2")), Wild, FZ, VCons (V (var "x")) Wild] (MJust (V (var "x"))),
         ImpossibleClause
-          [ZP, ZP, WildP, FSP (VP (var "n")), VConsP WildP (VP (var "xs"))],
+          [Z, Z, Wild, FS (V (var "n")), VCons Wild (V (var "xs"))],
         ImpossibleClause
-          [ZP, SP (VP (var "i2")), WildP, FSP (VP (var "n")), VConsP WildP (VP (var "xs"))],
+          [Z, S (V (var "i2")), Wild, FS (V (var "n")), VCons Wild (V (var "xs"))],
         ImpossibleClause
-          [SP (VP (var "i1")), ZP, WildP, FSP (VP (var "n")), VConsP WildP (VP (var "xs"))],
+          [S (V (var "i1")), Z, Wild, FS (V (var "n")), VCons Wild (V (var "xs"))],
         Clause
-          [SP (VP (var "i1")), SP (VP (var "i2")), WildP, FSP (VP (var "n")), VConsP WildP (VP (var "xs"))]
+          [S (V (var "i1")), S (V (var "i2")), Wild, FS (V (var "n")), VCons Wild (V (var "xs"))]
           (App (App (App (App (App (Global "index") (Hole (var "1"))) (Hole (var "2"))) (Hole (var "3"))) (V (var "n"))) (V (var "xs")))
       ]
 
@@ -150,20 +150,20 @@ indexDeclR4 =
               NatT
               ( PiT
                   (var "prf")
-                  (App (App (Global "indexP") (V (var "n1"))) (V (var "n2")))
+                  (App (App (Global "index") (V (var "n1"))) (V (var "n2")))
                   (PiT (var "i") (FinT (V (var "n1"))) (PiT (var "l") (VectT (V (var "t")) (V (var "n2"))) (MaybeT (V (var "t")))))
               )
           )
       )
-      [ Clause [SP (VP (var "i1")), ZP, WildP, WildP, LNilP] MNothing,
-        ImpossibleClause [WildP, WildP, WildP, WildP, LNilP],
-        Clause [SP (VP (var "i1")), SP (VP (var "i2")), WildP, FZP, VConsP (VP (var "x")) WildP] (MJust (V (var "x"))),
-        ImpossibleClause [WildP, WildP, WildP, FZP, VConsP (VP (var "x")) WildP],
+      [ Clause [S (V (var "i1")), Z, Wild, Wild, LNil] MNothing,
+        ImpossibleClause [Wild, Wild, Wild, Wild, LNil],
+        Clause [S (V (var "i1")), S (V (var "i2")), Wild, FZ, VCons (V (var "x")) Wild] (MJust (V (var "x"))),
+        ImpossibleClause [Wild, Wild, Wild, FZ, VCons (V (var "x")) Wild],
         Clause
-          [SP (VP (var "i1")), SP (VP (var "i2")), WildP, FSP (VP (var "n")), VConsP WildP (VP (var "xs"))]
+          [S (V (var "i1")), S (V (var "i2")), Wild, FS (V (var "n")), VCons Wild (V (var "xs"))]
           (App (App (App (App (App (Global "index") (Hole (var "1"))) (Hole (var "2"))) (Hole (var "3"))) (V (var "n"))) (V (var "xs"))),
         ImpossibleClause
-          [WildP, WildP, WildP, FSP (VP (var "n")), VConsP WildP (VP (var "xs"))]
+          [Wild, Wild, Wild, FS (V (var "n")), VCons Wild (V (var "xs"))]
       ]
 
 -- | Fifth step: the proposition is an equality, so match on it to remove more branches
@@ -180,20 +180,20 @@ indexDeclR5 =
               NatT
               ( PiT
                   (var "prf")
-                  (App (App (Global "indexP") (V (var "n1"))) (V (var "n2")))
+                  (App (App (Global "index") (V (var "n1"))) (V (var "n2")))
                   (PiT (var "i") (FinT (V (var "n1"))) (PiT (var "l") (VectT (V (var "t")) (V (var "n2"))) (MaybeT (V (var "t")))))
               )
           )
       )
-      [ ImpossibleClause [SP (VP (var "i1")), ZP, ReflP WildP, WildP, LNilP],
-        ImpossibleClause [WildP, WildP, WildP, WildP, LNilP],
-        Clause [SP (VP (var "i1")), SP (VP (var "i2")), ReflP WildP, FZP, VConsP (VP (var "x")) WildP] (MJust (V (var "x"))),
-        ImpossibleClause [WildP, WildP, WildP, FZP, VConsP (VP (var "x")) WildP],
+      [ ImpossibleClause [S (V (var "i1")), Z, Refl Wild, Wild, LNil],
+        ImpossibleClause [Wild, Wild, Wild, Wild, LNil],
+        Clause [S (V (var "i1")), S (V (var "i2")), Refl Wild, FZ, VCons (V (var "x")) Wild] (MJust (V (var "x"))),
+        ImpossibleClause [Wild, Wild, Wild, FZ, VCons (V (var "x")) Wild],
         Clause
-          [SP (VP (var "i1")), SP (VP (var "i2")), ReflP WildP, FSP (VP (var "n")), VConsP WildP (VP (var "xs"))]
+          [S (V (var "i1")), S (V (var "i2")), Refl Wild, FS (V (var "n")), VCons Wild (V (var "xs"))]
           (App (App (App (App (App (Global "index") (Hole (var "1"))) (Hole (var "2"))) (Hole (var "3"))) (V (var "n"))) (V (var "xs"))),
         ImpossibleClause
-          [WildP, WildP, WildP, FSP (VP (var "n")), VConsP WildP (VP (var "xs"))]
+          [Wild, Wild, Wild, FS (V (var "n")), VCons Wild (V (var "xs"))]
       ]
 
 -- | Sixth step: collapse again
@@ -210,19 +210,19 @@ indexDeclR6 =
               NatT
               ( PiT
                   (var "prf")
-                  (App (App (Global "indexP") (V (var "n1"))) (V (var "n2")))
+                  (App (App (Global "index") (V (var "n1"))) (V (var "n2")))
                   (PiT (var "i") (FinT (V (var "n1"))) (PiT (var "l") (VectT (V (var "t")) (V (var "n2"))) (MaybeT (V (var "t")))))
               )
           )
       )
-      [ ImpossibleClause [WildP, WildP, ReflP WildP, WildP, LNilP],
-        Clause [SP (VP (var "i1")), SP (VP (var "i2")), ReflP WildP, FZP, VConsP (VP (var "x")) WildP] (MJust (V (var "x"))),
-        ImpossibleClause [WildP, WildP, WildP, FZP, VConsP (VP (var "x")) WildP],
+      [ ImpossibleClause [Wild, Wild, Refl Wild, Wild, LNil],
+        Clause [S (V (var "i1")), S (V (var "i2")), Refl Wild, FZ, VCons (V (var "x")) Wild] (MJust (V (var "x"))),
+        ImpossibleClause [Wild, Wild, Wild, FZ, VCons (V (var "x")) Wild],
         Clause
-          [SP (VP (var "i1")), SP (VP (var "i2")), ReflP WildP, FSP (VP (var "n")), VConsP WildP (VP (var "xs"))]
+          [S (V (var "i1")), S (V (var "i2")), Refl Wild, FS (V (var "n")), VCons Wild (V (var "xs"))]
           (App (App (App (App (App (Global "index") (Hole (var "1"))) (Hole (var "2"))) (Hole (var "3"))) (V (var "n"))) (V (var "xs"))),
         ImpossibleClause
-          [WildP, WildP, WildP, FSP (VP (var "n")), VConsP WildP (VP (var "xs"))]
+          [Wild, Wild, Wild, FS (V (var "n")), VCons Wild (V (var "xs"))]
       ]
 
 -- | Seventh step: ask user to fill in holes or do it automatically.
@@ -240,19 +240,19 @@ indexDeclR7 =
               NatT
               ( PiT
                   (var "prf")
-                  (App (App (Global "indexP") (V (var "n1"))) (V (var "n2")))
+                  (App (App (Global "index") (V (var "n1"))) (V (var "n2")))
                   (PiT (var "i") (FinT (V (var "n1"))) (PiT (var "l") (VectT (V (var "t")) (V (var "n2"))) (MaybeT (V (var "t")))))
               )
           )
       )
-      [ ImpossibleClause [WildP, WildP, ReflP WildP, WildP, LNilP],
-        Clause [SP WildP, SP WildP, ReflP WildP, FZP, VConsP (VP (var "x")) WildP] (MJust (V (var "x"))),
-        ImpossibleClause [WildP, WildP, WildP, FZP, VConsP (VP (var "x")) WildP],
+      [ ImpossibleClause [Wild, Wild, Refl Wild, Wild, LNil],
+        Clause [S Wild, S Wild, Refl Wild, FZ, VCons (V (var "x")) Wild] (MJust (V (var "x"))),
+        ImpossibleClause [Wild, Wild, Wild, FZ, VCons (V (var "x")) Wild],
         Clause
-          [SP (VP (var "i1")), SP (VP (var "i2")), ReflP WildP, FSP (VP (var "n")), VConsP WildP (VP (var "xs"))]
+          [S (V (var "i1")), S (V (var "i2")), Refl Wild, FS (V (var "n")), VCons Wild (V (var "xs"))]
           (App (App (App (App (App (Global "index") (V (var "i1"))) (V (var "i2"))) (Refl (V (var "i1")))) (V (var "n"))) (V (var "xs"))),
         ImpossibleClause
-          [WildP, WildP, WildP, FSP (VP (var "n")), VConsP WildP (VP (var "xs"))]
+          [Wild, Wild, Wild, FS (V (var "n")), VCons Wild (V (var "xs"))]
       ]
 
 -- | Eighth step: realise that im(index) is isomorphic to t, so remove Maybe.
@@ -269,22 +269,22 @@ indexDeclR8 =
               NatT
               ( PiT
                   (var "prf")
-                  (App (App (Global "indexP") (V (var "n1"))) (V (var "n2")))
+                  (App (App (Global "index") (V (var "n1"))) (V (var "n2")))
                   (PiT (var "i") (FinT (V (var "n1"))) (PiT (var "l") (VectT (V (var "t")) (V (var "n2"))) (V (var "t"))))
               )
           )
       )
-      [ ImpossibleClause [WildP, WildP, ReflP WildP, WildP, LNilP],
-        Clause [SP WildP, SP WildP, ReflP WildP, FZP, VConsP (VP (var "x")) WildP] (V (var "x")),
-        ImpossibleClause [WildP, WildP, WildP, FZP, VConsP (VP (var "x")) WildP],
+      [ ImpossibleClause [Wild, Wild, Refl Wild, Wild, LNil],
+        Clause [S Wild, S Wild, Refl Wild, FZ, VCons (V (var "x")) Wild] (V (var "x")),
+        ImpossibleClause [Wild, Wild, Wild, FZ, VCons (V (var "x")) Wild],
         Clause
-          [SP (VP (var "i1")), SP (VP (var "i2")), ReflP WildP, FSP (VP (var "n")), VConsP WildP (VP (var "xs"))]
+          [S (V (var "i1")), S (V (var "i2")), Refl Wild, FS (V (var "n")), VCons Wild (V (var "xs"))]
           (App (App (App (App (App (Global "index") (V (var "i1"))) (V (var "i2"))) (Refl (V (var "i1")))) (V (var "n"))) (V (var "xs"))),
         ImpossibleClause
-          [WildP, WildP, WildP, FSP (VP (var "n")), VConsP WildP (VP (var "xs"))]
+          [Wild, Wild, Wild, FS (V (var "n")), VCons Wild (V (var "xs"))]
       ]
 
--- | Ninth step: realise that since the proposition indexP is equality, the two indices can be syntactically unified.
+-- | Ninth step: realise that since the proposition index is equality, the two indices can be syntactically unified.
 indexDeclR9 :: Item
 indexDeclR9 =
   Decl $
@@ -295,14 +295,14 @@ indexDeclR9 =
           NatT
           (PiT (var "i") (FinT (V (var "n"))) (PiT (var "l") (VectT (V (var "t")) (V (var "n"))) (V (var "t"))))
       )
-      [ ImpossibleClause [WildP, WildP, LNilP],
-        Clause [SP WildP, FZP, VConsP (VP (var "x")) WildP] (V (var "x")),
-        ImpossibleClause [WildP, FZP, VConsP (VP (var "x")) WildP],
+      [ ImpossibleClause [Wild, Wild, LNil],
+        Clause [S Wild, FZ, VCons (V (var "x")) Wild] (V (var "x")),
+        ImpossibleClause [Wild, FZ, VCons (V (var "x")) Wild],
         Clause
-          [SP (VP (var "i")), FSP (VP (var "n")), VConsP WildP (VP (var "xs"))]
+          [S (V (var "i")), FS (V (var "n")), VCons Wild (V (var "xs"))]
           (App (App (App (Global "index") (V (var "i"))) (V (var "n"))) (V (var "xs"))),
         ImpossibleClause
-          [WildP, FSP (VP (var "n")), VConsP WildP (VP (var "xs"))]
+          [Wild, FS (V (var "n")), VCons Wild (V (var "xs"))]
       ]
 
 -- | Tenth step: The final dependent index function, where we assume the typechecker is able to automatically fill all impossibilities.
@@ -312,9 +312,9 @@ indexDepDecl =
     DeclItem
       "index"
       (PiT (var "n") NatT (PiT (var "i") (FinT (V (var "n"))) (PiT (var "l") (VectT (V (var "t")) (V (var "n"))) (V (var "t")))))
-      [ Clause [WildP, FZP, LConsP (VP (var "x")) WildP] (V (var "x")),
-        Clause [SP (VP (var "i")), FSP (VP (var "n")), LConsP WildP (VP (var "xs"))] (App (App (App (Global "indexDep") (V (var "i"))) (V (var "n"))) (V (var "xs")))
+      [ Clause [Wild, FZ, LCons (V (var "x")) Wild] (V (var "x")),
+        Clause [S (V (var "i")), FS (V (var "n")), LCons Wild (V (var "xs"))] (App (App (App (Global "indexDep") (V (var "i"))) (V (var "n"))) (V (var "xs")))
       ]
 
 allIndexDecls :: [Item]
-allIndexDecls = [indexDecl, indexDeclR1, indexP, indexDeclR2, indexDeclR3, indexDeclR4, indexDeclR5, indexDeclR6, indexDeclR7, indexDeclR8, indexDeclR9, indexDepDecl]
+allIndexDecls = [indexDecl, indexDeclR1, index, indexDeclR2, indexDeclR3, indexDeclR4, indexDeclR5, indexDeclR6, indexDeclR7, indexDeclR8, indexDeclR9, indexDepDecl]

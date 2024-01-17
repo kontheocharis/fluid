@@ -2,7 +2,7 @@ module Lang
   ( Type,
     GlobalName,
     Var (..),
-    Pat (..),
+    Pat,
     Term (..),
     Item (..),
     DataItem (..),
@@ -12,13 +12,12 @@ module Lang
     Clause (..),
     mapTerm,
     mapTermM,
-    mapPat,
-    mapPatM,
     clausePats,
     prependPatToClause,
     piTypeToList,
     listToPiType,
     itemName,
+    isValidPat,
   )
 where
 
@@ -28,37 +27,15 @@ import Data.List (intercalate)
 -- | Type alias for terms that are expected to be types (just for documentation purposes).
 type Type = Term
 
+-- | Type alias for terms that are expected to be patterns (just for documentation purposes).
+type Pat = Term
+
 -- | A global name is a string.
 type GlobalName = String
 
 -- | A variable
 -- Represented by a string name and a unique integer identifier (no shadowing).
 data Var = Var String Int deriving (Eq)
-
--- | A pattern
-data Pat
-  = -- | Variable binding pattern
-    VP Var
-  | -- | Wildcard pattern
-    WildP
-  | -- | Pair pattern
-    PairP Pat Pat
-  | -- Constructors:
-    LNilP
-  | LConsP Pat Pat
-  | VNilP
-  | VConsP Pat Pat
-  | FZP
-  | FSP Pat
-  | ZP
-  | SP Pat
-  | MJustP Pat
-  | MNothingP
-  | ReflP Pat
-  | LTEZeroP
-  | LTESuccP Pat
-  | CtorP GlobalName [Pat]
-  deriving (Eq)
 
 -- | A term
 data Term
@@ -72,6 +49,8 @@ data Term
     TyT
   | -- | Variable
     V Var
+  | -- | Wildcard pattern
+    Wild
   | -- | Global variable (declaration)
     Global String
   | -- | Hole identified by an integer
@@ -179,6 +158,7 @@ mapTermM f term = do
       (SigmaT v t1 t2) -> SigmaT v <$> mapTermM f t1 <*> mapTermM f t2
       (Pair t1 t2) -> Pair <$> mapTermM f t1 <*> mapTermM f t2
       TyT -> return TyT
+      Wild -> return Wild
       (V v) -> return $ V v
       (Global s) -> return $ Global s
       (Hole i) -> return $ Hole i
@@ -204,57 +184,9 @@ mapTermM f term = do
       (LTESucc t) -> LTESucc <$> mapTermM f t
     Just t' -> return t'
 
--- | Apply a function to a pattern, if it is a Just, otherwise return the pattern.
-mapPat :: (Pat -> Maybe Pat) -> Pat -> Pat
-mapPat f pat = runIdentity $ mapPatM (return . f) pat
-
--- | Map a function over a pattern, if it is a Just, otherwise return the pattern.
-mapPatM :: (Monad m) => (Pat -> m (Maybe Pat)) -> Pat -> m Pat
-mapPatM f pat = do
-  pat' <- f pat
-  case pat' of
-    Nothing -> case pat of
-      (VP v) -> return $ VP v
-      WildP -> return WildP
-      (PairP p1 p2) -> PairP <$> mapPatM f p1 <*> mapPatM f p2
-      LNilP -> return LNilP
-      (LConsP p1 p2) -> LConsP <$> mapPatM f p1 <*> mapPatM f p2
-      VNilP -> return VNilP
-      (VConsP p1 p2) -> VConsP <$> mapPatM f p1 <*> mapPatM f p2
-      FZP -> return FZP
-      (FSP p) -> FSP <$> mapPatM f p
-      ZP -> return ZP
-      (SP p) -> SP <$> mapPatM f p
-      (MJustP p) -> MJustP <$> mapPatM f p
-      MNothingP -> return MNothingP
-      (ReflP p) -> ReflP <$> mapPatM f p
-      LTEZeroP -> return LTEZeroP
-      (LTESuccP p) -> LTESuccP <$> mapPatM f p
-      (CtorP s ps) -> CtorP s <$> mapM (mapPatM f) ps
-    Just t' -> return t'
-
 -- Show instances for pretty printing:
 instance Show Var where
   show (Var s _) = s
-
-instance Show Pat where
-  show (VP v) = show v
-  show WildP = "_"
-  show (PairP p1 p2) = "(" ++ show p1 ++ ", " ++ show p2 ++ ")"
-  show LNilP = "[]"
-  show (LConsP p1 p2) = "(" ++ show p1 ++ "::" ++ show p2 ++ ")"
-  show VNilP = "[]"
-  show (VConsP p1 p2) = "(" ++ show p1 ++ "::" ++ show p2 ++ ")"
-  show FZP = "FZ"
-  show (FSP p) = "(FS " ++ show p ++ ")"
-  show ZP = "Z"
-  show (SP p) = "(S " ++ show p ++ ")"
-  show (MJustP p) = "(Just " ++ show p ++ ")"
-  show MNothingP = "Nothing"
-  show (ReflP p) = "(Refl " ++ show p ++ ")"
-  show LTEZeroP = "LTEZero"
-  show (LTESuccP p) = "(LTESucc " ++ show p ++ ")"
-  show (CtorP s ps) = "(" ++ s ++ (if null ps then "" else " ") ++ unwords (map show ps) ++ ")"
 
 instance Show Term where
   show (PiT v t1 t2) = "(" ++ show v ++ " : " ++ show t1 ++ ") -> " ++ show t2
@@ -263,6 +195,7 @@ instance Show Term where
   show (SigmaT v t1 t2) = "(" ++ show v ++ " : " ++ show t1 ++ ") ** " ++ show t2
   show (Pair t1 t2) = "(" ++ show t1 ++ ", " ++ show t2 ++ ")"
   show TyT = "Type"
+  show Wild = "_"
   show (V v) = show v
   show (Global s) = s
   show (Hole i) = "?" ++ show i
@@ -309,3 +242,24 @@ instance Show Clause where
 
 instance Show Program where
   show (Program ds) = intercalate "\n\n" $ map show ds
+
+-- | Check if a given term is a valid pattern (no typechecking).
+isValidPat :: Term -> Bool
+isValidPat (App a b) = isValidPat a && isValidPat b
+isValidPat (V _) = True
+isValidPat Wild = True
+isValidPat (Pair p1 p2) = isValidPat p1 && isValidPat p2
+isValidPat LNil = True
+isValidPat (LCons p1 p2) = isValidPat p1 && isValidPat p2
+isValidPat VNil = True
+isValidPat (VCons p1 p2) = isValidPat p1 && isValidPat p2
+isValidPat FZ = True
+isValidPat (FS p) = isValidPat p
+isValidPat Z = True
+isValidPat (S p) = isValidPat p
+isValidPat (MJust p) = isValidPat p
+isValidPat MNothing = True
+isValidPat (Refl p) = isValidPat p
+isValidPat LTEZero = True
+isValidPat (LTESucc p) = isValidPat p
+isValidPat _ = False

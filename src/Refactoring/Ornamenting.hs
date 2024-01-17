@@ -1,7 +1,7 @@
 module Refactoring.Ornamenting (ornamentDeclItem, ornamentType) where
 
 import Checking.Vars (var)
-import Lang (Clause (..), DeclItem (..), Pat (..), Term (..), Type, Var (..), mapTerm, piTypeToList)
+import Lang (Clause (..), DeclItem (..), Pat, Term (..), Type, Var (..), mapTerm, piTypeToList)
 
 -- | Ornament a declaration.
 ornamentDeclItem :: DeclItem -> (DeclItem, DeclItem)
@@ -29,8 +29,8 @@ ornamentDeclItem (DeclItem name ty clauses) = (ornItem, indexPropItem)
 -- patterns and recursive calls.
 ornamentClause :: Int -> String -> Type -> Clause -> Clause
 ornamentClause newIndices decl newRetType clause = case clause of
-  Clause pats term -> Clause (replicate newIndices WildP ++ map ornamentPat pats) (ornamentClauseTerm newIndices decl newRetType term)
-  ImpossibleClause pats -> ImpossibleClause (replicate newIndices WildP ++ map ornamentPat pats)
+  Clause pats term -> Clause (replicate newIndices Wild ++ map ornamentPat pats) (ornamentClauseTerm newIndices decl newRetType term)
+  ImpossibleClause pats -> ImpossibleClause (replicate newIndices Wild ++ map ornamentPat pats)
 
 -- | Ornament a term that appears as part of a clause of an ornamented declaration of the given name.
 --
@@ -56,10 +56,10 @@ ornamentClauseTerm i decl newRetType term = substitutedRecTerm
 
 -- | Ornament a pattern.
 ornamentPat :: Pat -> Pat
-ornamentPat ZP = FZP
-ornamentPat (SP p) = FSP (natToFinPat p)
-ornamentPat VNilP = LNilP
-ornamentPat (VConsP p1 p2) = LConsP p1 (listToVectPat p2)
+ornamentPat Z = FZ
+ornamentPat (S p) = FS (natToFin p)
+ornamentPat VNil = LNil
+ornamentPat (VCons p1 p2) = LCons p1 (listToVect p2)
 ornamentPat p = p
 
 -- | Convert a fin to a nat.
@@ -74,18 +74,6 @@ listToVect LNil = VNil
 listToVect (LCons h t) = VCons h (listToVect t)
 listToVect t = t
 
--- | Convert a fin to a nat.
-natToFinPat :: Pat -> Pat
-natToFinPat ZP = FZP
-natToFinPat (SP p) = FSP (natToFinPat p)
-natToFinPat p = p
-
--- | Convert a list to a vector.
-listToVectPat :: Pat -> Pat
-listToVectPat LNilP = VNilP
-listToVectPat (LConsP h t) = VConsP h (listToVectPat t)
-listToVectPat t = t
-
 -- | Generates a proposition with the given name that relates a set of indices together
 --
 -- These indices are determined by the given integer i as (n0,..n(i-1)). They
@@ -97,7 +85,7 @@ generateIndicesPropItem name i = DeclItem name piType [holeClause]
   where
     vars = map (\n -> Var ("n" ++ show n) n) [0 .. i - 1]
     piType = foldr (\v ty -> PiT v NatT ty) TyT vars
-    holeClause = Clause (map VP vars) (Hole (var "proof"))
+    holeClause = Clause (map V vars) (Hole (var "proof"))
 
 -- | Ornament a type signature.
 --

@@ -11,14 +11,15 @@ import Lang
     DeclItem (..),
     GlobalName,
     Item (..),
-    Pat (..),
+    Pat,
     Program (..),
     Term (..),
     Type,
     Var (..),
+    isValidPat,
     mapTermM,
   )
-import Parsing.Resolution (resolveGlobalsInItem, termToPat)
+import Parsing.Resolution (resolveGlobalsInItem)
 import Text.Parsec
   ( Parsec,
     between,
@@ -228,7 +229,7 @@ declClause name = do
         if null ps'
           then (False, [])
           else case last ps' of
-            (VP (Var "impossible" _)) -> (True, init ps')
+            (V (Var "impossible" _)) -> (True, init ps')
             _ -> (False, ps')
   clause <-
     if im
@@ -259,9 +260,9 @@ pat = do
   t <- singleTerm
   t' <- resolveTerm t
   modifyState $ \s -> s {parsingPat = False}
-  case termToPat t' of
-    Just p -> return p
-    Nothing -> fail $ "Cannot use term " ++ show t ++ " as a pattern"
+  if isValidPat t'
+    then return t'
+    else fail $ "Cannot use term " ++ show t ++ " as a pattern"
 
 -- | Parse a variable.
 var :: Parser Var
@@ -357,7 +358,7 @@ resolveTerm = mapTermM r
     r (V (Var "_" _)) = do
       isInPat <- parsingPat <$> getState
       if isInPat
-        then return Nothing
+        then return . Just $ Wild
         else do Just . Hole <$> freshVar
     r (V (Var "Type" _)) = return $ Just TyT
     r (V (Var "Nat" _)) = return $ Just NatT
