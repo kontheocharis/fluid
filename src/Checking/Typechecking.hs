@@ -32,12 +32,13 @@ import Lang
     DataItem (..),
     DeclItem (..),
     Item (..),
-    Pat (..),
+    Pat,
     Program (..),
     Term (..),
     Type,
     Var,
     listToPiType,
+    mapTermM,
     piTypeToList,
     prependPatToClause,
   )
@@ -259,6 +260,7 @@ checkTerm (VCons t1 t2) typ = do
   n <- freshHoleVar
   ty <- freshHoleVar
   checkCtor [n, ty] [V ty, VectT (V ty) (V n)] (VectT (V ty) (S (V n))) [t1, t2] typ
+checkTerm Wild _ = return noSub
 
 -- | Check the type of a constructor.
 checkCtor :: [Var] -> [Type] -> Type -> [Term] -> Type -> Tc Sub
@@ -439,22 +441,11 @@ ensureEmptySub :: Sub -> Tc ()
 ensureEmptySub (Sub []) = return ()
 ensureEmptySub (Sub xs) = throwError $ NeedMoreTypeHints (map fst xs)
 
--- | Convert a pattern to a term
+-- | Convert a pattern to a term, converting wildcards to fresh variables.
 patToTerm :: Pat -> Tc Term
-patToTerm (VP v) = return (V v)
-patToTerm WildP = V <$> freshVar
-patToTerm ZP = return Z
-patToTerm (SP p) = S <$> patToTerm p
-patToTerm FZP = return FZ
-patToTerm (FSP p) = FS <$> patToTerm p
-patToTerm LNilP = return LNil
-patToTerm (LConsP p1 p2) = LCons <$> patToTerm p1 <*> patToTerm p2
-patToTerm VNilP = return VNil
-patToTerm (VConsP p1 p2) = VCons <$> patToTerm p1 <*> patToTerm p2
-patToTerm (MJustP p) = MJust <$> patToTerm p
-patToTerm MNothingP = return MNothing
-patToTerm (ReflP p) = Refl <$> patToTerm p
-patToTerm LTEZeroP = return LTEZero
-patToTerm (LTESuccP p) = LTESucc <$> patToTerm p
-patToTerm (PairP p1 p2) = Pair <$> patToTerm p1 <*> patToTerm p2
-patToTerm (CtorP i args) = foldM (\t p -> App t <$> patToTerm p) (Global i) args
+patToTerm =
+  mapTermM
+    ( \t -> case t of
+        Wild -> Just . V <$> freshVar
+        _ -> return Nothing
+    )

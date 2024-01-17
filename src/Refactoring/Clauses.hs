@@ -1,6 +1,6 @@
 module Refactoring.Clauses (expandDeclItemPat, expandDeclItemFully) where
 
-import Lang (Clause (..), DeclItem (..), Pat (..), Term (..), Type, piTypeToList)
+import Lang (Clause (..), DeclItem (..), Pat, Term (..), Type, piTypeToList)
 
 -- | Expand all wildcard patterns in a declaration, one level deep.
 expandDeclItemFully :: DeclItem -> DeclItem
@@ -40,10 +40,10 @@ expandClausePat ty idx clause = expandedClauses
 --
 -- For now this only expands wildcards.
 expandPat :: Type -> Pat -> [Pat]
-expandPat NatT WildP = [ZP, SP WildP]
-expandPat (FinT _) WildP = [FZP, FSP WildP]
-expandPat (ListT _) WildP = [VNilP, VConsP WildP WildP]
-expandPat (MaybeT _) WildP = [MNothingP, MJustP WildP]
-expandPat (VectT _ _) WildP = [LNilP, LConsP WildP WildP]
-expandPat (SigmaT {}) WildP = [PairP WildP WildP]
+expandPat NatT Wild = [Z, S Wild]
+expandPat (FinT _) Wild = [FZ, FS Wild]
+expandPat (ListT _) Wild = [VNil, VCons Wild Wild]
+expandPat (MaybeT _) Wild = [MNothing, MJust Wild]
+expandPat (VectT _ _) Wild = [LNil, LCons Wild Wild]
+expandPat (SigmaT {}) Wild = [Pair Wild Wild]
 expandPat _ p = [p]
