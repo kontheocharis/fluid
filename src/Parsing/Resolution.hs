@@ -13,6 +13,7 @@ import Lang
     DeclItem (..),
     Item (..),
     Term (..),
+    TermValue (..),
     Var (..),
     mapTerm,
   )
@@ -21,8 +22,8 @@ import Lang
 resolveGlobals :: GlobalCtx -> Term -> Term
 resolveGlobals ctx = mapTerm r
   where
-    r (V (Var v _)) = case lookupItemOrCtor v ctx of
-      Just _ -> Just (Global v)
+    r (Term (V (Var v _)) d) = case lookupItemOrCtor v ctx of
+      Just _ -> Just (Term (Global v) d)
       Nothing -> Nothing
     r _ = Nothing
 
