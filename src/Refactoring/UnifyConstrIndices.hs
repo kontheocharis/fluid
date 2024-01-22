@@ -16,7 +16,7 @@ import Lang
     piTypeToList,
     listToPiType
   )
-
+import Data.List (partition)
 
 
 replaceOldVar_indices:: [Var] -> Var -> [(Var, Type)] -> [(Var, Type)]
@@ -170,39 +170,78 @@ removeWildcards :: [Term] -> [Term]
 removeWildcards termList = termList --TODO: add vars name if wildcards are used
 
 
-updateUsecase_constrTerm:: [Term] -> [Int] -> [Term]
-updateUsecase_constrTerm termList indPosns = 
-    let cleanTermList = removeWildcards termList in --change wildcards to named vars
-        unifyVars_termList cleanTermList indPosns
 
-
-
-updateUsecase_pat:: String -> [Int] -> Pat -> Pat
-updateUsecase_pat constrName [] (App t1 t2) = (App t1 t2)
+--[term] to remmeber what vars were deleted and rename all uses of the these vars
+    -- rename all other vars in term by the name of the first element
+updateUsecase_pat:: String -> [Int] -> Pat -> (Pat, [Term])
+updateUsecase_pat constrName [] (App t1 t2) = ((App t1 t2), [])
 updateUsecase_pat constrName (ind:inds) (App t1 t2) =
-    let termList = appTermToList (App t1 t2) in 
+    let termList = removeWildcards (appTermToList (App t1 t2)) in  --change wildcards to named vars
         case last termList of 
             Global varName -> if varName == constrName then 
-                                --listToAppTerm (updateUsecase_constrTerm termList (ind:inds))
-                                --let partn = partition  (\j -> not (elem (j+1) inds))  [0..(length termList)-1] in
-                                    listToAppTerm [termList!!j | j <- [0..(length termList)-1] , not (elem (j+1) inds)] 
-                                --TODO: need to remmeber what vars were deleted and rename all uses of the these vars
+                                --listToAppTerm (unifyVars_termList termList (ind:inds))
+                                let (toKeep, toRemove) = partition  (\j -> not (elem (j+1) inds))  [0..(length termList)-1] in
+                                    (listToAppTerm [termList!!j | j <- toKeep] , (termList!!(ind-1)):[termList!!j | j <- toRemove])
                               else 
-                                (App t1 t2)
-updateUsecase_pat constrName indPosns term = term
+                                ((App t1 t2),[])
+updateUsecase_pat constrName indPosns term = (term, [])
 
 
-updateUsecase_pats:: String -> [Int] -> [Pat] -> [Pat]
-updateUsecase_pats constrName indPosns [] = []
+updateUsecase_pats:: String -> [Int] -> [Pat] -> ([Pat], [Term])
+updateUsecase_pats constrName indPosns [] = ([],[])
 updateUsecase_pats constrName indPosns (pat:pats) = 
-    (updateUsecase_pat constrName indPosns pat):(updateUsecase_pats constrName indPosns pats)
+    let (patRes, varsToRename1) = updateUsecase_pat constrName indPosns pat 
+        (patRec, varsToRename2) = updateUsecase_pats constrName indPosns pats in 
+        (patRes:patRec , varsToRename1 ++ varsToRename2 )        
+
+
+renameVars_pat:: Term -> [Term] -> Pat -> Pat
+renameVars_pat newVar varsToRename pat = 
+    renameVars_term newVar varsToRename pat
+
+
+renameVars_pats:: Term -> [Term] -> [Pat] -> [Pat]
+renameVars_pats newVar varsToRename [] = []
+renameVars_pats newVar varsToRename (pat:pats) = 
+    (renameVars_pat newVar varsToRename pat):(renameVars_pats newVar varsToRename pats)
+
+
+renameVars_term:: Term -> [Term] -> Term -> Term
+renameVars_term newVar varsToRename (App term1 term2) = 
+    App (renameVars_term newVar varsToRename term1) (renameVars_term newVar varsToRename term2) 
+renameVars_term newVar varsToRename (Pair term1 term2) = 
+    Pair (renameVars_term newVar varsToRename term1) (renameVars_term newVar varsToRename term2) 
+renameVars_term newVar varsToRename (EqT term1 term2) = 
+    EqT (renameVars_term newVar varsToRename term1) (renameVars_term newVar varsToRename term2) 
+--todo: recurse through other terms
+--todo: recurse through cases and ifs
+renameVars_term newVar varsToRename (V var) = 
+    if elem (V var) varsToRename then 
+        newVar
+    else 
+        (V var)
+renameVars_term newVar varsToRename term = term
+
+
+--rename vars in term\term[0] in clause to var name in term[0]
+--TODO: refactor this out to a general var rename refactoring
+renameVars:: [Term] -> Clause -> Clause
+renameVars [] clause = clause
+renameVars (newVar:varsToRename) (Clause pats term) = 
+    Clause (renameVars_pats newVar varsToRename pats) (renameVars_term newVar varsToRename term)
+renameVars (newVar:varsToRename) (ImpossibleClause pats) = 
+    ImpossibleClause (renameVars_pats newVar varsToRename pats) 
+
 
 
 updateUsecase_cl:: String -> [Int] -> Clause -> Clause
 updateUsecase_cl constrName indPosns (Clause pats term) = 
-    Clause (updateUsecase_pats constrName indPosns pats) (updateUsecase_rhterm constrName indPosns term) 
+    let (patRes, varsToRename) = updateUsecase_pats constrName indPosns pats 
+        newClause = Clause (patRes) (updateUsecase_rhterm constrName indPosns term) in --constructor updated to remove indices
+            renameVars varsToRename newClause --rename uses of removed vars 
 updateUsecase_cl constrName indPosns (ImpossibleClause pats) = 
-    ImpossibleClause (updateUsecase_pats constrName indPosns pats) 
+    let patRes = updateUsecase_pats constrName indPosns pats in      
+        ImpossibleClause (fst patRes)
 
 
 updateUsecase_cls:: String -> [Int] -> [Clause] -> [Clause] 
