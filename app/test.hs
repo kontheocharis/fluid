@@ -55,7 +55,7 @@ showAll = do
   putStrLn fluidCode
   putStrLn "refactored code:"
  -- print (tryRefactor fluidCode "Data1" "C1" [5,4])  
-  print (tryRefactor fluidCode "Data2" "C21" [3,2,1])  
+  print (tryRefactor fluidCode "Data2" "C21" [3,1])  
   putStrLn ""
 
 

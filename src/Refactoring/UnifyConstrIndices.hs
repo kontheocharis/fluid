@@ -113,16 +113,29 @@ changeConstr_ast datName constrName indPosns (Program itemL)=
 ---------------------------------------------------
 
 
+updateUsecase_constrTerm_holes:: [Term] -> [Int] -> [Term]
+updateUsecase_constrTerm_holes termList []=[]
+updateUsecase_constrTerm_holes termList (indPos:indPosns) = 
+    map (\i -> if elem (i+1) indPosns then
+                    case termList!!i of 
+                        V (Var str int) -> Hole (Var (str ++ "_" ++ show i ) int) --TODO: Q: ehat should the int identifier be?
+                        term -> term 
+                else 
+                    termList!!i            
+    )
+    [0..((length termList)-1)]
 
-updateUsecase_term:: String -> [Int] -> Pat -> Pat
-updateUsecase_term constrName indPosns (App t1 t2) = --TODO: recurse down if and case expressions
+
+
+updateUsecase_rhterm:: String -> [Int] -> Pat -> Pat
+updateUsecase_rhterm constrName indPosns (App t1 t2) = --TODO: recurse down if and case expressions
     let termList = appTermToList (App t1 t2) in 
         case last termList of 
             Global varName -> if varName == constrName then 
-                                listToAppTerm (updateUsecase_constrTerm termList indPosns)
+                                listToAppTerm (updateUsecase_constrTerm_holes termList indPosns)
                               else 
                                 (App t1 t2)
-updateUsecase_term constrName indPosns term = term
+updateUsecase_rhterm constrName indPosns term = term
 
 
 
@@ -139,10 +152,11 @@ listToAppTerm (term:terms) = App (listToAppTerm terms) term
 
 --unify var use in term list
 unifyVars_termList:: [Term] -> [Int] -> [Term]
-unifyVars_termList termList indPosn = 
-    map (\i -> if elem (i+1) indPosn then
+unifyVars_termList termList []=[]
+unifyVars_termList termList (indPos:indPosns) = 
+    map (\i -> if elem (i+1) indPosns then
                     case termList!!i of 
-                        V var ->  termList !! ((indPosn!!0)-1) 
+                        V var ->  termList !! ((indPos)-1) 
                         term -> term 
                else 
                     termList!!i            
@@ -180,7 +194,7 @@ updateUsecase_pats constrName indPosns (pat:pats) =
 
 updateUsecase_cl:: String -> [Int] -> Clause -> Clause
 updateUsecase_cl constrName indPosns (Clause pats term) = 
-    Clause (updateUsecase_pats constrName indPosns pats) (updateUsecase_term constrName indPosns term) 
+    Clause (updateUsecase_pats constrName indPosns pats) (updateUsecase_rhterm constrName indPosns term) 
 updateUsecase_cl constrName indPosns (ImpossibleClause pats) = 
     ImpossibleClause (updateUsecase_pats constrName indPosns pats) 
 
