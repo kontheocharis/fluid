@@ -35,8 +35,11 @@ import Lang
     Pat,
     Program (..),
     Term (..),
+    TermValue (..),
     Type,
     Var,
+    genTerm,
+    listToApp,
     listToPiType,
     mapTermM,
     piTypeToList,
@@ -56,9 +59,9 @@ checkItem (Data dat) = Data <$> checkDataItem dat
 checkDataItem :: DataItem -> Tc DataItem
 checkDataItem (DataItem name ty ctors) = do
   -- Check the signature of the data type.
-  s <- checkTerm ty TyT
+  s <- checkTerm ty (genTerm TyT)
   let (tys, ret) = piTypeToList (sub s ty)
-  ret' <- unifyToLeft ret TyT
+  ret' <- unifyToLeft ret (genTerm TyT)
   let ty' = listToPiType (tys, ret')
 
   -- Then, add the declaration to the context.
@@ -77,7 +80,7 @@ checkCtorItem dTy (CtorItem name ty dTyName) = do
   let dTyArgCount = length . fst $ piTypeToList dTy
 
   -- Check the signature of the constructor.
-  s <- checkTerm ty TyT
+  s <- checkTerm ty (genTerm TyT)
   let ty' = sub s ty
   let (tys, ret) = piTypeToList ty'
 
@@ -85,7 +88,7 @@ checkCtorItem dTy (CtorItem name ty dTyName) = do
   ret' <- enterCtxMod (\c -> foldr (\(v, t) c' -> addTyping v t False c') c tys) $ do
     -- \| Check that the return type is the data type.
     dummyArgs <- replicateM dTyArgCount freshHole
-    let dummyRet = foldl App (Global dTyName) dummyArgs
+    let dummyRet = listToApp (genTerm (Global dTyName) : dummyArgs) -- @@Todo: use data from ctor
     s' <- unifyTerms ret dummyRet
     return $ sub s' ret
 
@@ -98,7 +101,7 @@ checkDeclItem :: DeclItem -> Tc DeclItem
 checkDeclItem decl = do
   -- First, check the type of the declaration.
   let ty = declTy decl
-  s1 <- checkTerm ty TyT
+  s1 <- checkTerm ty (genTerm TyT)
 
   -- Substitute the type.
   let ty' = sub s1 ty
@@ -134,20 +137,20 @@ checkClause _ (ImpossibleClause _) = error "Impossible clauses not yet supported
 -- | Check the type of a term. (The type itself should already be checked.)
 -- This might produce a substitution.
 checkTerm :: Term -> Type -> Tc Sub
-checkTerm (Lam v t) (PiT var' ty1 ty2) = do
-  enterCtxMod (addTyping v ty1 False) $ checkTerm t (alphaRename var' v ty2)
-checkTerm (Lam v t) typ = do
+checkTerm ((Term (Lam v t) d1)) ((Term (PiT var' ty1 ty2) d2)) = do
+  enterCtxMod (addTyping v ty1 False) $ checkTerm t (alphaRename var' (v, d2) ty2)
+checkTerm ((Term (Lam v t) d1)) typ = do
   varTy <- freshHole
   bodyTy <- enterCtxMod (addTyping v varTy False) $ inferTerm t
-  let inferredTy = PiT v varTy bodyTy
+  let inferredTy = Term (PiT v varTy bodyTy) d1
   s1 <- unifyTerms typ inferredTy
-  s2 <- checkTerm (sub s1 (Lam v t)) (sub s1 inferredTy)
+  s2 <- checkTerm (sub s1 (Term (Lam v t) d1)) (sub s1 inferredTy)
   return $ s1 <> s2
-checkTerm (Pair t1 t2) (SigmaT v ty1 ty2) = do
+checkTerm (Term (Pair t1 t2) d1) (Term (SigmaT v ty1 ty2) d2) = do
   s1 <- checkTerm t1 ty1
   s2 <- checkTerm (sub s1 t2) (subVar v (sub s1 t1) (sub s1 ty2))
   return $ s1 <> s2
-checkTerm (Pair t1 t2) typ = do
+checkTerm (Term (Pair t1 t2) d1) typ = do
   fstTy <- freshHole
   sndTy <- freshHole
   v <- freshVar
@@ -155,39 +158,39 @@ checkTerm (Pair t1 t2) typ = do
   s1 <- checkTerm (Pair t1 t2) inferredTy
   s2 <- unifyTerms typ (sub s1 inferredTy)
   return $ s1 <> s2
-checkTerm (PiT v t1 t2) typ = do
+checkTerm (Term (PiT v t1 t2) d1) typ = do
   s <- checkTerm t1 TyT
   _ <- enterCtxMod (addTyping v (sub s t1) False) $ inferTerm (sub s t2)
   unifyTerms typ TyT
-checkTerm (SigmaT v t1 t2) typ = do
+checkTerm (Term (SigmaT v t1 t2) d1) typ = do
   s <- checkTerm t1 TyT
   _ <- enterCtxMod (addTyping v (sub s t1) False) $ inferTerm (sub s t2)
   unifyTerms typ TyT
 checkTerm TyT typ = unifyTerms typ TyT
 checkTerm NatT typ = unifyTerms typ TyT
-checkTerm (ListT t) typ = do
+checkTerm (Term (ListT t) d1) typ = do
   _ <- checkTerm t TyT
   unifyTerms typ TyT
-checkTerm (VectT t n) typ = do
+checkTerm (Term (VectT t n) d1) typ = do
   _ <- checkTerm t TyT
   _ <- checkTerm n NatT
   unifyTerms typ TyT
-checkTerm (FinT t) typ = do
+checkTerm (Term (FinT t) d1) typ = do
   _ <- checkTerm t NatT
   unifyTerms typ TyT
-checkTerm (EqT t1 t2) typ = do
+checkTerm (Term (EqT t1 t2) d1) typ = do
   ty1 <- inferTerm t1
   ty2 <- inferTerm t2
   _ <- unifyTerms ty1 ty2
   unifyTerms typ TyT
-checkTerm (LteT t1 t2) typ = do
+checkTerm (Term (LteT t1 t2) d1) typ = do
   _ <- checkTerm t1 NatT
   _ <- checkTerm t2 NatT
   unifyTerms typ TyT
-checkTerm (MaybeT t) typ = do
+checkTerm (Term (MaybeT t) d1) typ = do
   _ <- checkTerm t TyT
   unifyTerms typ TyT
-checkTerm (V v) typ = do
+checkTerm (Term (V v) d1) typ = do
   vTyp <- inCtx (lookupType v)
   case vTyp of
     Nothing -> do
@@ -202,7 +205,7 @@ checkTerm (V v) typ = do
     Just vTyp' -> case typ of
       Hole h -> return $ Sub [(h, vTyp')]
       _ -> unifyTerms typ vTyp'
-checkTerm (App t1 t2) typ = do
+checkTerm (Term (App t1 t2) d1) typ = do
   bodyTy <- freshHole
   (s1, varTy) <- inferTermWithSub t2
   v <- freshHoleVar
@@ -211,52 +214,52 @@ checkTerm (App t1 t2) typ = do
   let s12 = s1 <> s2
   s3 <- unifyTerms (sub s12 typ) $ subVar v (sub s12 t2) (sub s12 bodyTy)
   return (s12 <> s3)
-checkTerm (Hole _) ty = do
+checkTerm (Term (Hole _) d1) (Term ty d2) = do
   hTy <- freshHoleVar
   return $ Sub [(hTy, ty)]
-checkTerm (Global g) typ = do
+checkTerm (Term (Global g) d1) typ = do
   decl <- inGlobalCtx (lookupItemOrCtor g)
   case decl of
     Nothing -> throwError $ ItemNotFound g
     Just (Left (Decl decl')) -> unifyTerms typ $ declTy decl'
     Just (Left (Data dat)) -> unifyTerms typ $ dataTy dat
     Just (Right ctor) -> unifyTerms typ $ ctorItemTy ctor
-checkTerm (Refl t) typ = do
+checkTerm (Term (Refl t) d1) typ = do
   ty <- freshHoleVar
   checkCtor [ty] [V ty] (EqT t t) [t] typ
-checkTerm Z typ = do
+checkTerm (Term Z d1) typ = do
   checkCtor [] [] NatT [] typ
-checkTerm (S n) typ = do
+checkTerm (Term (S n) d1) typ = do
   checkCtor [] [NatT] NatT [n] typ
-checkTerm LNil typ = do
+checkTerm (Term LNil d1) typ = do
   ty <- freshHoleVar
   checkCtor [ty] [] (ListT (V ty)) [] typ
-checkTerm (LCons h t) typ = do
+checkTerm (Term (LCons h t) d1) typ = do
   ty <- freshHoleVar
   checkCtor [ty] [V ty, ListT (V ty)] (ListT (V ty)) [h, t] typ
-checkTerm (MJust t) typ = do
+checkTerm (Term (MJust t) d1) typ = do
   ty <- freshHoleVar
   checkCtor [ty] [V ty] (MaybeT (V ty)) [t] typ
-checkTerm MNothing typ = do
+checkTerm (Term MNothing d1) typ = do
   ty <- freshHoleVar
   checkCtor [ty] [] (MaybeT (V ty)) [] typ
-checkTerm LTEZero typ = do
+checkTerm (Term LTEZero d1) typ = do
   right <- freshHoleVar
   checkCtor [right] [] (LteT Z (V right)) [] typ
-checkTerm (LTESucc t) typ = do
+checkTerm (Term (LTESucc t) d1) typ = do
   left <- freshHoleVar
   right <- freshHoleVar
   checkCtor [left, right] [LteT (V left) (V right)] (LteT (S (V left)) (S (V right))) [t] typ
-checkTerm FZ typ = do
+checkTerm (Term FZ d1) typ = do
   n <- freshHoleVar
   checkCtor [n] [] (FinT (S (V n))) [] typ
-checkTerm (FS t) typ = do
+checkTerm (Term (FS t) d1) typ = do
   n <- freshHoleVar
   checkCtor [n] [FinT (V n)] (FinT (S (V n))) [t] typ
-checkTerm VNil typ = do
+checkTerm (Term VNil d1) typ = do
   ty <- freshHoleVar
   checkCtor [ty] [] (VectT (V ty) Z) [] typ
-checkTerm (VCons t1 t2) typ = do
+checkTerm (Term (VCons t1 t2) d1) typ = do
   n <- freshHoleVar
   ty <- freshHoleVar
   checkCtor [n, ty] [V ty, VectT (V ty) (V n)] (VectT (V ty) (S (V n))) [t1, t2] typ

@@ -40,7 +40,7 @@ class Subst a where
 instance Subst Term where
   subVar v t' =
     mapTerm
-      ( \t'' -> case t'' of
+      ( \t'' -> case termValue t'' of
           V v' | v == v' -> Just t'
           Hole v' | v == v' -> Just t'
           _ -> Nothing
@@ -51,5 +51,5 @@ instance Subst Sub where
   subVar _ _ (Sub []) = Sub []
 
 -- | Alpha rename a variable in a term.
-alphaRename :: Var -> Var -> Term -> Term
-alphaRename v1 v2 = subVar v1 (V v2)
+alphaRename :: Var -> (Var, TermData) -> Term -> Term
+alphaRename v1 (v2, d) = subVar v1 (Term (V v2) d)

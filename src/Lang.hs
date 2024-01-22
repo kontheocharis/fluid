@@ -4,6 +4,7 @@ module Lang
     Var (..),
     Term (..),
     TermValue (..),
+    TermData (..),
     Loc (..),
     Pos (..),
     Pat,
@@ -19,6 +20,7 @@ module Lang
     prependPatToClause,
     piTypeToList,
     listToPiType,
+    listToApp,
     itemName,
     isValidPat,
     termLoc,
@@ -132,6 +134,10 @@ piTypeToList t = ([], t)
 listToPiType :: ([(Var, Type)], Type) -> Type
 listToPiType ([], ty) = ty
 listToPiType ((v, ty1) : tys, ty2) = Term (PiT v ty1 (listToPiType (tys, ty2))) emptyTermData
+
+-- | Convert a *non-empty* list of terms to an application term
+listToApp :: [Term] -> Term
+listToApp = foldl1 (\acc x -> Term (App acc x) (termDataSpan (termLoc acc) (termLoc x)))
 
 -- | An item is either a declaration or a data item.
 data Item
