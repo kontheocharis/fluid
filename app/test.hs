@@ -55,14 +55,48 @@ showAll = do
   putStrLn fluidCode
   putStrLn "refactored code:"
  -- print (tryRefactor fluidCode "Data1" "C1" [5,4])  
-  print (tryRefactor fluidCode "Data2" "C21" [3,1])  
+  print (tryRefactor fluidCode "Data2" "C21" [3,2])  
   putStrLn ""
 
 
+{-
+original code:
+data Data1 : List Nat -> Type  where
+    | C1 : (ind1 : List Nat) -> (ind2 : List Nat) -> (a:Type) -> (n: Nat) -> Data1 ind1 -> Data1 ind2
+    | C2 : (ind : List Nat) -> Nat -> Data1 ind
+    | C3 : (ind :List Nat) -> Data1 ind
 
+
+data Data2 : Nat -> Type  where
+    | C21 : (n1: Nat) -> (n2:Nat) -> (n3:Nat) -> Data2 n2
+
+
+g: (n1:Nat) -> (n2:Nat) -> (n3:Nat) ->  Data2 n2
+g n1 n2 n3  = C21 n1 n2 n3
+
+
+h: (n:Nat) -> (Data2 n) -> Nat
+h n2 (C21 n1 n2 n3) = n2
+
+
+refactored code:
+data Data1 : (n0 : [Nat]) -> Type where
+  | C1 : (ind1 : [Nat]) -> (ind2 : [Nat]) -> (a : Type) -> (n : Nat) -> (n8 : (Data1 ind1)) -> (Data1 ind2)
+  | C2 : (ind : [Nat]) -> (n11 : Nat) -> (Data1 ind)
+  | C3 : (ind : [Nat]) -> (Data1 ind)
+
+data Data2 : (n13 : Nat) -> Type where
+  | C21 : (n1 : Nat) -> (n3 : Nat) -> (Data2 n1)
+
+g : (n1 : Nat) -> (n2 : Nat) -> (n3 : Nat) -> (Data2 n2)
+g n1 n2 n3 = ((C21 ?n1_2) n3)
+
+h : (n : Nat) -> (n23 : (Data2 n)) -> Nat
+h n2 ((C21 n1) n3) = n2
+
+-}
 
 
     
-
 
 

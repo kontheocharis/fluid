@@ -37,9 +37,9 @@ changeConstr_argsList argList [] = argList
 changeConstr_argsList argList (i:indPosns) = 
     case argList !! i of 
         (var,ty) -> if checkType argList indPosns ty then --check that the indices we want to unify are of the same type
-                        --[argList!!j | j <- [0..(length argList)-1] , not (elem j indPosns)]  --remove redundant vars 
-                        let oldVars = [fst (argList!!j) | j <- indPosns] in
-                            replaceOldVar_indices oldVars var argList
+                        [argList!!j | j <- [0..(length argList)-1] , not (elem j indPosns)]  --remove redundant vars 
+                        --let oldVars = [fst (argList!!j) | j <- indPosns] in
+                        --    replaceOldVar_indices oldVars var argList
                     else 
                         argList
 
@@ -114,11 +114,10 @@ changeConstr_ast datName constrName indPosns (Program itemL)=
 
 
 updateUsecase_constrTerm_holes:: [Term] -> [Int] -> [Term]
-updateUsecase_constrTerm_holes termList []=[]
-updateUsecase_constrTerm_holes termList (indPos:indPosns) = 
+updateUsecase_constrTerm_holes termList indPosns = 
     map (\i -> if elem (i+1) indPosns then
                     case termList!!i of 
-                        V (Var str int) -> Hole (Var (str ++ "_" ++ show i ) int) --TODO: Q: ehat should the int identifier be?
+                        V (Var str int) -> Hole (Var (str ++ "_" ++ show i ) int) 
                         term -> term 
                 else 
                     termList!!i            
@@ -126,13 +125,15 @@ updateUsecase_constrTerm_holes termList (indPos:indPosns) =
     [0..((length termList)-1)]
 
 
-
+--if constructor in rhs, we remove the I\I1 indices, and make the I1 index a hole
 updateUsecase_rhterm:: String -> [Int] -> Pat -> Pat
-updateUsecase_rhterm constrName indPosns (App t1 t2) = --TODO: recurse down if and case expressions
+updateUsecase_rhterm constrName [] (App t1 t2) = App t1 t2 
+updateUsecase_rhterm constrName (ind:inds) (App t1 t2) = --TODO: recurse down if and case expressions
     let termList = appTermToList (App t1 t2) in 
         case last termList of 
             Global varName -> if varName == constrName then 
-                                listToAppTerm (updateUsecase_constrTerm_holes termList indPosns)
+                                let holedConstr = updateUsecase_constrTerm_holes termList (ind:inds) in
+                                    listToAppTerm  [holedConstr!!j | j <- [0..(length holedConstr)-1] , not (elem (j+1) inds)]
                               else 
                                 (App t1 t2)
 updateUsecase_rhterm constrName indPosns term = term
@@ -164,23 +165,28 @@ unifyVars_termList termList (indPos:indPosns) =
         [0..((length termList)-1)]
 
 
+
 removeWildcards :: [Term] -> [Term]
 removeWildcards termList = termList --TODO: add vars name if wildcards are used
 
 
 updateUsecase_constrTerm:: [Term] -> [Int] -> [Term]
 updateUsecase_constrTerm termList indPosns = 
-    let cleanTermList = removeWildcards termList in 
+    let cleanTermList = removeWildcards termList in --change wildcards to named vars
         unifyVars_termList cleanTermList indPosns
 
 
 
 updateUsecase_pat:: String -> [Int] -> Pat -> Pat
-updateUsecase_pat constrName indPosns (App t1 t2) =
+updateUsecase_pat constrName [] (App t1 t2) = (App t1 t2)
+updateUsecase_pat constrName (ind:inds) (App t1 t2) =
     let termList = appTermToList (App t1 t2) in 
         case last termList of 
             Global varName -> if varName == constrName then 
-                                listToAppTerm (updateUsecase_constrTerm termList indPosns)
+                                --listToAppTerm (updateUsecase_constrTerm termList (ind:inds))
+                                --let partn = partition  (\j -> not (elem (j+1) inds))  [0..(length termList)-1] in
+                                    listToAppTerm [termList!!j | j <- [0..(length termList)-1] , not (elem (j+1) inds)] 
+                                --TODO: need to remmeber what vars were deleted and rename all uses of the these vars
                               else 
                                 (App t1 t2)
 updateUsecase_pat constrName indPosns term = term
@@ -230,5 +236,6 @@ unifyIndices_ast :: String -> String -> [Int] ->  Program ->  Program
 unifyIndices_ast datName constrName indPosns ast = 
     let dataRefactored = changeConstr_ast datName constrName indPosns ast in 
         updateUsecase datName constrName indPosns dataRefactored
+
 
 
