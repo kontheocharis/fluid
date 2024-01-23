@@ -92,7 +92,7 @@ checkCtorItem dTy (CtorItem name ty dTyName) = do
   ret' <- enterCtxMod (\c -> foldr (\(v, t) c' -> addTyping v t False c') c tys) $ do
     -- \| Check that the return type is the data type.
     dummyArgs <- replicateM dTyArgCount freshHole
-    let dummyRet = listToApp (genTerm (Global dTyName) : dummyArgs) -- @@Todo: use data from ctor
+    let dummyRet = listToApp (genTerm (Global dTyName) : dummyArgs)
     s' <- unifyTerms ret dummyRet
     return $ sub s' ret
 

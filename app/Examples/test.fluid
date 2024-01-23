@@ -1,3 +1,0 @@
-data Natural : Type where
-    | Zero : Natural
-    | Successor : Natural -> Natural

@@ -53,8 +53,6 @@ library
 executable fluid-exe
   main-is: Main.hs
   other-modules:
-      Examples.Drop
-      Examples.Index
       Paths_fluid
   autogen-modules:
       Paths_fluid

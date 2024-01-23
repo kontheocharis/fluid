@@ -28,7 +28,6 @@ module Lang
     termLoc,
     genTerm,
     termDataAt,
-    termDataSpan,
     locatedAt,
   )
 where
@@ -52,10 +51,10 @@ data Var = Var String Int deriving (Eq)
 -- | A term
 data TermValue
   = -- Dependently-typed lambda calculus with Pi and Sigma:
-    PiT Var Term Term
+    PiT Var Type Term
   | Lam Var Term
   | App Term Term
-  | SigmaT Var Term Term
+  | SigmaT Var Type Term
   | Pair Term Term
   | -- | Type of types (no universe polymorphism)
     TyT
@@ -69,10 +68,10 @@ data TermValue
     Hole Var
   | -- Data types:
     NatT
-  | ListT Term
-  | MaybeT Term
-  | VectT Term Term
-  | FinT Term
+  | ListT Type
+  | MaybeT Type
+  | VectT Type Term
+  | FinT Type
   | EqT Term Term
   | LteT Term Term
   | -- Constructors:
@@ -91,23 +90,53 @@ data TermValue
   | LTESucc Term
   deriving (Eq)
 
+-- | A term with associated data.
+data Term = Term {termValue :: TermValue, termData :: TermData} deriving (Eq)
+
+-- | Alias for type values (just for documentation purposes)
+type TypeValue = TermValue
+
+-- | Alias for pattern values (just for documentation purposes)
+type PatValue = TermValue
+
+-- | An optional location in the source code, represented by a start (inclusive) and
+-- end (exclusive) position.
 data Loc = NoLoc | Loc Pos Pos deriving (Eq)
 
+-- | A monoid instance for locations, that gets the maximum span.
+instance Monoid Loc where
+  mempty = NoLoc
+
+instance Semigroup Loc where
+  NoLoc <> NoLoc = NoLoc
+  NoLoc <> Loc s e = Loc s e
+  Loc s e <> NoLoc = Loc s e
+  Loc s1 e1 <> Loc s2 e2 = Loc (min s1 s2) (max e1 e2)
+
+-- | A position in the source code, represented by a line and column number.
 data Pos = Pos Int Int deriving (Eq)
 
+-- | Get the starting position of a location.
 startPos :: Loc -> Maybe Pos
 startPos NoLoc = Nothing
 startPos (Loc start _) = Just start
 
+-- | Get the ending position of a location.
 endPos :: Loc -> Maybe Pos
 endPos NoLoc = Nothing
 endPos (Loc _ end) = Just end
 
+-- | Auxiliary data contained alongside a term.
+--
+-- For now stores only the location in the source code, but will
+-- be extended to store type information too.
 newtype TermData = TermData {loc :: Loc} deriving (Eq)
 
+-- | Empty term data.
 emptyTermData :: TermData
 emptyTermData = TermData NoLoc
 
+-- | Class of types that have a location.
 class HasLoc a where
   getLoc :: a -> Loc
 
@@ -120,24 +149,13 @@ instance HasLoc TermData where
 instance HasLoc Loc where
   getLoc = id
 
+-- | Create a term with the given value and location.
 locatedAt :: (HasLoc a) => a -> TermValue -> Term
 locatedAt a t = Term t (termDataAt (getLoc a))
 
+-- | Create term data with the given location.
 termDataAt :: (HasLoc a) => a -> TermData
 termDataAt = TermData . getLoc
-
-termDataSpan :: Loc -> Loc -> TermData
-termDataSpan start end = TermData $ case (start, end) of
-  (NoLoc, NoLoc) -> NoLoc
-  (NoLoc, Loc s e) -> Loc s e
-  (Loc s e, NoLoc) -> Loc s e
-  (Loc s1 _, Loc _ e2) -> Loc s1 e2
-
-data Term = Term {termValue :: TermValue, termData :: TermData} deriving (Eq)
-
-type TypeValue = TermValue
-
-type PatValue = TermValue
 
 -- | Get the term data from a term.
 termLoc :: Term -> Loc
@@ -159,7 +177,7 @@ listToPiType ((v, ty1) : tys, ty2) = Term (PiT v ty1 (listToPiType (tys, ty2))) 
 
 -- | Convert a *non-empty* list of terms to an application term
 listToApp :: [Term] -> Term
-listToApp = foldl1 (\acc x -> Term (App acc x) (termDataSpan (termLoc acc) (termLoc x)))
+listToApp = foldl1 (\acc x -> Term (App acc x) (termDataAt (termLoc acc <> termLoc x)))
 
 -- | An item is either a declaration or a data item.
 data Item
