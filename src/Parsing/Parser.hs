@@ -11,6 +11,7 @@ import Lang
     DeclItem (..),
     GlobalName,
     Item (..),
+    Loc (..),
     Pat,
     Pos (..),
     Program (..),
@@ -22,8 +23,6 @@ import Lang
     listToApp,
     mapTermM,
     termDataAt,
-    termDataSpan,
-    termLoc,
   )
 import Parsing.Resolution (resolveGlobalsInItem)
 import Text.Parsec
@@ -176,7 +175,7 @@ locatedTerm p = do
   start <- getPos
   t <- p
   end <- getPos
-  return $ Term t (termDataAt start end)
+  return $ Term t (termDataAt (Loc start end))
 
 -- | Parse a term from a string.
 parseTerm :: String -> Either String Term

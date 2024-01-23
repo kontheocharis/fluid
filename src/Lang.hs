@@ -5,6 +5,8 @@ module Lang
     Term (..),
     TermValue (..),
     TermData (..),
+    PatValue,
+    TypeValue,
     Loc (..),
     Pos (..),
     Pat,
@@ -27,6 +29,7 @@ module Lang
     genTerm,
     termDataAt,
     termDataSpan,
+    locatedAt,
   )
 where
 
@@ -105,8 +108,23 @@ newtype TermData = TermData {loc :: Loc} deriving (Eq)
 emptyTermData :: TermData
 emptyTermData = TermData NoLoc
 
-termDataAt :: Pos -> Pos -> TermData
-termDataAt start end = TermData (Loc start end)
+class HasLoc a where
+  getLoc :: a -> Loc
+
+instance HasLoc Term where
+  getLoc = termLoc
+
+instance HasLoc TermData where
+  getLoc = loc
+
+instance HasLoc Loc where
+  getLoc = id
+
+locatedAt :: (HasLoc a) => a -> TermValue -> Term
+locatedAt a t = Term t (termDataAt (getLoc a))
+
+termDataAt :: (HasLoc a) => a -> TermData
+termDataAt = TermData . getLoc
 
 termDataSpan :: Loc -> Loc -> TermData
 termDataSpan start end = TermData $ case (start, end) of
@@ -116,6 +134,10 @@ termDataSpan start end = TermData $ case (start, end) of
   (Loc s1 _, Loc _ e2) -> Loc s1 e2
 
 data Term = Term {termValue :: TermValue, termData :: TermData} deriving (Eq)
+
+type TypeValue = TermValue
+
+type PatValue = TermValue
 
 -- | Get the term data from a term.
 termLoc :: Term -> Loc
