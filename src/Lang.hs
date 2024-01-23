@@ -17,6 +17,7 @@ module Lang
     Program (..),
     Clause (..),
     mapTerm,
+    HasLoc (..),
     mapTermM,
     clausePats,
     prependPatToClause,
@@ -48,6 +49,29 @@ type GlobalName = String
 -- Represented by a string name and a unique integer identifier (no shadowing).
 data Var = Var String Int deriving (Eq)
 
+data PrimTermValue
+  = NatT
+  | ListT Type
+  | MaybeT Type
+  | VectT Type Term
+  | FinT Type
+  | EqT Term Term
+  | LteT Term Term
+  | FZ
+  | FS Term
+  | Z
+  | S Term
+  | LNil
+  | LCons Term Term
+  | VNil
+  | VCons Term Term
+  | MJust Term
+  | MNothing
+  | Refl Term
+  | LTEZero
+  | LTESucc Term
+  deriving (Eq)
+
 -- | A term
 data TermValue
   = -- Dependently-typed lambda calculus with Pi and Sigma:
@@ -66,28 +90,6 @@ data TermValue
     Global String
   | -- | Hole identified by an integer
     Hole Var
-  | -- Data types:
-    NatT
-  | ListT Type
-  | MaybeT Type
-  | VectT Type Term
-  | FinT Type
-  | EqT Term Term
-  | LteT Term Term
-  | -- Constructors:
-    FZ
-  | FS Term
-  | Z
-  | S Term
-  | LNil
-  | LCons Term Term
-  | VNil
-  | VCons Term Term
-  | MJust Term
-  | MNothing
-  | Refl Term
-  | LTEZero
-  | LTESucc Term
   deriving (Eq)
 
 -- | A term with associated data.
@@ -257,26 +259,26 @@ mapTermM f term = do
         (V v) -> return $ V v
         (Global s) -> return $ Global s
         (Hole i) -> return $ Hole i
-        NatT -> return NatT
-        (ListT t) -> ListT <$> mapTermM f t
-        (MaybeT t) -> MaybeT <$> mapTermM f t
-        (VectT t n) -> VectT <$> mapTermM f t <*> mapTermM f n
-        (FinT t) -> FinT <$> mapTermM f t
-        (EqT t1 t2) -> EqT <$> mapTermM f t1 <*> mapTermM f t2
-        (LteT t1 t2) -> LteT <$> mapTermM f t1 <*> mapTermM f t2
-        FZ -> return FZ
-        (FS t) -> FS <$> mapTermM f t
-        Z -> return Z
-        (S t) -> S <$> mapTermM f t
-        LNil -> return LNil
-        (LCons t1 t2) -> LCons <$> mapTermM f t1 <*> mapTermM f t2
-        VNil -> return VNil
-        (VCons t1 t2) -> VCons <$> mapTermM f t1 <*> mapTermM f t2
-        (MJust t) -> MJust <$> mapTermM f t
-        MNothing -> return MNothing
-        (Refl t) -> Refl <$> mapTermM f t
-        LTEZero -> return LTEZero
-        (LTESucc t) -> LTESucc <$> mapTermM f t
+      -- NatT -> return NatT
+      -- (ListT t) -> ListT <$> mapTermM f t
+      -- (MaybeT t) -> MaybeT <$> mapTermM f t
+      -- (VectT t n) -> VectT <$> mapTermM f t <*> mapTermM f n
+      -- (FinT t) -> FinT <$> mapTermM f t
+      -- (EqT t1 t2) -> EqT <$> mapTermM f t1 <*> mapTermM f t2
+      -- (LteT t1 t2) -> LteT <$> mapTermM f t1 <*> mapTermM f t2
+      -- FZ -> return FZ
+      -- (FS t) -> FS <$> mapTermM f t
+      -- Z -> return Z
+      -- (S t) -> S <$> mapTermM f t
+      -- LNil -> return LNil
+      -- (LCons t1 t2) -> LCons <$> mapTermM f t1 <*> mapTermM f t2
+      -- VNil -> return VNil
+      -- (VCons t1 t2) -> VCons <$> mapTermM f t1 <*> mapTermM f t2
+      -- (MJust t) -> MJust <$> mapTermM f t
+      -- MNothing -> return MNothing
+      -- (Refl t) -> Refl <$> mapTermM f t
+      -- LTEZero -> return LTEZero
+      -- (LTESucc t) -> LTESucc <$> mapTermM f t
       return (Term mappedTerm (termData term))
     Just t' -> return t'
 
@@ -295,26 +297,27 @@ instance Show TermValue where
   show (V v) = show v
   show (Global s) = s
   show (Hole i) = "?" ++ show i
-  show NatT = "Nat"
-  show (ListT t) = "[" ++ show t ++ "]"
-  show (MaybeT t) = "Maybe " ++ show t
-  show (VectT t n) = "Vect " ++ show t ++ " " ++ show n
-  show (FinT t) = "Fin " ++ show t
-  show (EqT t1 t2) = show t1 ++ " = " ++ show t2
-  show (LteT t1 t2) = "LTE " ++ show t1 ++ " " ++ show t2
-  show FZ = "FZ"
-  show (FS t) = "(FS " ++ show t ++ ")"
-  show Z = "Z"
-  show (S t) = "(S " ++ show t ++ ")"
-  show LNil = "[]"
-  show (LCons t1 t2) = "(" ++ show t1 ++ "::" ++ show t2 ++ ")"
-  show VNil = "[]"
-  show (VCons t1 t2) = "(" ++ show t1 ++ "::" ++ show t2 ++ ")"
-  show (MJust t) = "(Just " ++ show t ++ ")"
-  show MNothing = "Nothing"
-  show (Refl t) = "(Refl " ++ show t ++ ")"
-  show LTEZero = "LTEZero"
-  show (LTESucc t) = "(LTESucc " ++ show t ++ ")"
+
+-- show NatT = "Nat"
+-- show (ListT t) = "[" ++ show t ++ "]"
+-- show (MaybeT t) = "Maybe " ++ show t
+-- show (VectT t n) = "Vect " ++ show t ++ " " ++ show n
+-- show (FinT t) = "Fin " ++ show t
+-- show (EqT t1 t2) = show t1 ++ " = " ++ show t2
+-- show (LteT t1 t2) = "LTE " ++ show t1 ++ " " ++ show t2
+-- show FZ = "FZ"
+-- show (FS t) = "(FS " ++ show t ++ ")"
+-- show Z = "Z"
+-- show (S t) = "(S " ++ show t ++ ")"
+-- show LNil = "[]"
+-- show (LCons t1 t2) = "(" ++ show t1 ++ "::" ++ show t2 ++ ")"
+-- show VNil = "[]"
+-- show (VCons t1 t2) = "(" ++ show t1 ++ "::" ++ show t2 ++ ")"
+-- show (MJust t) = "(Just " ++ show t ++ ")"
+-- show MNothing = "Nothing"
+-- show (Refl t) = "(Refl " ++ show t ++ ")"
+-- show LTEZero = "LTEZero"
+-- show (LTESucc t) = "(LTESucc " ++ show t ++ ")"
 
 instance Show Loc where
   show NoLoc = ""
@@ -358,17 +361,17 @@ isValidPat (Term (App a b) _) = isValidPat a && isValidPat b
 isValidPat (Term (V _) _) = True
 isValidPat (Term Wild _) = True
 isValidPat (Term (Pair p1 p2) _) = isValidPat p1 && isValidPat p2
-isValidPat (Term LNil _) = True
-isValidPat (Term (LCons p1 p2) _) = isValidPat p1 && isValidPat p2
-isValidPat (Term VNil _) = True
-isValidPat (Term (VCons p1 p2) _) = isValidPat p1 && isValidPat p2
-isValidPat (Term FZ _) = True
-isValidPat (Term (FS p) _) = isValidPat p
-isValidPat (Term Z _) = True
-isValidPat (Term (S p) _) = isValidPat p
-isValidPat (Term (MJust p) _) = isValidPat p
-isValidPat (Term MNothing _) = True
-isValidPat (Term (Refl p) _) = isValidPat p
-isValidPat (Term LTEZero _) = True
-isValidPat (Term (LTESucc p) _) = isValidPat p
+-- isValidPat (Term LNil _) = True
+-- isValidPat (Term (LCons p1 p2) _) = isValidPat p1 && isValidPat p2
+-- isValidPat (Term VNil _) = True
+-- isValidPat (Term (VCons p1 p2) _) = isValidPat p1 && isValidPat p2
+-- isValidPat (Term FZ _) = True
+-- isValidPat (Term (FS p) _) = isValidPat p
+-- isValidPat (Term Z _) = True
+-- isValidPat (Term (S p) _) = isValidPat p
+-- isValidPat (Term (MJust p) _) = isValidPat p
+-- isValidPat (Term MNothing _) = True
+-- isValidPat (Term (Refl p) _) = isValidPat p
+-- isValidPat (Term LTEZero _) = True
+-- isValidPat (Term (LTESucc p) _) = isValidPat p
 isValidPat _ = False

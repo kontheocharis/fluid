@@ -42,10 +42,10 @@ expandClausePat ty idx clause = expandedClauses
 expandPat :: Type -> Pat -> [Pat]
 expandPat t p = expandPat' (termValue t) (termValue p)
   where
-    expandPat' NatT Wild = [genTerm Z, genTerm (S (genTerm Wild))]
-    expandPat' (FinT _) Wild = [genTerm FZ, genTerm (FS (genTerm Wild))]
-    expandPat' (ListT _) Wild = [genTerm VNil, genTerm (VCons (genTerm Wild) (genTerm Wild))]
-    expandPat' (MaybeT _) Wild = [genTerm MNothing, genTerm (MJust (genTerm Wild))]
-    expandPat' (VectT _ _) Wild = [genTerm LNil, genTerm (LCons (genTerm Wild) (genTerm Wild))]
+    -- expandPat' NatT Wild = [genTerm Z, genTerm (S (genTerm Wild))]
+    -- expandPat' (FinT _) Wild = [genTerm FZ, genTerm (FS (genTerm Wild))]
+    -- expandPat' (ListT _) Wild = [genTerm VNil, genTerm (VCons (genTerm Wild) (genTerm Wild))]
+    -- expandPat' (MaybeT _) Wild = [genTerm MNothing, genTerm (MJust (genTerm Wild))]
+    -- expandPat' (VectT _ _) Wild = [genTerm LNil, genTerm (LCons (genTerm Wild) (genTerm Wild))]
     expandPat' (SigmaT {}) Wild = [genTerm (Pair (genTerm Wild) (genTerm Wild))]
     expandPat' _ p' = [genTerm p']

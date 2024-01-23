@@ -26,6 +26,7 @@ module Checking.Context
     enterCtx,
     modifyGlobalCtx,
     runTc,
+    runTcAndGetState,
   )
 where
 
@@ -65,7 +66,7 @@ instance Show Ctx where
   show (Ctx js) = intercalate "\n" $ map show js
 
 -- | The global context, represented as a list of string-decl pairs.
-newtype GlobalCtx = GlobalCtx [Item]
+newtype GlobalCtx = GlobalCtx [Item] deriving (Show)
 
 -- | A typechecking error.
 data TcError
@@ -99,6 +100,7 @@ data TcState = TcState
     -- | Whether we are in a pattern
     inPat :: Bool
   }
+  deriving (Show)
 
 -- | The empty typechecking state.
 emptyTcState :: TcState
@@ -110,8 +112,12 @@ type Tc a = StateT TcState (Either TcError) a
 -- | Run a typechecking computation.
 runTc :: Tc a -> Either TcError a
 runTc tc = do
-  (res, _) <- runStateT tc emptyTcState
+  (res, _) <- runTcAndGetState tc
   return res
+
+-- | Run a typechecking computation.
+runTcAndGetState :: Tc a -> Either TcError (a, TcState)
+runTcAndGetState tc = runStateT tc emptyTcState
 
 -- | Map over some context.
 withSomeCtx :: (TcState -> c) -> (c -> Tc a) -> Tc a

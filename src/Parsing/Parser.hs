@@ -10,6 +10,7 @@ import Lang
     DataItem (..),
     DeclItem (..),
     GlobalName,
+    HasLoc (..),
     Item (..),
     Loc (..),
     Pat,
@@ -21,6 +22,7 @@ import Lang
     Var (..),
     isValidPat,
     listToApp,
+    locatedAt,
     mapTermM,
     termDataAt,
   )
@@ -184,17 +186,19 @@ parseTerm contents = case runParser (term <* eof) initialParserState "" (fromStr
   Right p -> Right p
 
 -- | Parse a program from its filename and string contents.
-parseProgram :: String -> String -> Either String Program
-parseProgram filename contents = case runParser (program <* eof) initialParserState filename (fromString contents) of
-  Left err -> Left $ show err
-  Right p -> Right p
+parseProgram :: String -> String -> Program -> Either String Program
+parseProgram filename contents prelude = do
+  case runParser (program prelude <* eof) initialParserState filename (fromString contents) of
+    Left err -> Left $ show err
+    Right p -> Right p
 
 -- | Parse a program.
-program :: Parser Program
-program = whiteWrap $ do
+program :: Program -> Parser Program
+program (Program prelude) = whiteWrap $ do
   ds <- many ((Data <$> dataItem) <|> (Decl <$> declItem))
+  let ds' = prelude ++ ds
   -- Resolve the globals after getting all the declarations.
-  return $ Program (map (resolveGlobalsInItem (GlobalCtx ds)) ds)
+  return $ Program (map (resolveGlobalsInItem (GlobalCtx ds')) ds)
 
 -- | Wrap a parser in whitespace.
 whiteWrap :: Parser a -> Parser a
@@ -208,6 +212,7 @@ whiteWrap p = do
 -- @@Todo: how to deal with indentation?
 ctorItem :: GlobalName -> Parser CtorItem
 ctorItem d = try $ do
+  white
   symbol "|"
   name <- identifier
   _ <- colon
@@ -341,7 +346,15 @@ app = try $ do
 singleAppOrEqTOrCons :: Parser Term
 singleAppOrEqTOrCons = locatedTerm $ do
   t1 <- app
-  (reservedOp "=" >> EqT t1 <$> term) <|> (reservedOp "::" >> LCons t1 <$> term) <|> return (termValue t1)
+  ( reservedOp "=" >> do
+      t <- term
+      return . termValue $ listToApp [locatedAt (getLoc t1 <> getLoc t) (Global "Eq"), t1, t]
+    )
+    <|> ( reservedOp "::" >> do
+            t <- term
+            return . termValue $ listToApp [locatedAt (getLoc t1 <> getLoc t) (Global "LCons"), t1, t]
+        )
+    <|> return (termValue t1)
 
 -- | Parse a lambda.
 lam :: Parser Term
@@ -371,7 +384,7 @@ varOrHole = try . locatedTerm $ do
 nil :: Parser Term
 nil = locatedTerm $ do
   reservedOp "[]"
-  return LNil
+  return (Global "LNil")
 
 -- | Resolve the "primitive" data types and constructors in a term.
 resolveTerm :: Term -> Parser Term
@@ -386,51 +399,51 @@ resolveTerm = mapTermM r
           v <- freshVar
           return . Just $ Term (Hole v) d
     r (Term (V (Var "Type" _)) d) = return $ Just (Term TyT d)
-    r (Term (V (Var "Nat" _)) d) = return $ Just (Term NatT d)
-    r (Term (App (Term (V (Var "List" _)) _) t1) d) = do
-      t1' <- resolveTerm t1
-      return (Just (Term (ListT t1') d))
-    r (Term (App (Term (V (Var "Maybe" _)) _) t1) d) = do
-      t1' <- resolveTerm t1
-      return (Just (Term (MaybeT t1') d))
-    r (Term (App (Term (App (Term (V (Var "Vect" _)) _) t1) _) t2) d) = do
-      t1' <- resolveTerm t1
-      t2' <- resolveTerm t2
-      return (Just (Term (VectT t1' t2') d))
-    r (Term (App (Term (V (Var "Fin" _)) _) t1) d) = do
-      t1' <- resolveTerm t1
-      return (Just (Term (FinT t1') d))
-    r (Term (App (Term (App (Term (V (Var "Eq" _)) _) t1) _) t2) d) = do
-      t1' <- resolveTerm t1
-      t2' <- resolveTerm t2
-      return (Just (Term (EqT t1' t2') d))
-    r (Term (V (Var "Z" _)) d) = return $ Just (Term Z d)
-    r (Term (App (Term (V (Var "S" _)) _) t1) d) = do
-      t1' <- resolveTerm t1
-      return (Just (Term (S t1') d))
-    r (Term (V (Var "FZ" _)) d) = return $ Just (Term FZ d)
-    r (Term (App (Term (V (Var "FS" _)) _) t1) d) = do
-      t1' <- resolveTerm t1
-      return (Just (Term (FS t1') d))
-    r (Term (V (Var "LNil" _)) d) = return $ Just (Term LNil d)
-    r (Term (App (Term (App (Term (V (Var "LCons" _)) _) t1) _) t2) d) = do
-      t1' <- resolveTerm t1
-      t2' <- resolveTerm t2
-      return (Just (Term (LCons t1' t2') d))
-    r (Term (V (Var "VNil" _)) d) = return $ Just (Term VNil d)
-    r (Term (App (Term (App (Term (V (Var "VCons" _)) _) t1) _) t2) d) = do
-      t1' <- resolveTerm t1
-      t2' <- resolveTerm t2
-      return (Just (Term (VCons t1' t2') d))
-    r (Term (V (Var "Nothing" _)) d) = return $ Just (Term MNothing d)
-    r (Term (App (Term (V (Var "Just" _)) _) t1) d) = do
-      t1' <- resolveTerm t1
-      return (Just (Term (MJust t1') d))
-    r (Term (App (Term (V (Var "Refl" _)) _) t1) d) = do
-      t1' <- resolveTerm t1
-      return (Just (Term (Refl t1') d))
-    r (Term (V (Var "LTEZero" _)) d) = return $ Just (Term LTEZero d)
-    r (Term (App (Term (V (Var "LTESucc" _)) _) t1) d) = do
-      t1' <- resolveTerm t1
-      return (Just (Term (LTESucc t1') d))
+    -- r (Term (V (Var "Nat" _)) d) = return $ Just (Term NatT d)
+    -- r (Term (App (Term (V (Var "List" _)) _) t1) d) = do
+    --   t1' <- resolveTerm t1
+    --   return (Just (Term (ListT t1') d))
+    -- r (Term (App (Term (V (Var "Maybe" _)) _) t1) d) = do
+    --   t1' <- resolveTerm t1
+    --   return (Just (Term (MaybeT t1') d))
+    -- r (Term (App (Term (App (Term (V (Var "Vect" _)) _) t1) _) t2) d) = do
+    --   t1' <- resolveTerm t1
+    --   t2' <- resolveTerm t2
+    --   return (Just (Term (VectT t1' t2') d))
+    -- r (Term (App (Term (V (Var "Fin" _)) _) t1) d) = do
+    --   t1' <- resolveTerm t1
+    --   return (Just (Term (FinT t1') d))
+    -- r (Term (App (Term (App (Term (V (Var "Eq" _)) _) t1) _) t2) d) = do
+    --   t1' <- resolveTerm t1
+    --   t2' <- resolveTerm t2
+    --   return (Just (Term (EqT t1' t2') d))
+    -- r (Term (V (Var "Z" _)) d) = return $ Just (Term Z d)
+    -- r (Term (App (Term (V (Var "S" _)) _) t1) d) = do
+    --   t1' <- resolveTerm t1
+    --   return (Just (Term (S t1') d))
+    -- r (Term (V (Var "FZ" _)) d) = return $ Just (Term FZ d)
+    -- r (Term (App (Term (V (Var "FS" _)) _) t1) d) = do
+    --   t1' <- resolveTerm t1
+    --   return (Just (Term (FS t1') d))
+    -- r (Term (V (Var "LNil" _)) d) = return $ Just (Term LNil d)
+    -- r (Term (App (Term (App (Term (V (Var "LCons" _)) _) t1) _) t2) d) = do
+    --   t1' <- resolveTerm t1
+    --   t2' <- resolveTerm t2
+    --   return (Just (Term (LCons t1' t2') d))
+    -- r (Term (V (Var "VNil" _)) d) = return $ Just (Term VNil d)
+    -- r (Term (App (Term (App (Term (V (Var "VCons" _)) _) t1) _) t2) d) = do
+    --   t1' <- resolveTerm t1
+    --   t2' <- resolveTerm t2
+    --   return (Just (Term (VCons t1' t2') d))
+    -- r (Term (V (Var "Nothing" _)) d) = return $ Just (Term MNothing d)
+    -- r (Term (App (Term (V (Var "Just" _)) _) t1) d) = do
+    --   t1' <- resolveTerm t1
+    --   return (Just (Term (MJust t1') d))
+    -- r (Term (App (Term (V (Var "Refl" _)) _) t1) d) = do
+    --   t1' <- resolveTerm t1
+    --   return (Just (Term (Refl t1') d))
+    -- r (Term (V (Var "LTEZero" _)) d) = return $ Just (Term LTEZero d)
+    -- r (Term (App (Term (V (Var "LTESucc" _)) _) t1) d) = do
+    --   t1' <- resolveTerm t1
+    --   return (Just (Term (LTESucc t1') d))
     r _ = return Nothing

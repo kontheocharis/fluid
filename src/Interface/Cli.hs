@@ -2,18 +2,21 @@
 
 module Interface.Cli (runCli) where
 
-import Checking.Context (Tc, runTc)
+import Checking.Context (Tc, TcState, emptyTcState, runTcAndGetState)
 import Checking.Typechecking (checkProgram, inferTerm, normaliseTermFully)
 import Control.Monad (when)
 import Control.Monad.Cont (MonadIO (liftIO))
+import Control.Monad.State (MonadState (put))
 import Data.Char (isSpace)
 import Data.String
 import Data.Text.IO (hPutStrLn)
+import Lang (Program (..))
 import Options.Applicative (execParser, value, (<**>), (<|>))
 import Options.Applicative.Builder (fullDesc, header, help, info, long, maybeReader, option, progDesc, short, strOption, switch)
 import Options.Applicative.Common (Parser)
 import Options.Applicative.Extra (helper)
 import Parsing.Parser (parseProgram, parseTerm)
+import Resources.Prelude (preludeContents, preludePath)
 import System.Console.Haskeline (InputT, defaultSettings, getInputLine, outputStrLn, runInputT)
 import System.Exit (exitFailure)
 import System.IO (stderr)
@@ -159,9 +162,10 @@ runCompiler :: Args -> IO ()
 runCompiler (Args (CheckFile file) flags) = runInputT defaultSettings $ do
   msg $ "Parsing file " ++ file
   contents <- liftIO $ readFile file
-  parsed <- handleParse err (parseProgram file contents)
+  (preludeProgram, tcState) <- parseAndCheckPrelude
+  parsed <- handleParse err (parseProgram file contents preludeProgram)
   when (dumpParsed flags) $ msg $ "Parsed program:\n" ++ show parsed
-  checked <- handleTc err (checkProgram parsed)
+  checked <- handleTc err (put tcState >> checkProgram parsed)
   msg "\nTypechecked program successfully"
   when (dumpParsed flags) $ msg $ "Parsed + checked program:\n" ++ show checked
 runCompiler (Args Repl _) = runInputT defaultSettings runRepl
@@ -171,17 +175,18 @@ runCompiler (Args (Refactor f) Flags {refactorArgs = a, refactorName = n}) = put
 runRepl :: InputT IO a
 runRepl = do
   i <- getInputLine "> "
+  (_, tcState) <- parseAndCheckPrelude -- @@Todo: be in TC monad so that state is retained.
   case i of
     Nothing -> return ()
     Just ('@' : 't' : ' ' : inp) -> do
       t <- handleParse replErr (parseTerm inp)
-      ty <- handleTc replErr (inferTerm t)
+      ty <- handleTc replErr (put tcState >> inferTerm t)
       outputStrLn $ show ty
     Just inp | all isSpace inp -> return ()
     Just inp -> do
       t <- handleParse replErr (parseTerm inp)
-      _ <- handleTc replErr (inferTerm t)
-      t' <- handleTc replErr (normaliseTermFully t)
+      _ <- handleTc replErr (put tcState >> inferTerm t)
+      t' <- handleTc replErr (put tcState >> normaliseTermFully t)
       outputStrLn $ show t'
   runRepl
 
@@ -194,7 +199,20 @@ handleParse er res = do
 
 -- | Handle a checking result.
 handleTc :: (String -> InputT IO a) -> Tc a -> InputT IO a
-handleTc er a = do
-  case runTc a of
-    Left e -> er $ "Error: " ++ show e
+handleTc er a = fst <$> handleTcAndGetState er a
+
+-- | Handle a checking result and return the state.
+handleTcAndGetState :: (String -> InputT IO a) -> Tc a -> InputT IO (a, TcState)
+handleTcAndGetState er a = do
+  case runTcAndGetState a of
+    Left e -> do
+      x <- er $ "Error: " ++ show e
+      return (x, emptyTcState)
     Right p -> return p
+
+-- | Parse and check the Prelude, returning the final TC state and the parsed program.
+parseAndCheckPrelude :: InputT IO (Program, TcState)
+parseAndCheckPrelude = do
+  parsed <- handleParse err (parseProgram preludePath preludeContents (Program []))
+  (checked, state) <- handleTcAndGetState err (checkProgram parsed)
+  return (checked, state)
