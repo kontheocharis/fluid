@@ -12,6 +12,6 @@ g: (n1:Nat) -> (n2:Nat) -> (n3:Nat) ->  Data2 n2
 g n1 n2 n3  = C21 n1 n2 n3
 
 
-h: (n:Nat) -> (Data2 n) -> Nat 
-h n2 (C21 n1 n2 n3) = n2 
+h: (n:Nat) -> (Data2 n) -> (Nat ,Nat)
+h n2 (C21 n1 n2 n3) = (n2,n2) 
 
