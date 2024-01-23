@@ -30,11 +30,14 @@ module Lang
     genTerm,
     termDataAt,
     locatedAt,
+    implicitMap,
+    varName,
   )
 where
 
 import Control.Monad.Identity (runIdentity)
 import Data.List (intercalate)
+import Data.Maybe (fromMaybe)
 
 -- | Type alias for terms that are expected to be types (just for documentation purposes).
 type Type = Term
@@ -48,6 +51,10 @@ type GlobalName = String
 -- | A variable
 -- Represented by a string name and a unique integer identifier (no shadowing).
 data Var = Var String Int deriving (Eq)
+
+-- | Get the name of a variable.
+varName :: Var -> String
+varName (Var s _) = s
 
 data PrimTermValue
   = NatT
@@ -185,6 +192,11 @@ listToPiType ((v, ty1) : tys, ty2) = Term (PiT v ty1 (listToPiType (tys, ty2))) 
 listToApp :: [Term] -> Term
 listToApp = foldl1 (\acc x -> Term (App acc x) (termDataAt (termLoc acc <> termLoc x)))
 
+-- | Convert an application term to a *non-empty* list of terms
+appToList :: Term -> [Term]
+appToList (Term (App t1 t2) _) = appToList t1 ++ [t2]
+appToList t = [t]
+
 -- | An item is either a declaration or a data item.
 data Item
   = Decl DeclItem
@@ -286,38 +298,77 @@ mapTermM f term = do
 instance Show Var where
   show (Var s _) = s
 
+-- | A set of prelude terms that accept implicit arguments.
+implicitMap :: [(String, Int)]
+implicitMap =
+  [ ("Eq", 1),
+    ("LNil", 1),
+    ("LCons", 1),
+    ("VNil", 1),
+    ("VCons", 2),
+    ("FS", 1),
+    ("FZ", 1),
+    ("Nothing", 1),
+    ("Just", 1),
+    ("Refl", 1),
+    ("LTEZero", 1),
+    ("LTESucc", 1)
+  ]
+
+-- | Prelude globals which have special symbols
+constantMap :: [(String, String)]
+constantMap =
+  [ ("LNil", "[]")
+  ]
+
+-- | Prelude terms and types which are infix operators.
+infixMap :: [(String, String)]
+infixMap =
+  [ ("LCons", "::"),
+    ("Eq", "=")
+  ]
+
+isCompound :: TermValue -> Bool
+isCompound (PiT _ _ _) = True
+isCompound (Lam _ _) = True
+isCompound t@(App _ _) = case unelabApp t of
+  [_] -> False
+  _ -> True
+isCompound (SigmaT _ _ _) = True
+isCompound _ = False
+
+showSingle :: TermValue -> String
+showSingle t | isCompound t = "(" ++ show t ++ ")"
+showSingle t = show t
+
+unelabApp :: TermValue -> [Term]
+unelabApp t =
+  let lst = appToList (genTerm t)
+   in -- Unelaborate implicit arguments
+      case lst of
+        t'@(Term (Global s) _) : xs
+          | Just n <- lookup s implicitMap ->
+              let lst' = t' : drop n xs
+               in lst'
+        _ -> lst
+
 instance Show TermValue where
   show (PiT v t1 t2) = "(" ++ show v ++ " : " ++ show t1 ++ ") -> " ++ show t2
   show (Lam v t) = "(\\" ++ show v ++ " => " ++ show t ++ ")"
-  show (App t1 t2) = "(" ++ show t1 ++ " " ++ show t2 ++ ")"
+  show t@(App _ _) = showApp (unelabApp t)
+    where
+      showApp :: [Term] -> String
+      showApp [n, t1, t2]
+        | Just s <- lookup (show n) infixMap =
+            (showSingle . termValue) t1 ++ " " ++ s ++ " " ++ (showSingle . termValue) t2
+      showApp ts = intercalate " " (map (showSingle . termValue) ts)
   show (SigmaT v t1 t2) = "(" ++ show v ++ " : " ++ show t1 ++ ") ** " ++ show t2
   show (Pair t1 t2) = "(" ++ show t1 ++ ", " ++ show t2 ++ ")"
   show TyT = "Type"
   show Wild = "_"
   show (V v) = show v
-  show (Global s) = s
+  show (Global s) = fromMaybe s (lookup s constantMap)
   show (Hole i) = "?" ++ show i
-
--- show NatT = "Nat"
--- show (ListT t) = "[" ++ show t ++ "]"
--- show (MaybeT t) = "Maybe " ++ show t
--- show (VectT t n) = "Vect " ++ show t ++ " " ++ show n
--- show (FinT t) = "Fin " ++ show t
--- show (EqT t1 t2) = show t1 ++ " = " ++ show t2
--- show (LteT t1 t2) = "LTE " ++ show t1 ++ " " ++ show t2
--- show FZ = "FZ"
--- show (FS t) = "(FS " ++ show t ++ ")"
--- show Z = "Z"
--- show (S t) = "(S " ++ show t ++ ")"
--- show LNil = "[]"
--- show (LCons t1 t2) = "(" ++ show t1 ++ "::" ++ show t2 ++ ")"
--- show VNil = "[]"
--- show (VCons t1 t2) = "(" ++ show t1 ++ "::" ++ show t2 ++ ")"
--- show (MJust t) = "(Just " ++ show t ++ ")"
--- show MNothing = "Nothing"
--- show (Refl t) = "(Refl " ++ show t ++ ")"
--- show LTEZero = "LTEZero"
--- show (LTESucc t) = "(LTESucc " ++ show t ++ ")"
 
 instance Show Loc where
   show NoLoc = ""

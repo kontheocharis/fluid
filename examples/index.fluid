@@ -1,2 +1,5 @@
 main : List Nat
-main = ([] Nat)
+main = Z :: Z :: Z :: Z :: []
+
+foo : Maybe (Maybe Nat)
+foo = Just Nothing

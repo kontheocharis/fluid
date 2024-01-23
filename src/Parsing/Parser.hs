@@ -2,6 +2,7 @@ module Parsing.Parser (parseProgram, parseTerm) where
 
 import Checking.Context (GlobalCtx (GlobalCtx))
 import Data.Char (isSpace)
+import Data.Maybe (fromMaybe, isNothing)
 import Data.String
 import Data.Text (Text)
 import Lang
@@ -20,11 +21,14 @@ import Lang
     TermValue (..),
     Type,
     Var (..),
+    genTerm,
+    implicitMap,
     isValidPat,
     listToApp,
     locatedAt,
     mapTermM,
     termDataAt,
+    varName,
   )
 import Parsing.Resolution (resolveGlobalsInItem)
 import Text.Parsec
@@ -58,15 +62,18 @@ data ParserState = ParserState
     -- Keep track of the names of variables so we can resolve them when encountering them.
     names :: [(String, Var)],
     -- Whether we are parsing a pattern.
-    parsingPat :: Bool
+    parsingPat :: Bool,
+    -- Whether we are parsing prelude.
+    parsingPrelude :: Bool
   }
 
-initialParserState :: ParserState
-initialParserState =
+initialParserState :: Bool -> ParserState
+initialParserState p =
   ParserState
     { varCount = 0,
       names = [],
-      parsingPat = False
+      parsingPat = False,
+      parsingPrelude = p
     }
 
 -- | Get a new variable index and increment it.
@@ -77,6 +84,14 @@ newVarIndex = do
   putState s {varCount = i + 1}
   return i
 
+-- | Wrap a term in implicit hole applications.
+wrapImplicit :: Int -> Term -> Parser Term
+wrapImplicit 0 t = return t
+wrapImplicit n t = do
+  v <- freshVar
+  re <- wrapImplicit (n - 1) t
+  return $ locatedAt t (App re (genTerm (Hole v)))
+
 -- | Generate a new variable.
 registerNewVar :: String -> Parser Var
 registerNewVar n = do
@@ -85,7 +100,6 @@ registerNewVar n = do
   modifyState $ \s -> s {names = (n, v) : ns}
   return v
 
--- | Get an already registered variable or generate a new one.
 registerVar :: String -> Parser Var
 registerVar n = do
   ns <- names <$> getState
@@ -95,6 +109,14 @@ registerVar n = do
       v <- Var n <$> newVarIndex
       modifyState $ \s -> s {names = (n, v) : ns}
       return v
+
+-- | Potentially elaborate a variable.
+elabVar :: Var -> Parser TermValue
+elabVar v = do
+  isInPrelude <- parsingPrelude <$> getState
+  case (isInPrelude, lookup (varName v) implicitMap) of
+    (False, Just num) -> termValue <$> wrapImplicit num (genTerm (V v))
+    _ -> return (V v)
 
 -- | Parser type alias.
 type Parser a = Parsec Text ParserState a
@@ -181,14 +203,18 @@ locatedTerm p = do
 
 -- | Parse a term from a string.
 parseTerm :: String -> Either String Term
-parseTerm contents = case runParser (term <* eof) initialParserState "" (fromString contents) of
+parseTerm contents = case runParser (term <* eof) (initialParserState False) "" (fromString contents) of
   Left err -> Left $ show err
   Right p -> Right p
 
 -- | Parse a program from its filename and string contents.
-parseProgram :: String -> String -> Program -> Either String Program
+parseProgram :: String -> String -> Maybe Program -> Either String Program
 parseProgram filename contents prelude = do
-  case runParser (program prelude <* eof) initialParserState filename (fromString contents) of
+  case runParser
+    (program (fromMaybe (Program []) prelude) <* eof)
+    (initialParserState (isNothing prelude))
+    filename
+    (fromString contents) of
     Left err -> Left $ show err
     Right p -> Right p
 
@@ -348,11 +374,15 @@ singleAppOrEqTOrCons = locatedTerm $ do
   t1 <- app
   ( reservedOp "=" >> do
       t <- term
-      return . termValue $ listToApp [locatedAt (getLoc t1 <> getLoc t) (Global "Eq"), t1, t]
+      v <- registerNewVar "Eq" >>= elabVar
+      let expr = listToApp [locatedAt (getLoc t1 <> getLoc t) v, t1, t]
+      return $ termValue expr
     )
     <|> ( reservedOp "::" >> do
             t <- term
-            return . termValue $ listToApp [locatedAt (getLoc t1 <> getLoc t) (Global "LCons"), t1, t]
+            v <- registerNewVar "LCons" >>= elabVar
+            let expr = listToApp [locatedAt (getLoc t1 <> getLoc t) v, t1, t]
+            return $ termValue expr
         )
     <|> return (termValue t1)
 
@@ -378,13 +408,13 @@ varOrHole = try . locatedTerm $ do
   v <- var
   case hole of
     Just _ -> return $ Hole v
-    Nothing -> return $ V v
+    Nothing -> elabVar v
 
 -- | Parse a list nil.
 nil :: Parser Term
 nil = locatedTerm $ do
   reservedOp "[]"
-  return (Global "LNil")
+  registerNewVar "LNil" >>= elabVar
 
 -- | Resolve the "primitive" data types and constructors in a term.
 resolveTerm :: Term -> Parser Term
@@ -399,51 +429,4 @@ resolveTerm = mapTermM r
           v <- freshVar
           return . Just $ Term (Hole v) d
     r (Term (V (Var "Type" _)) d) = return $ Just (Term TyT d)
-    -- r (Term (V (Var "Nat" _)) d) = return $ Just (Term NatT d)
-    -- r (Term (App (Term (V (Var "List" _)) _) t1) d) = do
-    --   t1' <- resolveTerm t1
-    --   return (Just (Term (ListT t1') d))
-    -- r (Term (App (Term (V (Var "Maybe" _)) _) t1) d) = do
-    --   t1' <- resolveTerm t1
-    --   return (Just (Term (MaybeT t1') d))
-    -- r (Term (App (Term (App (Term (V (Var "Vect" _)) _) t1) _) t2) d) = do
-    --   t1' <- resolveTerm t1
-    --   t2' <- resolveTerm t2
-    --   return (Just (Term (VectT t1' t2') d))
-    -- r (Term (App (Term (V (Var "Fin" _)) _) t1) d) = do
-    --   t1' <- resolveTerm t1
-    --   return (Just (Term (FinT t1') d))
-    -- r (Term (App (Term (App (Term (V (Var "Eq" _)) _) t1) _) t2) d) = do
-    --   t1' <- resolveTerm t1
-    --   t2' <- resolveTerm t2
-    --   return (Just (Term (EqT t1' t2') d))
-    -- r (Term (V (Var "Z" _)) d) = return $ Just (Term Z d)
-    -- r (Term (App (Term (V (Var "S" _)) _) t1) d) = do
-    --   t1' <- resolveTerm t1
-    --   return (Just (Term (S t1') d))
-    -- r (Term (V (Var "FZ" _)) d) = return $ Just (Term FZ d)
-    -- r (Term (App (Term (V (Var "FS" _)) _) t1) d) = do
-    --   t1' <- resolveTerm t1
-    --   return (Just (Term (FS t1') d))
-    -- r (Term (V (Var "LNil" _)) d) = return $ Just (Term LNil d)
-    -- r (Term (App (Term (App (Term (V (Var "LCons" _)) _) t1) _) t2) d) = do
-    --   t1' <- resolveTerm t1
-    --   t2' <- resolveTerm t2
-    --   return (Just (Term (LCons t1' t2') d))
-    -- r (Term (V (Var "VNil" _)) d) = return $ Just (Term VNil d)
-    -- r (Term (App (Term (App (Term (V (Var "VCons" _)) _) t1) _) t2) d) = do
-    --   t1' <- resolveTerm t1
-    --   t2' <- resolveTerm t2
-    --   return (Just (Term (VCons t1' t2') d))
-    -- r (Term (V (Var "Nothing" _)) d) = return $ Just (Term MNothing d)
-    -- r (Term (App (Term (V (Var "Just" _)) _) t1) d) = do
-    --   t1' <- resolveTerm t1
-    --   return (Just (Term (MJust t1') d))
-    -- r (Term (App (Term (V (Var "Refl" _)) _) t1) d) = do
-    --   t1' <- resolveTerm t1
-    --   return (Just (Term (Refl t1') d))
-    -- r (Term (V (Var "LTEZero" _)) d) = return $ Just (Term LTEZero d)
-    -- r (Term (App (Term (V (Var "LTESucc" _)) _) t1) d) = do
-    --   t1' <- resolveTerm t1
-    --   return (Just (Term (LTESucc t1') d))
     r _ = return Nothing

@@ -18,10 +18,13 @@ data Maybe : Type -> Type where
   | Nothing : (a : Type) -> Maybe a
   | Just    : (a : Type) -> a -> Maybe a
 
--- data LTE : Nat -> Nat -> Type where
---   | LTEZero : (n : Nat) -> LTE Z n
---   | LTESucc : (n m : Nat) -> LTE n m -> LTE (S n) (S m)
---
--- data Vect : Nat -> Type -> Type where
---   | VNil  : (a : Type) -> Vect Z a
---   | VCons : (n : Nat) ->(a : Type) -> a -> Vect n a -> Vect (S n) a
+data Eq : (a : Type) -> a -> a -> Type where
+  | Refl : (a : Type) -> (x : a) -> Eq a x x
+
+data LTE : Nat -> Nat -> Type where
+  | LTEZero : (n : Nat) -> LTE Z n
+  | LTESucc : (n : Nat) -> (m : Nat) -> LTE n m -> LTE (S n) (S m)
+
+data Vect : Nat -> Type -> Type where
+  | VNil  : (a : Type) -> Vect Z a
+  | VCons : (n : Nat) -> (a : Type) -> a -> Vect n a -> Vect (S n) a

@@ -163,7 +163,7 @@ runCompiler (Args (CheckFile file) flags) = runInputT defaultSettings $ do
   msg $ "Parsing file " ++ file
   contents <- liftIO $ readFile file
   (preludeProgram, tcState) <- parseAndCheckPrelude
-  parsed <- handleParse err (parseProgram file contents preludeProgram)
+  parsed <- handleParse err (parseProgram file contents (Just preludeProgram))
   when (dumpParsed flags) $ msg $ "Parsed program:\n" ++ show parsed
   checked <- handleTc err (put tcState >> checkProgram parsed)
   msg "\nTypechecked program successfully"
@@ -213,6 +213,6 @@ handleTcAndGetState er a = do
 -- | Parse and check the Prelude, returning the final TC state and the parsed program.
 parseAndCheckPrelude :: InputT IO (Program, TcState)
 parseAndCheckPrelude = do
-  parsed <- handleParse err (parseProgram preludePath preludeContents (Program []))
+  parsed <- handleParse err (parseProgram preludePath preludeContents Nothing)
   (checked, state) <- handleTcAndGetState err (checkProgram parsed)
   return (checked, state)
