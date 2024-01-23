@@ -29,6 +29,7 @@ module Lang
     genTerm,
     termDataAt,
     locatedAt,
+    typedAs,
   )
 where
 
@@ -134,11 +135,11 @@ endPos (Loc _ end) = Just end
 --
 -- For now stores only the location in the source code, but will
 -- be extended to store type information too.
-newtype TermData = TermData {loc :: Loc} deriving (Eq)
+data TermData = TermData {loc :: Loc, annotTy :: Maybe Type} deriving (Eq)
 
 -- | Empty term data.
 emptyTermData :: TermData
-emptyTermData = TermData NoLoc
+emptyTermData = TermData NoLoc Nothing
 
 -- | Class of types that have a location.
 class HasLoc a where
@@ -159,11 +160,15 @@ locatedAt a t = Term t (termDataAt (getLoc a))
 
 -- | Create term data with the given location.
 termDataAt :: (HasLoc a) => a -> TermData
-termDataAt = TermData . getLoc
+termDataAt x = TermData (getLoc x) Nothing
 
 -- | Get the term data from a term.
 termLoc :: Term -> Loc
 termLoc = loc . termData
+
+-- | Set the type annotation of a term.
+typedAs :: Type -> Term -> Term
+typedAs ty (Term t d) = Term t (d {annotTy = Just ty})
 
 -- | Generated term, no data
 genTerm :: TermValue -> Term
@@ -324,7 +329,7 @@ instance Show Pos where
   show (Pos l c) = show l ++ ":" ++ show c
 
 instance Show TermData where
-  show (TermData l) = show l
+  show (TermData l t) = "loc=" ++ show l ++ ", type=" ++ show t
 
 instance Show Term where
   show (Term t _) = show t

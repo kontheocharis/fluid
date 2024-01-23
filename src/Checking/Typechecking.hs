@@ -48,6 +48,7 @@ import Lang
     mapTermM,
     piTypeToList,
     prependPatToClause,
+    typedAs,
   )
 
 -- | Check the program
@@ -143,6 +144,15 @@ checkClause _ (ImpossibleClause _) = error "Impossible clauses not yet supported
 -- The location of the type is inherited from the term.
 checkTermExpected :: Term -> TypeValue -> Tc Sub
 checkTermExpected v t = checkTerm v (locatedAt v t)
+
+-- | Check the type of a term, and return the term, type and substitution after
+-- setting their annotations.
+checkTerm' :: Term -> Type -> Tc (Term, Type, Sub)
+checkTerm' t ty = do
+  s <- checkTerm t ty
+  let t' = sub s t
+  let ty' = sub s ty
+  return (typedAs ty' t', typedAs (locatedAt ty' TyT) ty', s)
 
 -- | Check the type of a term. (The type itself should already be checked.)
 -- This might produce a substitution.
