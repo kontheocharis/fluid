@@ -116,6 +116,10 @@ instance Semigroup Loc where
 -- | A position in the source code, represented by a line and column number.
 data Pos = Pos Int Int deriving (Eq)
 
+-- | An ordering for positions, that gets the minimum position.
+instance Ord Pos where
+  Pos l1 c1 <= Pos l2 c2 = l1 < l2 || (l1 == l2 && c1 <= c2)
+
 -- | Get the starting position of a location.
 startPos :: Loc -> Maybe Pos
 startPos NoLoc = Nothing
