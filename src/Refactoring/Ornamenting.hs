@@ -1,10 +1,8 @@
-{-# LANGUAGE LambdaCase #-}
-
 -- module Refactoring.Ornamenting (ornamentDeclItem, ornamentType) where
 module Refactoring.Ornamenting () where
 
-import Checking.Vars (var)
-import Lang (Clause (..), DeclItem (..), Pat, Term (..), TermValue (..), Type, Var (..), genTerm, mapTerm, piTypeToList)
+-- import Checking.Vars (var)
+-- import Lang (Clause (..), DeclItem (..), Pat, Term (..), TermValue (..), Type, Var (..), genTerm, mapTerm, piTypeToList)
 
 -- | Ornament a declaration.
 -- ornamentDeclItem :: DeclItem -> (DeclItem, DeclItem)
