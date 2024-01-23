@@ -1,5 +1,3 @@
-{-# LANGUAGE LambdaCase #-}
-
 module Checking.Typechecking (checkTerm, unifyTerms, unifyToLeft, inferTerm, normaliseTermFully, checkProgram) where
 
 import Checking.Context
@@ -25,7 +23,7 @@ import Checking.Context
     modifyGlobalCtx,
   )
 import Checking.Vars (Sub (..), Subst (sub), alphaRename, noSub, subVar)
-import Control.Monad (foldM, replicateM)
+import Control.Monad (replicateM)
 import Control.Monad.Except (catchError, throwError)
 import Data.Bifunctor (second)
 import Lang
@@ -181,29 +179,6 @@ checkTerm (Term (SigmaT v t1 t2) d1) typ = do
   _ <- enterCtxMod (addTyping v (sub s t1) False) $ inferTerm (sub s t2)
   unifyTerms typ (locatedAt d1 TyT)
 checkTerm (Term TyT d1) typ = unifyTerms typ (Term TyT d1)
--- checkTerm (Term NatT d1) typ = unifyTerms typ (Term TyT d1)
--- checkTerm (Term (ListT t) d1) typ = do
---   _ <- checkTermExpected t TyT
---   unifyTerms typ (locatedAt d1 TyT)
--- checkTerm (Term (VectT t n) d1) typ = do
---   _ <- checkTermExpected t TyT
---   _ <- checkTermExpected n NatT
---   unifyTerms typ (Term TyT d1)
--- checkTerm (Term (FinT t) d1) typ = do
---   _ <- checkTermExpected t NatT
---   unifyTerms typ (Term TyT d1)
--- checkTerm (Term (EqT t1 t2) d1) typ = do
---   ty1 <- inferTerm t1
---   ty2 <- inferTerm t2
---   _ <- unifyTerms ty1 ty2
---   unifyTerms typ (Term TyT d1)
--- checkTerm (Term (LteT t1 t2) d1) typ = do
---   _ <- checkTermExpected t1 NatT
---   _ <- checkTermExpected t2 NatT
---   unifyTerms typ (Term TyT d1)
--- checkTerm (Term (MaybeT t) d1) typ = do
---   _ <- checkTermExpected t TyT
---   unifyTerms typ (Term TyT d1)
 checkTerm (Term (V v) _) typ = do
   vTyp <- inCtx (lookupType v)
   case vTyp of
@@ -238,71 +213,7 @@ checkTerm (Term (Global g) _) typ = do
     Just (Left (Decl decl')) -> unifyTerms typ $ declTy decl'
     Just (Left (Data dat)) -> unifyTerms typ $ dataTy dat
     Just (Right ctor) -> unifyTerms typ $ ctorItemTy ctor
--- checkTerm (Term (Refl t) d1) typ = do
---   ty <- freshHoleVar
---   checkCtor [ty] [V ty] (locatedAt d1 (EqT t t)) [t] typ
--- checkTerm (Term Z d1) typ = do
---   checkCtor [] [] (locatedAt d1 NatT) [] typ
--- checkTerm (Term (S n) d1) typ = do
---   checkCtor [] [NatT] (locatedAt d1 NatT) [n] typ
--- checkTerm (Term LNil d1) typ = do
---   ty <- freshHoleVar
---   checkCtor [ty] [] (locatedAt d1 (ListT (genTerm (V ty)))) [] typ
--- checkTerm (Term (LCons h t) d1) typ = do
---   ty <- freshHoleVar
---   checkCtor [ty] [V ty, ListT (locatedAt h (V ty))] (locatedAt d1 (ListT (locatedAt h (V ty)))) [h, t] typ
--- checkTerm (Term (MJust t) d1) typ = do
---   ty <- freshHoleVar
---   checkCtor [ty] [V ty] (locatedAt d1 (MaybeT (locatedAt t (V ty)))) [t] typ
--- checkTerm (Term MNothing d1) typ = do
---   ty <- freshHoleVar
---   checkCtor [ty] [] (locatedAt d1 (MaybeT (genTerm (V ty)))) [] typ
--- checkTerm (Term LTEZero d1) typ = do
---   right <- freshHoleVar
---   checkCtor [right] [] (locatedAt d1 (LteT (locatedAt d1 Z) (locatedAt d1 (V right)))) [] typ
--- checkTerm (Term (LTESucc t) d1) typ = do
---   left <- freshHoleVar
---   right <- freshHoleVar
---   checkCtor
---     [left, right]
---     [LteT (locatedAt t (V left)) (locatedAt t (V right))]
---     (locatedAt d1 (LteT (locatedAt t (S (locatedAt t (V left)))) (locatedAt t (S (locatedAt t (V right))))))
---     [t]
---     typ
--- checkTerm (Term FZ d1) typ = do
---   n <- freshHoleVar
---   checkCtor [n] [] (locatedAt d1 (FinT (locatedAt d1 (S (locatedAt d1 (V n)))))) [] typ
--- checkTerm (Term (FS t) d1) typ = do
---   n <- freshHoleVar
---   checkCtor [n] [FinT (locatedAt t (V n))] (locatedAt d1 (FinT (locatedAt t (S (locatedAt t (V n)))))) [t] typ
--- checkTerm (Term VNil d1) typ = do
---   ty <- freshHoleVar
---   checkCtor [ty] [] (locatedAt d1 (VectT (locatedAt d1 (V ty)) (locatedAt d1 Z))) [] typ
--- checkTerm (Term (VCons t1 t2) d1) typ = do
---   n <- freshHoleVar
---   ty <- freshHoleVar
---   checkCtor
---     [n, ty]
---     [V ty, VectT (locatedAt t1 (V ty)) (locatedAt t2 (V n))]
---     (locatedAt d1 (VectT (locatedAt t1 (V ty)) (locatedAt t2 (S (locatedAt t2 (V n))))))
---     [t1, t2]
---     typ
 checkTerm (Term Wild _) _ = return noSub
-
--- | Check the type of a constructor.
-checkCtor :: [Var] -> [TypeValue] -> Type -> [Term] -> Type -> Tc Sub
-checkCtor implicitVars ctorParams ctorRet ctorArgs annotType = do
-  let implicitVarHoles = map (genTerm . Hole) implicitVars
-  let implicitVarSub = Sub $ zip implicitVars implicitVarHoles
-  let instantiatedCtorRet = sub implicitVarSub ctorRet
-  retSub <- unifyTermsWH implicitVars annotType instantiatedCtorRet
-  foldM
-    ( \ss (ty, arg) -> do
-        s <- checkTerm arg (sub ss ty)
-        return $ ss <> s
-    )
-    (implicitVarSub <> retSub)
-    (zip (map genTerm ctorParams) ctorArgs)
 
 -- | Infer the type of a term and return the substitution.
 inferTermWithSub :: Term -> Tc (Sub, Type)
@@ -339,37 +250,31 @@ normaliseTermFully t = do
 -- | Unify two terms.
 -- This might produce a substitution.
 -- Unification is currently symmetric.
---
--- This also accepts a list of "weak holes" to always unify with the other side,
--- even if the other side is a hole.
-unifyTermsWH :: [Var] -> Term -> Term -> Tc Sub
-unifyTermsWH wh (Term (PiT lv l1 l2) d1) (Term (PiT rv r1 r2) _) = do
-  s1 <- unifyTermsWH wh l1 r1
-  s2 <- unifyTermsWH wh l2 (alphaRename rv (lv, d1) r2)
+unifyTerms :: Term -> Term -> Tc Sub
+unifyTerms (Term (PiT lv l1 l2) d1) (Term (PiT rv r1 r2) _) = do
+  s1 <- unifyTerms l1 r1
+  s2 <- unifyTerms l2 (alphaRename rv (lv, d1) r2)
   return $ s1 <> s2
-unifyTermsWH wh (Term (SigmaT lv l1 l2) d1) (Term (SigmaT rv r1 r2) _) = do
-  s1 <- unifyTermsWH wh l1 r1
-  s2 <- unifyTermsWH wh l2 (alphaRename rv (lv, d1) r2)
+unifyTerms (Term (SigmaT lv l1 l2) d1) (Term (SigmaT rv r1 r2) _) = do
+  s1 <- unifyTerms l1 r1
+  s2 <- unifyTerms l2 (alphaRename rv (lv, d1) r2)
   return $ s1 <> s2
-unifyTermsWH wh (Term (Lam lv l) d1) (Term (Lam rv r) _) = do
-  unifyTermsWH wh l (alphaRename rv (lv, d1) r)
-unifyTermsWH wh (Term (Pair l1 l2) _) (Term (Pair r1 r2) _) = do
-  s1 <- unifyTermsWH wh l1 r1
-  s2 <- unifyTermsWH wh l2 r2
+unifyTerms (Term (Lam lv l) d1) (Term (Lam rv r) _) = do
+  unifyTerms l (alphaRename rv (lv, d1) r)
+unifyTerms (Term (Pair l1 l2) _) (Term (Pair r1 r2) _) = do
+  s1 <- unifyTerms l1 r1
+  s2 <- unifyTerms l2 r2
   return $ s1 <> s2
-unifyTermsWH _ (Term TyT _) (Term TyT _) = return noSub
-unifyTermsWH wh a@(Term (Hole l) _) b@(Term (Hole r) _)
+unifyTerms (Term TyT _) (Term TyT _) = return noSub
+unifyTerms (Term (Hole l) _) (Term (Hole r) _)
   | l == r = return noSub
-  -- Check for weak holes before refusing to unify.
-  | l `elem` wh = return $ Sub [(l, b)]
-  | r `elem` wh = return $ Sub [(r, a)]
   | otherwise = throwError $ CannotUnifyTwoHoles l r
-unifyTermsWH _ (Term (Hole h) _) b@(Term _ _) = do
+unifyTerms (Term (Hole h) _) b@(Term _ _) = do
   return $ Sub [(h, b)]
-unifyTermsWH _ a@(Term _ _) (Term (Hole h) _) = do
+unifyTerms a@(Term _ _) (Term (Hole h) _) = do
   return $ Sub [(h, a)]
-unifyTermsWH _ (Term (V l) _) (Term (V r) _) | l == r = return noSub
-unifyTermsWH _ a@(Term (V v) _) b@(Term _ _) = do
+unifyTerms (Term (V l) _) (Term (V r) _) | l == r = return noSub
+unifyTerms a@(Term (V v) _) b@(Term _ _) = do
   -- Pattern bindings can always be unified with.
   patBind <- inCtx (isPatBind v)
   p <- inState inPat
@@ -377,7 +282,7 @@ unifyTermsWH _ a@(Term (V v) _) b@(Term _ _) = do
     then do
       return $ Sub [(v, b)]
     else throwError $ Mismatch a b
-unifyTermsWH _ a@(Term _ _) b@(Term (V v) _) = do
+unifyTerms a@(Term _ _) b@(Term (V v) _) = do
   -- Pattern bindings can always be unified with.
   patBind <- inCtx (isPatBind v)
   p <- inState inPat
@@ -385,64 +290,17 @@ unifyTermsWH _ a@(Term _ _) b@(Term (V v) _) = do
     then do
       return $ Sub [(v, a)]
     else throwError $ Mismatch b a
-unifyTermsWH wh a@(Term (Global l) _) b@(Term (Global r) _) =
+unifyTerms a@(Term (Global l) _) b@(Term (Global r) _) =
   if l == r
     then return noSub
-    else normaliseAndUnifyTerms wh a b
--- unifyTermsWH _ (Term NatT _) (Term NatT _) = return noSub
--- unifyTermsWH wh (Term (ListT t) _) (Term (ListT r) _) = do
---   unifyTermsWH wh t r
--- unifyTermsWH wh (Term (MaybeT t) _) (Term (MaybeT r) _) = do
---   unifyTermsWH wh t r
--- unifyTermsWH wh (Term (VectT lt ln) _) (Term (VectT rt rn) _) = do
---   s1 <- unifyTermsWH wh lt rt
---   s2 <- unifyTermsWH wh ln rn
---   return $ s1 <> s2
--- unifyTermsWH wh (Term (FinT l) _) (Term (FinT r) _) = do
---   unifyTermsWH wh l r
--- unifyTermsWH wh (Term (EqT l1 l2) _) (Term (EqT r1 r2) _) = do
---   s1 <- unifyTermsWH wh l1 r1
---   s2 <- unifyTermsWH wh l2 r2
---   return $ s1 <> s2
--- unifyTermsWH wh (Term (LteT l1 l2) _) (Term (LteT r1 r2) _) = do
---   s1 <- unifyTermsWH wh l1 r1
---   s2 <- unifyTermsWH wh l2 r2
---   return $ s1 <> s2
--- unifyTermsWH _ (Term FZ _) (Term FZ _) = return noSub
--- unifyTermsWH wh (Term (FS l) _) (Term (FS r) _) = do
---   unifyTermsWH wh l r
--- unifyTermsWH _ (Term Z _) (Term Z _) = return noSub
--- unifyTermsWH wh (Term (S l) _) (Term (S r) _) = do
---   unifyTermsWH wh l r
--- unifyTermsWH _ (Term LNil _) (Term LNil _) = return noSub
--- unifyTermsWH wh (Term (LCons l1 l2) _) (Term (LCons r1 r2) _) = do
---   s1 <- unifyTermsWH wh l1 r1
---   s2 <- unifyTermsWH wh l2 r2
---   return $ s1 <> s2
--- unifyTermsWH _ (Term VNil _) (Term VNil _) = return noSub
--- unifyTermsWH wh (Term (VCons l1 l2) _) (Term (VCons r1 r2) _) = do
---   s1 <- unifyTermsWH wh l1 r1
---   s2 <- unifyTermsWH wh l2 r2
---   return $ s1 <> s2
--- unifyTermsWH wh (Term (MJust l) _) (Term (MJust r) _) = do
---   unifyTermsWH wh l r
--- unifyTermsWH _ (Term MNothing _) (Term MNothing _) = return noSub
--- unifyTermsWH wh (Term (Refl l) _) (Term (Refl r) _) = do
---   unifyTermsWH wh l r
--- unifyTermsWH _ (Term LTEZero _) (Term LTEZero _) = return noSub
--- unifyTermsWH wh (Term (LTESucc l) _) (Term (LTESucc r) _) = do
---   unifyTermsWH wh l r
-unifyTermsWH wh a@(Term (App l1 l2) _) b@(Term (App r1 r2) _) =
+    else normaliseAndUnifyTerms a b
+unifyTerms a@(Term (App l1 l2) _) b@(Term (App r1 r2) _) =
   do
-    s1 <- unifyTermsWH wh l1 r1
-    s2 <- unifyTermsWH wh l2 r2
+    s1 <- unifyTerms l1 r1
+    s2 <- unifyTerms l2 r2
     return $ s1 <> s2
-    `catchError` (\_ -> normaliseAndUnifyTerms wh a b)
-unifyTermsWH wh l r = normaliseAndUnifyTerms wh l r
-
--- | Unify two terms.
-unifyTerms :: Term -> Term -> Tc Sub
-unifyTerms = unifyTermsWH []
+    `catchError` (\_ -> normaliseAndUnifyTerms a b)
+unifyTerms l r = normaliseAndUnifyTerms l r
 
 -- | Unify two terms and return the substituted left term
 unifyToLeft :: Term -> Term -> Tc Term
@@ -451,17 +309,17 @@ unifyToLeft l r = do
   return $ sub s l
 
 -- | Unify two terms, normalising them first.
-normaliseAndUnifyTerms :: [Var] -> Term -> Term -> Tc Sub
-normaliseAndUnifyTerms wh l r = do
+normaliseAndUnifyTerms :: Term -> Term -> Tc Sub
+normaliseAndUnifyTerms l r = do
   l' <- normaliseTerm l
   case l' of
     Nothing -> do
       r' <- normaliseTerm r
       case r' of
         Nothing -> throwError $ Mismatch l r
-        Just r'' -> unifyTermsWH wh l r''
+        Just r'' -> unifyTerms l r''
     Just l'' -> do
-      unifyTermsWH wh l'' r
+      unifyTerms l'' r
 
 -- | Ensure that a substitution is empty.
 ensureEmptySub :: Sub -> Tc ()

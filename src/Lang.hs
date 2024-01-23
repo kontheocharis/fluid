@@ -56,29 +56,6 @@ data Var = Var String Int deriving (Eq)
 varName :: Var -> String
 varName (Var s _) = s
 
-data PrimTermValue
-  = NatT
-  | ListT Type
-  | MaybeT Type
-  | VectT Type Term
-  | FinT Type
-  | EqT Term Term
-  | LteT Term Term
-  | FZ
-  | FS Term
-  | Z
-  | S Term
-  | LNil
-  | LCons Term Term
-  | VNil
-  | VCons Term Term
-  | MJust Term
-  | MNothing
-  | Refl Term
-  | LTEZero
-  | LTESucc Term
-  deriving (Eq)
-
 -- | A term
 data TermValue
   = -- Dependently-typed lambda calculus with Pi and Sigma:
@@ -271,26 +248,6 @@ mapTermM f term = do
         (V v) -> return $ V v
         (Global s) -> return $ Global s
         (Hole i) -> return $ Hole i
-      -- NatT -> return NatT
-      -- (ListT t) -> ListT <$> mapTermM f t
-      -- (MaybeT t) -> MaybeT <$> mapTermM f t
-      -- (VectT t n) -> VectT <$> mapTermM f t <*> mapTermM f n
-      -- (FinT t) -> FinT <$> mapTermM f t
-      -- (EqT t1 t2) -> EqT <$> mapTermM f t1 <*> mapTermM f t2
-      -- (LteT t1 t2) -> LteT <$> mapTermM f t1 <*> mapTermM f t2
-      -- FZ -> return FZ
-      -- (FS t) -> FS <$> mapTermM f t
-      -- Z -> return Z
-      -- (S t) -> S <$> mapTermM f t
-      -- LNil -> return LNil
-      -- (LCons t1 t2) -> LCons <$> mapTermM f t1 <*> mapTermM f t2
-      -- VNil -> return VNil
-      -- (VCons t1 t2) -> VCons <$> mapTermM f t1 <*> mapTermM f t2
-      -- (MJust t) -> MJust <$> mapTermM f t
-      -- MNothing -> return MNothing
-      -- (Refl t) -> Refl <$> mapTermM f t
-      -- LTEZero -> return LTEZero
-      -- (LTESucc t) -> LTESucc <$> mapTermM f t
       return (Term mappedTerm (termData term))
     Just t' -> return t'
 
@@ -328,19 +285,25 @@ infixMap =
     ("Eq", "=")
   ]
 
+-- | Whether a term is compound, i.e. has spaces inside it (for formatting purposes).
 isCompound :: TermValue -> Bool
-isCompound (PiT _ _ _) = True
+isCompound (PiT {}) = True
 isCompound (Lam _ _) = True
 isCompound t@(App _ _) = case unelabApp t of
   [_] -> False
   _ -> True
-isCompound (SigmaT _ _ _) = True
+isCompound (SigmaT {}) = True
 isCompound _ = False
 
-showSingle :: TermValue -> String
-showSingle t | isCompound t = "(" ++ show t ++ ")"
-showSingle t = show t
+-- | Check if a given term is a valid pattern (no typechecking).
+isValidPat :: Term -> Bool
+isValidPat (Term (App a b) _) = isValidPat a && isValidPat b
+isValidPat (Term (V _) _) = True
+isValidPat (Term Wild _) = True
+isValidPat (Term (Pair p1 p2) _) = isValidPat p1 && isValidPat p2
+isValidPat _ = False
 
+-- | Unelaborate an application term.
 unelabApp :: TermValue -> [Term]
 unelabApp t =
   let lst = appToList (genTerm t)
@@ -351,6 +314,11 @@ unelabApp t =
               let lst' = t' : drop n xs
                in lst'
         _ -> lst
+
+-- | Show a term as a single string (for formatting purposes).
+showSingle :: TermValue -> String
+showSingle t | isCompound t = "(" ++ show t ++ ")"
+showSingle t = show t
 
 instance Show TermValue where
   show (PiT v t1 t2) = "(" ++ show v ++ " : " ++ show t1 ++ ") -> " ++ show t2
@@ -405,24 +373,3 @@ instance Show Clause where
 
 instance Show Program where
   show (Program ds) = intercalate "\n\n" $ map show ds
-
--- | Check if a given term is a valid pattern (no typechecking).
-isValidPat :: Term -> Bool
-isValidPat (Term (App a b) _) = isValidPat a && isValidPat b
-isValidPat (Term (V _) _) = True
-isValidPat (Term Wild _) = True
-isValidPat (Term (Pair p1 p2) _) = isValidPat p1 && isValidPat p2
--- isValidPat (Term LNil _) = True
--- isValidPat (Term (LCons p1 p2) _) = isValidPat p1 && isValidPat p2
--- isValidPat (Term VNil _) = True
--- isValidPat (Term (VCons p1 p2) _) = isValidPat p1 && isValidPat p2
--- isValidPat (Term FZ _) = True
--- isValidPat (Term (FS p) _) = isValidPat p
--- isValidPat (Term Z _) = True
--- isValidPat (Term (S p) _) = isValidPat p
--- isValidPat (Term (MJust p) _) = isValidPat p
--- isValidPat (Term MNothing _) = True
--- isValidPat (Term (Refl p) _) = isValidPat p
--- isValidPat (Term LTEZero _) = True
--- isValidPat (Term (LTESucc p) _) = isValidPat p
-isValidPat _ = False

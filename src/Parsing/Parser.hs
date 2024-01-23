@@ -84,7 +84,7 @@ newVarIndex = do
   putState s {varCount = i + 1}
   return i
 
--- | Wrap a term in implicit hole applications.
+-- | Wrap a term in `n` implicit hole applications.
 wrapImplicit :: Int -> Term -> Parser Term
 wrapImplicit 0 t = return t
 wrapImplicit n t = do
@@ -100,6 +100,7 @@ registerNewVar n = do
   modifyState $ \s -> s {names = (n, v) : ns}
   return v
 
+-- | Register a variable.
 registerVar :: String -> Parser Var
 registerVar n = do
   ns <- names <$> getState
@@ -194,6 +195,7 @@ getPos = do
   s <- getPosition
   return (Pos (sourceLine s) (sourceColumn s))
 
+-- | Parse a term with location information.
 locatedTerm :: Parser TermValue -> Parser Term
 locatedTerm p = do
   start <- getPos

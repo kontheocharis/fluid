@@ -2,10 +2,8 @@
 
 module Resources.Prelude (preludePath, preludeContents) where
 
-import Control.Monad ((>>=))
 import Data.FileEmbed (embedStringFile, makeRelativeToProject, strToExp)
 import Data.String (IsString)
-import GHC.IO (FilePath)
 
 -- | The contents of the Prelude file.
 preludePath :: FilePath
