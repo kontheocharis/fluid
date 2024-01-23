@@ -28,3 +28,10 @@ data LTE : Nat -> Nat -> Type where
 data Vect : Nat -> Type -> Type where
   | VNil  : (a : Type) -> Vect Z a
   | VCons : (n : Nat) -> (a : Type) -> a -> Vect n a -> Vect (S n) a
+
+-- Hack because we don't have actual characters
+data Char : Type where
+  | MkChar : Nat -> Char
+
+String : Type
+String = List Char

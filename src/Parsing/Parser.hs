@@ -84,13 +84,21 @@ newVarIndex = do
   putState s {varCount = i + 1}
   return i
 
+-- | Create a hole or wildcard, depending on whether we are parsing a pattern.
+holeOrWild :: Parser TermValue
+holeOrWild = do
+  isInPat <- parsingPat <$> getState
+  if isInPat
+    then return Wild
+    else Hole <$> freshVar
+
 -- | Wrap a term in `n` implicit hole applications.
 wrapImplicit :: Int -> Term -> Parser Term
 wrapImplicit 0 t = return t
 wrapImplicit n t = do
-  v <- freshVar
+  v <- holeOrWild
   re <- wrapImplicit (n - 1) t
-  return $ locatedAt t (App re (genTerm (Hole v)))
+  return $ locatedAt t (App re (genTerm v))
 
 -- | Generate a new variable.
 registerNewVar :: String -> Parser Var
@@ -424,11 +432,7 @@ resolveTerm = mapTermM r
   where
     r :: Term -> Parser (Maybe Term)
     r (Term (V (Var "_" _)) d) = do
-      isInPat <- parsingPat <$> getState
-      if isInPat
-        then return . Just $ Term Wild d
-        else do
-          v <- freshVar
-          return . Just $ Term (Hole v) d
+      t <- holeOrWild
+      return . Just $ Term t d
     r (Term (V (Var "Type" _)) d) = return $ Just (Term TyT d)
     r _ = return Nothing

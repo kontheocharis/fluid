@@ -1,5 +1,23 @@
-main : List Nat
-main = Z :: Z :: Z :: Z :: []
+data V : Type where
+| MkV : Nat -> V
 
-foo : Maybe (Maybe Nat)
-foo = Just Nothing
+data Expr : Type where
+| Num : V -> Expr
+| Var : Nat -> Expr
+| Add : Expr -> Expr -> Expr
+
+lookupVar : (x : V) -> (env : List (V ** Nat)) -> Maybe Nat
+lookupVar x [] = Nothing
+-- lookupVar x ((y,val)::ys) = if x == y then Just val
+--                                       else lookupVar x ys
+
+eval : (env : List (V ** Nat)) -> Expr -> Maybe Nat
+eval env (Num (MkV n)) = Just n
+
+-- eval env (Var x) = lookupVar x env
+-- eval env (Add e1 e2) =
+--    case eval env e1 of
+--       Just e1' => case eval env e2 of
+--         Just e2' => Just (plus e1' e2')
+--         Nothing  => Nothing
+--       Nothing => Nothing

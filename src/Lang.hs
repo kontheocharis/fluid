@@ -298,6 +298,7 @@ isCompound _ = False
 -- | Check if a given term is a valid pattern (no typechecking).
 isValidPat :: Term -> Bool
 isValidPat (Term (App a b) _) = isValidPat a && isValidPat b
+isValidPat (Term (Global _) _) = True
 isValidPat (Term (V _) _) = True
 isValidPat (Term Wild _) = True
 isValidPat (Term (Pair p1 p2) _) = isValidPat p1 && isValidPat p2
@@ -368,8 +369,8 @@ instance Show DeclItem where
   show (DeclItem v ty clauses) = intercalate "\n" ((v ++ " : " ++ show ty) : map (\c -> v ++ " " ++ show c) clauses)
 
 instance Show Clause where
-  show (Clause p t) = intercalate " " (map show p) ++ " = " ++ show t
-  show (ImpossibleClause p) = intercalate " " (map show p) ++ " impossible"
+  show (Clause p t) = intercalate " " (map (showSingle . termValue) p) ++ " = " ++ show t
+  show (ImpossibleClause p) = intercalate " " (map (showSingle . termValue) p) ++ " impossible"
 
 instance Show Program where
   show (Program ds) = intercalate "\n\n" $ map show ds
