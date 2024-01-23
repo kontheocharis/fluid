@@ -19,30 +19,25 @@ import Lang
 import Data.List (partition)
 
 
-replaceOldVar_indices:: [Var] -> Var -> [(Var, Type)] -> [(Var, Type)]
-replaceOldVar_indices oldVars newVar [] = []
-replaceOldVar_indices oldVars newVar ((var,ty):args) = 
-    if elem var oldVars then 
-        (newVar,ty):(replaceOldVar_indices oldVars newVar args)
-    else 
-        (var,ty):(replaceOldVar_indices oldVars newVar args)
 
-
+--check types in certain positions are the same
 checkType:: [(Var, Type)] -> [Int] -> Type -> Bool
 checkType argList indPosns ty = all (\i-> snd (argList !! i) == ty ) indPosns
 
 
+--refactor the parameters of constructor
+--remove redundant params
 changeConstr_argsList:: [(Var, Type)] -> [Int] -> [(Var, Type)]
 changeConstr_argsList argList [] = argList
 changeConstr_argsList argList (i:indPosns) = 
     case argList !! i of 
         (var,ty) -> if checkType argList indPosns ty then --check that the indices we want to unify are of the same type
                         [argList!!j | j <- [0..(length argList)-1] , not (elem j indPosns)]  --remove redundant vars 
-                        --let oldVars = [fst (argList!!j) | j <- indPosns] in
-                        --    replaceOldVar_indices oldVars var argList
                     else 
                         argList
 
+
+--rename the use of deleted vars in a type
 replaceOldVar_type:: [Var] -> Var -> Type -> Type
 replaceOldVar_type oldVars newVar (App t1 t2) = 
     App (replaceOldVar_type oldVars newVar t1) (replaceOldVar_type oldVars newVar t2)
@@ -54,6 +49,7 @@ replaceOldVar_type oldVars newVar (V var) =
 replaceOldVar_type oldVars newVar ty = ty 
 
 
+--refactor the return type of the constructor
 --rename unused var names with the unified one
 changeConstr_retTy:: [(Var, Type)] -> [Int] -> Type -> Type
 changeConstr_retTy argList [] retTy = retTy
@@ -63,7 +59,8 @@ changeConstr_retTy argList (i:indPosns) retTy =
                         replaceOldVar_type oldVars var retTy
 
 
---recurse to the indices and return type
+--refactor the constructor
+--recurse to the constructor params and return type
 changeConstr_constr:: [Int] -> CtorItem -> CtorItem
 changeConstr_constr indPosns (CtorItem itemName ty dataName) = 
     case piTypeToList ty of 
@@ -72,13 +69,13 @@ changeConstr_constr indPosns (CtorItem itemName ty dataName) =
                                 if all (\x -> x<l) indPosnsRev then  -- indices positions valid
                                     let refactoredArgList = changeConstr_argsList argList indPosnsRev  --refactor indices
                                         refactoredRetType = changeConstr_retTy argList indPosnsRev retTy in --refactor return type
-                                        (CtorItem itemName (listToPiType (refactoredArgList, refactoredRetType)) dataName) 
+                                        (CtorItem itemName (listToPiType (refactoredArgList, refactoredRetType)) dataName)  
                                 else  --some indices out of bounds
                                     (CtorItem itemName ty dataName)
             
 
 
-
+--refactor the data
 --recurse to the constructor
 changeConstr_data ::  String -> String -> [Int] -> DataItem -> DataItem
 changeConstr_data datName constrName indPosns (DataItem dname dty dConstrs) 
@@ -92,7 +89,7 @@ changeConstr_data datName constrName indPosns (DataItem dname dty dConstrs)
                     dConstrs
                 ) 
 
-
+--refactor the program
 --recurse to the data type declaration
 changeConstr_ast :: String -> String -> [Int] ->  Program ->  Program
 changeConstr_ast datName constrName indPosns (Program itemL)= 
@@ -113,11 +110,13 @@ changeConstr_ast datName constrName indPosns (Program itemL)=
 ---------------------------------------------------
 
 
-updateUsecase_constrTerm_holes:: [Term] -> [Int] -> [Term]
-updateUsecase_constrTerm_holes termList indPosns = 
+--update the arguments to constructor
+--fill with holes
+updateUsecase_constrTerm:: [Term] -> [Int] -> [Term]
+updateUsecase_constrTerm termList indPosns = 
     map (\i -> if elem (i+1) indPosns then
                     case termList!!i of 
-                        V (Var str int) -> Hole (Var (str ++ "_" ++ show i ) int) 
+                        V (Var str int) -> Hole (Var (str ++ "_" ++ show i ) int)  --hole name [oldname]_[position]
                         term -> term 
                 else 
                     termList!!i            
@@ -125,18 +124,25 @@ updateUsecase_constrTerm_holes termList indPosns =
     [0..((length termList)-1)]
 
 
+--update the use of refactored constructor, when it occurs in the rhs of equations
 --if constructor in rhs, we remove the I\I1 indices, and make the I1 index a hole
-updateUsecase_rhterm:: String -> [Int] -> Pat -> Pat
-updateUsecase_rhterm constrName [] (App t1 t2) = App t1 t2 
-updateUsecase_rhterm constrName (ind:inds) (App t1 t2) = --TODO: recurse down if and case expressions
+updateUsecase_eqnrhs:: String -> [Int] -> Pat -> Pat
+updateUsecase_eqnrhs constrName [] term = term
+--TODO: recurse down if and case expressions 
+updateUsecase_eqnrhs constrName (ind:inds) (Pair t1 t2) = 
+    Pair (updateUsecase_eqnrhs constrName (ind:inds) t1) (updateUsecase_eqnrhs constrName (ind:inds) t2)
+updateUsecase_eqnrhs constrName (ind:inds) (Lam lvar t2) = 
+    Lam lvar (updateUsecase_eqnrhs constrName (ind:inds) t2) --TODO: need to check binding? or are we disallowing them in fluid?
+--TODO: possible recurse down other constructor type (but since we're removing them, I'm ignoring them for now)
+updateUsecase_eqnrhs constrName (ind:inds) (App t1 t2) = 
     let termList = appTermToList (App t1 t2) in 
         case last termList of 
             Global varName -> if varName == constrName then 
-                                let holedConstr = updateUsecase_constrTerm_holes termList (ind:inds) in
+                                let holedConstr = updateUsecase_constrTerm termList (ind:inds) in
                                     listToAppTerm  [holedConstr!!j | j <- [0..(length holedConstr)-1] , not (elem (j+1) inds)]
                               else 
                                 (App t1 t2)
-updateUsecase_rhterm constrName indPosns term = term
+updateUsecase_eqnrhs constrName indPosns term = term
 
 
 
@@ -144,34 +150,21 @@ updateUsecase_rhterm constrName indPosns term = term
 appTermToList:: Term -> [Term]
 appTermToList (App t1 t2) = t2:(appTermToList t1) 
 appTermToList term = [term]
-
+--change list to App term
 listToAppTerm:: [Term] -> Term
 listToAppTerm [term] = term 
 listToAppTerm (term:terms) = App (listToAppTerm terms) term 
 
 
 
---unify var use in term list
-unifyVars_termList:: [Term] -> [Int] -> [Term]
-unifyVars_termList termList []=[]
-unifyVars_termList termList (indPos:indPosns) = 
-    map (\i -> if elem (i+1) indPosns then
-                    case termList!!i of 
-                        V var ->  termList !! ((indPos)-1) 
-                        term -> term 
-               else 
-                    termList!!i            
-        )
-        [0..((length termList)-1)]
-
-
-
+--TODO: add vars name if wildcards are used. Q: how to generate fresh variables?
 removeWildcards :: [Term] -> [Term]
-removeWildcards termList = termList --TODO: add vars name if wildcards are used
+removeWildcards termList = termList  
 
 
-
---[term] to remmeber what vars were deleted and rename all uses of the these vars
+--refactor use of constructor in a pattern variable
+--removes unified parameters
+--[term] to remmeber what vars were deleted and rename all uses of the these vars in the clause
     -- rename all other vars in term by the name of the first element
 updateUsecase_pat:: String -> [Int] -> Pat -> (Pat, [Term])
 updateUsecase_pat constrName [] (App t1 t2) = ((App t1 t2), [])
@@ -179,7 +172,6 @@ updateUsecase_pat constrName (ind:inds) (App t1 t2) =
     let termList = removeWildcards (appTermToList (App t1 t2)) in  --change wildcards to named vars
         case last termList of 
             Global varName -> if varName == constrName then 
-                                --listToAppTerm (unifyVars_termList termList (ind:inds))
                                 let (toKeep, toRemove) = partition  (\j -> not (elem (j+1) inds))  [0..(length termList)-1] in
                                     (listToAppTerm [termList!!j | j <- toKeep] , (termList!!(ind-1)):[termList!!j | j <- toRemove])
                               else 
@@ -187,6 +179,7 @@ updateUsecase_pat constrName (ind:inds) (App t1 t2) =
 updateUsecase_pat constrName indPosns term = (term, [])
 
 
+--refactor use of constructor in lhs of a equation
 updateUsecase_pats:: String -> [Int] -> [Pat] -> ([Pat], [Term])
 updateUsecase_pats constrName indPosns [] = ([],[])
 updateUsecase_pats constrName indPosns (pat:pats) = 
@@ -195,26 +188,29 @@ updateUsecase_pats constrName indPosns (pat:pats) =
         (patRes:patRec , varsToRename1 ++ varsToRename2 )        
 
 
+--rename vars in a pattern 
 renameVars_pat:: Term -> [Term] -> Pat -> Pat
 renameVars_pat newVar varsToRename pat = 
     renameVars_term newVar varsToRename pat
 
 
+--rename vars in lhs of equations
 renameVars_pats:: Term -> [Term] -> [Pat] -> [Pat]
 renameVars_pats newVar varsToRename [] = []
 renameVars_pats newVar varsToRename (pat:pats) = 
     (renameVars_pat newVar varsToRename pat):(renameVars_pats newVar varsToRename pats)
 
 
+--rename vars in rhs of equations
 renameVars_term:: Term -> [Term] -> Term -> Term
 renameVars_term newVar varsToRename (App term1 term2) = 
     App (renameVars_term newVar varsToRename term1) (renameVars_term newVar varsToRename term2) 
 renameVars_term newVar varsToRename (Pair term1 term2) = 
     Pair (renameVars_term newVar varsToRename term1) (renameVars_term newVar varsToRename term2) 
-renameVars_term newVar varsToRename (EqT term1 term2) = 
-    EqT (renameVars_term newVar varsToRename term1) (renameVars_term newVar varsToRename term2) 
---todo: recurse through other terms
---todo: recurse through cases and ifs
+renameVars_term newVar varsToRename (Lam lvar term2) = 
+    Lam lvar (renameVars_term newVar varsToRename term2) --TODO: need to check binding? or are we disallowing them in fluid?
+--TODO: possible recurse down other constructor type (but since we're removing them, I'm ignoring them for now)
+--TODO: recurse through cases and ifs
 renameVars_term newVar varsToRename (V var) = 
     if elem (V var) varsToRename then 
         newVar
@@ -223,6 +219,7 @@ renameVars_term newVar varsToRename (V var) =
 renameVars_term newVar varsToRename term = term
 
 
+--rename the use of deleted vars in an equation
 --rename vars in term\term[0] in clause to var name in term[0]
 --TODO: refactor this out to a general var rename refactoring
 renameVars:: [Term] -> Clause -> Clause
@@ -234,29 +231,33 @@ renameVars (newVar:varsToRename) (ImpossibleClause pats) =
 
 
 
+--update use cases in function equation
+--update constructor arguments and rename use of deleted variables
 updateUsecase_cl:: String -> [Int] -> Clause -> Clause
 updateUsecase_cl constrName indPosns (Clause pats term) = 
     let (patRes, varsToRename) = updateUsecase_pats constrName indPosns pats 
-        newClause = Clause (patRes) (updateUsecase_rhterm constrName indPosns term) in --constructor updated to remove indices
+        newClause = Clause (patRes) (updateUsecase_eqnrhs constrName indPosns term) in --constructor updated to remove indices
             renameVars varsToRename newClause --rename uses of removed vars 
 updateUsecase_cl constrName indPosns (ImpossibleClause pats) = 
     let patRes = updateUsecase_pats constrName indPosns pats in      
         ImpossibleClause (fst patRes)
 
 
+--update use cases in function equations
 updateUsecase_cls:: String -> [Int] -> [Clause] -> [Clause] 
 updateUsecase_cls constrName indPosns [] = []
 updateUsecase_cls constrName indPosns (cl:cls) = 
     (updateUsecase_cl constrName indPosns cl):(updateUsecase_cls constrName indPosns cls)
 
 
+--update use cases in functions
 updateUsecase_decl:: String -> String -> [Int] -> DeclItem -> DeclItem
 updateUsecase_decl datName constrName indPosns decl = 
     DeclItem (declName decl)
              (declTy decl) 
              (updateUsecase_cls constrName indPosns (declClauses decl) )
 
-
+--update use cases
 updateUsecase :: String -> String -> [Int] ->  Program ->  Program
 updateUsecase datName constrName indPosns (Program itemL) = 
     Program 
@@ -271,10 +272,11 @@ updateUsecase datName constrName indPosns (Program itemL) =
 
 ---------------------------------------------------
 
+
 unifyIndices_ast :: String -> String -> [Int] ->  Program ->  Program
 unifyIndices_ast datName constrName indPosns ast = 
-    let dataRefactored = changeConstr_ast datName constrName indPosns ast in 
-        updateUsecase datName constrName indPosns dataRefactored
+    let dataRefactored = changeConstr_ast datName constrName indPosns ast in  --change data definition
+        updateUsecase datName constrName indPosns dataRefactored              --update use case of changed constructor
 
 
 
