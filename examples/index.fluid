@@ -12,7 +12,7 @@ lookupVar x [] = Nothing
 --                                       else lookupVar x ys
 
 eval : (env : List (V ** Nat)) -> Expr -> Maybe Nat
-eval env (Num (MkV n)) = Just n
+-- eval env (Num (MkV n)) = Just n
 
 -- eval env (Var x) = lookupVar x env
 -- eval env (Add e1 e2) =

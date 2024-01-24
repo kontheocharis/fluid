@@ -191,14 +191,21 @@ checkTerm (Term (V v) _) typ = do
       Hole h -> return $ Sub [(h, vTyp')]
       _ -> unifyTerms typ vTyp'
 checkTerm (Term (App t1 t2) _) typ = do
-  bodyTy <- freshHole
-  (s1, varTy) <- inferTermWithSub t2
   v <- freshHoleVar
-  let inferredTy = locatedAt t1 (PiT v varTy bodyTy)
-  s2 <- checkTerm (sub s1 t1) (sub s1 inferredTy)
-  let s12 = s1 <> s2
-  s3 <- unifyTerms (sub s12 typ) $ subVar v (sub s12 t2) (sub s12 bodyTy)
-  return (s12 <> s3)
+  bodyTy <- freshHole
+  varTy <- freshHole
+  let expectedTy = locatedAt t1 (PiT v varTy bodyTy)
+  s1 <- checkTerm t1 expectedTy
+  let bodyTy' = sub s1 bodyTy
+  let varTy' = sub s1 varTy
+
+  s2 <- checkTerm t2 varTy'
+  let t2' = sub (s1 <> s2) t2
+  let bodyTy'' = sub s2 bodyTy'
+
+  s3 <- unifyTerms typ (subVar v t2' bodyTy'')
+
+  return (s1 <> s2 <> s3)
 checkTerm (Term (Hole _) _) typ = do
   hTy <- freshHoleVar
   return $ Sub [(hTy, typ)]
