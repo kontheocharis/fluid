@@ -15,6 +15,7 @@ module Lang
     CtorItem (..),
     DeclItem (..),
     Program (..),
+    TermMappable (..),
     Clause (..),
     mapTerm,
     HasLoc (..),
@@ -50,7 +51,7 @@ type GlobalName = String
 
 -- | A variable
 -- Represented by a string name and a unique integer identifier (no shadowing).
-data Var = Var String Int deriving (Eq)
+data Var = Var String Int deriving (Ord, Eq)
 
 -- | Get the name of a variable.
 varName :: Var -> String
@@ -250,6 +251,45 @@ mapTermM f term = do
         (Hole i) -> return $ Hole i
       return (Term mappedTerm (termData term))
     Just t' -> return t'
+
+class TermMappable t where
+  -- | Apply a term function to an item.
+  mapTermMappableM :: (Monad m) => (Term -> m (Maybe Term)) -> t -> m t
+
+mapClauseM :: (Monad m) => (Term -> m (Maybe Term)) -> Clause -> m Clause
+mapClauseM f (Clause p t) = Clause p <$> mapTermM f t
+mapClauseM _ (ImpossibleClause p) = return $ ImpossibleClause p
+
+-- | Apply a term function to a constructor item.
+mapCtorItemM :: (Monad m) => (Term -> m (Maybe Term)) -> CtorItem -> m CtorItem
+mapCtorItemM f (CtorItem name ty d) = CtorItem name <$> mapTermM f ty <*> pure d
+
+-- | Apply a term function to a declaration item.
+mapItemM :: (Monad m) => (Term -> m (Maybe Term)) -> Item -> m Item
+mapItemM f (Decl (DeclItem name ty clauses)) = Decl <$> (DeclItem name <$> mapTermM f ty <*> mapM (mapClauseM f) clauses)
+mapItemM f (Data (DataItem name ty ctors)) = Data <$> (DataItem name <$> mapTermM f ty <*> mapM (mapCtorItemM f) ctors)
+
+-- | Apply a term function to a program.
+mapProgramM :: (Monad m) => (Term -> m (Maybe Term)) -> Program -> m Program
+mapProgramM f (Program items) = Program <$> mapM (mapItemM f) items
+
+instance TermMappable Term where
+  mapTermMappableM = mapTermM
+
+instance TermMappable Clause where
+  mapTermMappableM = mapClauseM
+
+instance TermMappable CtorItem where
+  mapTermMappableM = mapCtorItemM
+
+instance TermMappable Item where
+  mapTermMappableM = mapItemM
+
+instance TermMappable Program where
+  mapTermMappableM = mapProgramM
+
+instance TermMappable () where
+  mapTermMappableM _ = return
 
 -- Show instances for pretty printing:
 instance Show Var where

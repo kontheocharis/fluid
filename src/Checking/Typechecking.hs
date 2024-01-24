@@ -3,7 +3,7 @@ module Checking.Typechecking (checkTerm, unifyTerms, unifyToLeft, inferTerm, nor
 import Checking.Context
   ( Tc,
     TcError (..),
-    TcState (inPat),
+    TcState (..),
     addItem,
     addTyping,
     enterCtx,
@@ -47,10 +47,6 @@ import Lang
     piTypeToList,
     prependPatToClause,
   )
-
--- loadPrelude :: Tc ()
--- loadPrelude = do
---   let preludePath =
 
 -- | Check the program
 checkProgram :: Program -> Tc Program
@@ -149,8 +145,8 @@ checkTermExpected v t = checkTerm v (locatedAt v t)
 -- | Check the type of a term. (The type itself should already be checked.)
 -- This might produce a substitution.
 checkTerm :: Term -> Type -> Tc Sub
-checkTerm ((Term (Lam v t) _)) ((Term (PiT var' ty1 ty2) d2)) = do
-  enterCtxMod (addTyping v ty1 False) $ checkTerm t (alphaRename var' (v, d2) ty2)
+checkTerm ((Term (Lam v t) _)) ((Term (PiT var' ty1 ty2) _)) = do
+  enterCtxMod (addTyping v ty1 False) $ checkTerm t (alphaRename var' v ty2)
 checkTerm t@((Term (Lam v t1) d1)) typ = do
   varTy <- freshHole
   bodyTy <- enterCtxMod (addTyping v varTy False) $ inferTerm t1
@@ -251,16 +247,16 @@ normaliseTermFully t = do
 -- This might produce a substitution.
 -- Unification is currently symmetric.
 unifyTerms :: Term -> Term -> Tc Sub
-unifyTerms (Term (PiT lv l1 l2) d1) (Term (PiT rv r1 r2) _) = do
+unifyTerms (Term (PiT lv l1 l2) _) (Term (PiT rv r1 r2) _) = do
   s1 <- unifyTerms l1 r1
-  s2 <- unifyTerms l2 (alphaRename rv (lv, d1) r2)
+  s2 <- unifyTerms l2 (alphaRename rv lv r2)
   return $ s1 <> s2
-unifyTerms (Term (SigmaT lv l1 l2) d1) (Term (SigmaT rv r1 r2) _) = do
+unifyTerms (Term (SigmaT lv l1 l2) _) (Term (SigmaT rv r1 r2) _) = do
   s1 <- unifyTerms l1 r1
-  s2 <- unifyTerms l2 (alphaRename rv (lv, d1) r2)
+  s2 <- unifyTerms l2 (alphaRename rv lv r2)
   return $ s1 <> s2
-unifyTerms (Term (Lam lv l) d1) (Term (Lam rv r) _) = do
-  unifyTerms l (alphaRename rv (lv, d1) r)
+unifyTerms (Term (Lam lv l) _) (Term (Lam rv r) _) = do
+  unifyTerms l (alphaRename rv lv r)
 unifyTerms (Term (Pair l1 l2) _) (Term (Pair r1 r2) _) = do
   s1 <- unifyTerms l1 r1
   s2 <- unifyTerms l2 r2

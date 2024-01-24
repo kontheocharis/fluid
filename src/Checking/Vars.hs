@@ -1,4 +1,17 @@
-module Checking.Vars (var, Sub (..), Subst, sub, subVar, alphaRename, noSub) where
+module Checking.Vars
+  ( var,
+    Sub (..),
+    Subst,
+    sub,
+    subVar,
+    alphaRename,
+    noSub,
+    insertSub,
+    lookupSub,
+    subSize,
+    subInM,
+  )
+where
 
 import Data.List (intercalate)
 import Lang
@@ -16,6 +29,18 @@ instance Show Sub where
 -- | Empty substitution.
 noSub :: Sub
 noSub = Sub []
+
+-- | The size of a substitution.
+subSize :: Sub -> Int
+subSize (Sub s) = length s
+
+-- | Insert into a substitution.
+insertSub :: Var -> Term -> Sub -> Sub
+insertSub v t (Sub s) = Sub ((v, t) : s)
+
+-- | Get an element from a substitution.
+lookupSub :: Var -> Sub -> Maybe Term
+lookupSub v (Sub s) = lookup v s
 
 instance Monoid Sub where
   mempty = noSub
@@ -37,19 +62,33 @@ class Subst a where
   -- | Substitute a variable for a term in a term.
   subVar :: Var -> Term -> a -> a
 
+  -- | Alpha rename a variable in a term.
+  alphaRename :: Var -> Var -> a -> a
+  alphaRename v1 v2 = subVar v1 (genTerm (V v2))
+
+subVarRec :: Var -> Term -> Term -> Maybe Term
+subVarRec v t' t'' = case termValue t'' of
+  V v' | v == v' -> Just t'
+  Hole v' | v == v' -> Just t'
+  PiT v' ty t | v == v' -> Just (Term (PiT v' (subVar v t' ty) t) (termData t''))
+  Lam v' t | v == v' -> Just (Term (Lam v' (subVar v t' t)) (termData t''))
+  SigmaT v' ty t | v == v' -> Just (Term (SigmaT v' (subVar v t' ty) t) (termData t''))
+  _ -> Nothing
+
 instance Subst Term where
-  subVar v t' =
-    mapTerm
-      ( \t'' -> case termValue t'' of
-          V v' | v == v' -> Just t'
-          Hole v' | v == v' -> Just t'
-          _ -> Nothing
-      )
+  subVar v t' = mapTerm (subVarRec v t')
+
+-- | Substitute in a term mappable.
+subVarInM :: (Monad m, TermMappable t) => Var -> Term -> t -> m t
+subVarInM v t' = mapTermMappableM (return . subVarRec v t')
+
+-- | Substitute in a term mappable.
+subInM :: (Monad m, TermMappable t) => Sub -> t -> m t
+subInM (Sub ((v, t') : ss)) t = do
+  t'' <- subVarInM v t' t
+  subInM (Sub ss) t''
+subInM (Sub []) t = return t
 
 instance Subst Sub where
   subVar v' t' (Sub ((v, t) : s)) = Sub ((v, subVar v' t' t) : let Sub rs = subVar v' t' (Sub s) in rs)
   subVar _ _ (Sub []) = Sub []
-
--- | Alpha rename a variable in a term.
-alphaRename :: Var -> (Var, TermData) -> Term -> Term
-alphaRename v1 (v2, d) = subVar v1 (Term (V v2) d)
