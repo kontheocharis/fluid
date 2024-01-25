@@ -40,8 +40,10 @@ import Lang
     Item (..),
     Pat,
     Term (..),
+    TermValue (..),
     Type,
     Var (..),
+    genTerm,
     itemName,
   )
 
@@ -232,4 +234,4 @@ freshHoleVar = do
 
 -- | Get a fresh hole.
 freshHole :: Tc Term
-freshHole = Hole <$> freshHoleVar
+freshHole = genTerm . Hole <$> freshHoleVar

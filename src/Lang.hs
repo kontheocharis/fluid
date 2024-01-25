@@ -2,8 +2,14 @@ module Lang
   ( Type,
     GlobalName,
     Var (..),
-    Pat,
     Term (..),
+    TermValue (..),
+    TermData (..),
+    PatValue,
+    TypeValue,
+    Loc (..),
+    Pos (..),
+    Pat,
     Item (..),
     DataItem (..),
     CtorItem (..),
@@ -16,8 +22,13 @@ module Lang
     prependPatToClause,
     piTypeToList,
     listToPiType,
+    listToApp,
     itemName,
     isValidPat,
+    termLoc,
+    genTerm,
+    termDataAt,
+    locatedAt,
   )
 where
 
@@ -38,12 +49,12 @@ type GlobalName = String
 data Var = Var String Int deriving (Eq)
 
 -- | A term
-data Term
+data TermValue
   = -- Dependently-typed lambda calculus with Pi and Sigma:
-    PiT Var Type Type
+    PiT Var Type Term
   | Lam Var Term
   | App Term Term
-  | SigmaT Var Type Type
+  | SigmaT Var Type Term
   | Pair Term Term
   | -- | Type of types (no universe polymorphism)
     TyT
@@ -60,7 +71,7 @@ data Term
   | ListT Type
   | MaybeT Type
   | VectT Type Term
-  | FinT Term
+  | FinT Type
   | EqT Term Term
   | LteT Term Term
   | -- Constructors:
@@ -79,15 +90,98 @@ data Term
   | LTESucc Term
   deriving (Eq)
 
+-- | A term with associated data.
+data Term = Term {termValue :: TermValue, termData :: TermData} deriving (Eq)
+
+-- | Alias for type values (just for documentation purposes)
+type TypeValue = TermValue
+
+-- | Alias for pattern values (just for documentation purposes)
+type PatValue = TermValue
+
+-- | An optional location in the source code, represented by a start (inclusive) and
+-- end (exclusive) position.
+data Loc = NoLoc | Loc Pos Pos deriving (Eq)
+
+-- | A monoid instance for locations, that gets the maximum span.
+instance Monoid Loc where
+  mempty = NoLoc
+
+instance Semigroup Loc where
+  NoLoc <> NoLoc = NoLoc
+  NoLoc <> Loc s e = Loc s e
+  Loc s e <> NoLoc = Loc s e
+  Loc s1 e1 <> Loc s2 e2 = Loc (min s1 s2) (max e1 e2)
+
+-- | A position in the source code, represented by a line and column number.
+data Pos = Pos Int Int deriving (Eq)
+
+-- | An ordering for positions, that gets the minimum position.
+instance Ord Pos where
+  Pos l1 c1 <= Pos l2 c2 = l1 < l2 || (l1 == l2 && c1 <= c2)
+
+-- | Get the starting position of a location.
+startPos :: Loc -> Maybe Pos
+startPos NoLoc = Nothing
+startPos (Loc start _) = Just start
+
+-- | Get the ending position of a location.
+endPos :: Loc -> Maybe Pos
+endPos NoLoc = Nothing
+endPos (Loc _ end) = Just end
+
+-- | Auxiliary data contained alongside a term.
+--
+-- For now stores only the location in the source code, but will
+-- be extended to store type information too.
+newtype TermData = TermData {loc :: Loc} deriving (Eq)
+
+-- | Empty term data.
+emptyTermData :: TermData
+emptyTermData = TermData NoLoc
+
+-- | Class of types that have a location.
+class HasLoc a where
+  getLoc :: a -> Loc
+
+instance HasLoc Term where
+  getLoc = termLoc
+
+instance HasLoc TermData where
+  getLoc = loc
+
+instance HasLoc Loc where
+  getLoc = id
+
+-- | Create a term with the given value and location.
+locatedAt :: (HasLoc a) => a -> TermValue -> Term
+locatedAt a t = Term t (termDataAt (getLoc a))
+
+-- | Create term data with the given location.
+termDataAt :: (HasLoc a) => a -> TermData
+termDataAt = TermData . getLoc
+
+-- | Get the term data from a term.
+termLoc :: Term -> Loc
+termLoc = loc . termData
+
+-- | Generated term, no data
+genTerm :: TermValue -> Term
+genTerm t = Term t emptyTermData
+
 -- | Convert a pi type to a list of types and the return type.
 piTypeToList :: Type -> ([(Var, Type)], Type)
-piTypeToList (PiT v ty1 ty2) = let (tys, ty) = piTypeToList ty2 in ((v, ty1) : tys, ty)
+piTypeToList (Term (PiT v ty1 ty2) _) = let (tys, ty) = piTypeToList ty2 in ((v, ty1) : tys, ty)
 piTypeToList t = ([], t)
 
 -- | Convert a list of types and the return type to a pi type.
 listToPiType :: ([(Var, Type)], Type) -> Type
 listToPiType ([], ty) = ty
-listToPiType ((v, ty1) : tys, ty2) = PiT v ty1 (listToPiType (tys, ty2))
+listToPiType ((v, ty1) : tys, ty2) = Term (PiT v ty1 (listToPiType (tys, ty2))) emptyTermData
+
+-- | Convert a *non-empty* list of terms to an application term
+listToApp :: [Term] -> Term
+listToApp = foldl1 (\acc x -> Term (App acc x) (termDataAt (termLoc acc <> termLoc x)))
 
 -- | An item is either a declaration or a data item.
 data Item
@@ -151,44 +245,46 @@ mapTermM :: (Monad m) => (Term -> m (Maybe Term)) -> Term -> m Term
 mapTermM f term = do
   term' <- f term
   case term' of
-    Nothing -> case term of
-      (PiT v t1 t2) -> PiT v <$> mapTermM f t1 <*> mapTermM f t2
-      (Lam v t) -> Lam v <$> mapTermM f t
-      (App t1 t2) -> App <$> mapTermM f t1 <*> mapTermM f t2
-      (SigmaT v t1 t2) -> SigmaT v <$> mapTermM f t1 <*> mapTermM f t2
-      (Pair t1 t2) -> Pair <$> mapTermM f t1 <*> mapTermM f t2
-      TyT -> return TyT
-      Wild -> return Wild
-      (V v) -> return $ V v
-      (Global s) -> return $ Global s
-      (Hole i) -> return $ Hole i
-      NatT -> return NatT
-      (ListT t) -> ListT <$> mapTermM f t
-      (MaybeT t) -> MaybeT <$> mapTermM f t
-      (VectT t n) -> VectT <$> mapTermM f t <*> mapTermM f n
-      (FinT t) -> FinT <$> mapTermM f t
-      (EqT t1 t2) -> EqT <$> mapTermM f t1 <*> mapTermM f t2
-      (LteT t1 t2) -> LteT <$> mapTermM f t1 <*> mapTermM f t2
-      FZ -> return FZ
-      (FS t) -> FS <$> mapTermM f t
-      Z -> return Z
-      (S t) -> S <$> mapTermM f t
-      LNil -> return LNil
-      (LCons t1 t2) -> LCons <$> mapTermM f t1 <*> mapTermM f t2
-      VNil -> return VNil
-      (VCons t1 t2) -> VCons <$> mapTermM f t1 <*> mapTermM f t2
-      (MJust t) -> MJust <$> mapTermM f t
-      MNothing -> return MNothing
-      (Refl t) -> Refl <$> mapTermM f t
-      LTEZero -> return LTEZero
-      (LTESucc t) -> LTESucc <$> mapTermM f t
+    Nothing -> do
+      mappedTerm <- case termValue term of
+        (PiT v t1 t2) -> PiT v <$> mapTermM f t1 <*> mapTermM f t2
+        (Lam v t) -> Lam v <$> mapTermM f t
+        (App t1 t2) -> App <$> mapTermM f t1 <*> mapTermM f t2
+        (SigmaT v t1 t2) -> SigmaT v <$> mapTermM f t1 <*> mapTermM f t2
+        (Pair t1 t2) -> Pair <$> mapTermM f t1 <*> mapTermM f t2
+        TyT -> return TyT
+        Wild -> return Wild
+        (V v) -> return $ V v
+        (Global s) -> return $ Global s
+        (Hole i) -> return $ Hole i
+        NatT -> return NatT
+        (ListT t) -> ListT <$> mapTermM f t
+        (MaybeT t) -> MaybeT <$> mapTermM f t
+        (VectT t n) -> VectT <$> mapTermM f t <*> mapTermM f n
+        (FinT t) -> FinT <$> mapTermM f t
+        (EqT t1 t2) -> EqT <$> mapTermM f t1 <*> mapTermM f t2
+        (LteT t1 t2) -> LteT <$> mapTermM f t1 <*> mapTermM f t2
+        FZ -> return FZ
+        (FS t) -> FS <$> mapTermM f t
+        Z -> return Z
+        (S t) -> S <$> mapTermM f t
+        LNil -> return LNil
+        (LCons t1 t2) -> LCons <$> mapTermM f t1 <*> mapTermM f t2
+        VNil -> return VNil
+        (VCons t1 t2) -> VCons <$> mapTermM f t1 <*> mapTermM f t2
+        (MJust t) -> MJust <$> mapTermM f t
+        MNothing -> return MNothing
+        (Refl t) -> Refl <$> mapTermM f t
+        LTEZero -> return LTEZero
+        (LTESucc t) -> LTESucc <$> mapTermM f t
+      return (Term mappedTerm (termData term))
     Just t' -> return t'
 
 -- Show instances for pretty printing:
 instance Show Var where
   show (Var s _) = s
 
-instance Show Term where
+instance Show TermValue where
   show (PiT v t1 t2) = "(" ++ show v ++ " : " ++ show t1 ++ ") -> " ++ show t2
   show (Lam v t) = "(\\" ++ show v ++ " => " ++ show t ++ ")"
   show (App t1 t2) = "(" ++ show t1 ++ " " ++ show t2 ++ ")"
@@ -220,6 +316,19 @@ instance Show Term where
   show LTEZero = "LTEZero"
   show (LTESucc t) = "(LTESucc " ++ show t ++ ")"
 
+instance Show Loc where
+  show NoLoc = ""
+  show (Loc l c) = show l ++ "--" ++ show c
+
+instance Show Pos where
+  show (Pos l c) = show l ++ ":" ++ show c
+
+instance Show TermData where
+  show (TermData l) = show l
+
+instance Show Term where
+  show (Term t _) = show t
+
 instance Show Item where
   show (Decl d) = show d
   show (Data d) = show d
@@ -245,21 +354,21 @@ instance Show Program where
 
 -- | Check if a given term is a valid pattern (no typechecking).
 isValidPat :: Term -> Bool
-isValidPat (App a b) = isValidPat a && isValidPat b
-isValidPat (V _) = True
-isValidPat Wild = True
-isValidPat (Pair p1 p2) = isValidPat p1 && isValidPat p2
-isValidPat LNil = True
-isValidPat (LCons p1 p2) = isValidPat p1 && isValidPat p2
-isValidPat VNil = True
-isValidPat (VCons p1 p2) = isValidPat p1 && isValidPat p2
-isValidPat FZ = True
-isValidPat (FS p) = isValidPat p
-isValidPat Z = True
-isValidPat (S p) = isValidPat p
-isValidPat (MJust p) = isValidPat p
-isValidPat MNothing = True
-isValidPat (Refl p) = isValidPat p
-isValidPat LTEZero = True
-isValidPat (LTESucc p) = isValidPat p
+isValidPat (Term (App a b) _) = isValidPat a && isValidPat b
+isValidPat (Term (V _) _) = True
+isValidPat (Term Wild _) = True
+isValidPat (Term (Pair p1 p2) _) = isValidPat p1 && isValidPat p2
+isValidPat (Term LNil _) = True
+isValidPat (Term (LCons p1 p2) _) = isValidPat p1 && isValidPat p2
+isValidPat (Term VNil _) = True
+isValidPat (Term (VCons p1 p2) _) = isValidPat p1 && isValidPat p2
+isValidPat (Term FZ _) = True
+isValidPat (Term (FS p) _) = isValidPat p
+isValidPat (Term Z _) = True
+isValidPat (Term (S p) _) = isValidPat p
+isValidPat (Term (MJust p) _) = isValidPat p
+isValidPat (Term MNothing _) = True
+isValidPat (Term (Refl p) _) = isValidPat p
+isValidPat (Term LTEZero _) = True
+isValidPat (Term (LTESucc p) _) = isValidPat p
 isValidPat _ = False
