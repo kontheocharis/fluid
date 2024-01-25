@@ -41,9 +41,9 @@ instance Subst Term where
   subVar v t' =
     mapTerm
       ( \t'' -> case termValue t'' of
-          V v' | v == v' -> Just t'
-          Hole v' | v == v' -> Just t'
-          _ -> Nothing
+          V v' | v == v' -> Replace t'
+          Hole v' | v == v' -> Replace t'
+          _ -> Continue
       )
 
 instance Subst Sub where

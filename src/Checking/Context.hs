@@ -26,6 +26,7 @@ module Checking.Context
     enterCtx,
     modifyGlobalCtx,
     runTc,
+    setType,
   )
 where
 
@@ -33,11 +34,15 @@ import Control.Applicative ((<|>))
 import Control.Monad.Except (throwError)
 import Control.Monad.State (MonadState (..), StateT (runStateT))
 import Data.List (find, intercalate)
+import Data.Map (Map, empty, insert, (!?))
+import Debug.Trace (trace)
 import Lang
   ( Clause,
     CtorItem (..),
     DataItem (DataItem),
+    HasLoc (..),
     Item (..),
+    Loc,
     Pat,
     Term (..),
     TermValue (..),
@@ -97,12 +102,14 @@ data TcState = TcState
     -- | Unique variable counter.
     varCounter :: Int,
     -- | Whether we are in a pattern
-    inPat :: Bool
+    inPat :: Bool,
+    -- | Term types, indexed by location.
+    termTypes :: Map Loc Type
   }
 
 -- | The empty typechecking state.
 emptyTcState :: TcState
-emptyTcState = TcState (Ctx []) (GlobalCtx []) 0 False
+emptyTcState = TcState (Ctx []) (GlobalCtx []) 0 False empty
 
 -- | The typechecking monad.
 type Tc a = StateT TcState (Either TcError) a
@@ -134,6 +141,15 @@ inState f = withSomeCtx id (return . f)
 -- | Map over the global context.
 inGlobalCtx :: (GlobalCtx -> a) -> Tc a
 inGlobalCtx f = withSomeCtx globalCtx (return . f)
+
+-- | Set the type of a term.
+setType :: Term -> Type -> Tc ()
+setType t ty = do
+  s <- get
+  case termTypes s !? getLoc t of
+    Just ty' -> trace ("Found existing type for " ++ show t ++ " : " ++ show ty ++ ", which is " ++ show ty') $ return ()
+    Nothing -> return ()
+  put $ s {termTypes = insert (getLoc t) ty (termTypes s)}
 
 -- | Enter a pattern by setting the inPat flag to True.
 enterPat :: Tc a -> Tc a

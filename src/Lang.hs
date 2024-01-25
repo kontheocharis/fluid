@@ -16,6 +16,9 @@ module Lang
     DeclItem (..),
     Program (..),
     Clause (..),
+    HasLoc (..),
+    TermMappable (..),
+    MapResult (..),
     mapTerm,
     mapTermM,
     clausePats,
@@ -29,6 +32,7 @@ module Lang
     genTerm,
     termDataAt,
     locatedAt,
+    typedAs,
   )
 where
 
@@ -113,6 +117,11 @@ instance Semigroup Loc where
   Loc s e <> NoLoc = Loc s e
   Loc s1 e1 <> Loc s2 e2 = Loc (min s1 s2) (max e1 e2)
 
+instance Ord Loc where
+  NoLoc <= _ = True
+  _ <= NoLoc = False
+  Loc s1 e1 <= Loc s2 e2 = s1 <= s2 && e1 <= e2
+
 -- | A position in the source code, represented by a line and column number.
 data Pos = Pos Int Int deriving (Eq)
 
@@ -134,11 +143,11 @@ endPos (Loc _ end) = Just end
 --
 -- For now stores only the location in the source code, but will
 -- be extended to store type information too.
-newtype TermData = TermData {loc :: Loc} deriving (Eq)
+data TermData = TermData {loc :: Loc, annotTy :: Maybe Type} deriving (Eq)
 
 -- | Empty term data.
 emptyTermData :: TermData
-emptyTermData = TermData NoLoc
+emptyTermData = TermData NoLoc Nothing
 
 -- | Class of types that have a location.
 class HasLoc a where
@@ -159,11 +168,15 @@ locatedAt a t = Term t (termDataAt (getLoc a))
 
 -- | Create term data with the given location.
 termDataAt :: (HasLoc a) => a -> TermData
-termDataAt = TermData . getLoc
+termDataAt x = TermData (getLoc x) Nothing
 
 -- | Get the term data from a term.
 termLoc :: Term -> Loc
 termLoc = loc . termData
+
+-- | Set the type annotation of a term.
+typedAs :: Type -> Term -> Term
+typedAs ty (Term t d) = Term t (d {annotTy = Just ty})
 
 -- | Generated term, no data
 genTerm :: TermValue -> Term
@@ -236,49 +249,100 @@ prependPatToClause p (ImpossibleClause ps) = ImpossibleClause (p : ps)
 newtype Program = Program [Item]
   deriving (Eq)
 
+-- | Result of a term map.
+data MapResult a = Continue | Replace a | ReplaceAndContinue a
+
 -- | Apply a function to a term, if it is a Just, otherwise return the term.
-mapTerm :: (Term -> Maybe Term) -> Term -> Term
+mapTerm :: (Term -> MapResult Term) -> Term -> Term
 mapTerm f term = runIdentity $ mapTermM (return . f) term
 
 -- | Apply a function to a term, if it is a Just, otherwise return the term (monadic).
-mapTermM :: (Monad m) => (Term -> m (Maybe Term)) -> Term -> m Term
+mapTermM :: (Monad m) => (Term -> m (MapResult Term)) -> Term -> m Term
 mapTermM f term = do
   term' <- f term
   case term' of
-    Nothing -> do
-      mappedTerm <- case termValue term of
-        (PiT v t1 t2) -> PiT v <$> mapTermM f t1 <*> mapTermM f t2
-        (Lam v t) -> Lam v <$> mapTermM f t
-        (App t1 t2) -> App <$> mapTermM f t1 <*> mapTermM f t2
-        (SigmaT v t1 t2) -> SigmaT v <$> mapTermM f t1 <*> mapTermM f t2
-        (Pair t1 t2) -> Pair <$> mapTermM f t1 <*> mapTermM f t2
-        TyT -> return TyT
-        Wild -> return Wild
-        (V v) -> return $ V v
-        (Global s) -> return $ Global s
-        (Hole i) -> return $ Hole i
-        NatT -> return NatT
-        (ListT t) -> ListT <$> mapTermM f t
-        (MaybeT t) -> MaybeT <$> mapTermM f t
-        (VectT t n) -> VectT <$> mapTermM f t <*> mapTermM f n
-        (FinT t) -> FinT <$> mapTermM f t
-        (EqT t1 t2) -> EqT <$> mapTermM f t1 <*> mapTermM f t2
-        (LteT t1 t2) -> LteT <$> mapTermM f t1 <*> mapTermM f t2
-        FZ -> return FZ
-        (FS t) -> FS <$> mapTermM f t
-        Z -> return Z
-        (S t) -> S <$> mapTermM f t
-        LNil -> return LNil
-        (LCons t1 t2) -> LCons <$> mapTermM f t1 <*> mapTermM f t2
-        VNil -> return VNil
-        (VCons t1 t2) -> VCons <$> mapTermM f t1 <*> mapTermM f t2
-        (MJust t) -> MJust <$> mapTermM f t
-        MNothing -> return MNothing
-        (Refl t) -> Refl <$> mapTermM f t
-        LTEZero -> return LTEZero
-        (LTESucc t) -> LTESucc <$> mapTermM f t
+    Continue -> do
+      mappedTerm <- mapTermRec term
       return (Term mappedTerm (termData term))
-    Just t' -> return t'
+    ReplaceAndContinue t' -> do
+      mappedTerm <- mapTermRec t'
+      return (Term mappedTerm (termData t'))
+    Replace t' -> return t'
+  where
+    mapTermRec t' = case termValue t' of
+      (PiT v t1 t2) -> PiT v <$> mapTermM f t1 <*> mapTermM f t2
+      (Lam v t) -> Lam v <$> mapTermM f t
+      (App t1 t2) -> App <$> mapTermM f t1 <*> mapTermM f t2
+      (SigmaT v t1 t2) -> SigmaT v <$> mapTermM f t1 <*> mapTermM f t2
+      (Pair t1 t2) -> Pair <$> mapTermM f t1 <*> mapTermM f t2
+      TyT -> return TyT
+      Wild -> return Wild
+      (V v) -> return $ V v
+      (Global s) -> return $ Global s
+      (Hole i) -> return $ Hole i
+      NatT -> return NatT
+      (ListT t) -> ListT <$> mapTermM f t
+      (MaybeT t) -> MaybeT <$> mapTermM f t
+      (VectT t n) -> VectT <$> mapTermM f t <*> mapTermM f n
+      (FinT t) -> FinT <$> mapTermM f t
+      (EqT t1 t2) -> EqT <$> mapTermM f t1 <*> mapTermM f t2
+      (LteT t1 t2) -> LteT <$> mapTermM f t1 <*> mapTermM f t2
+      FZ -> return FZ
+      (FS t) -> FS <$> mapTermM f t
+      Z -> return Z
+      (S t) -> S <$> mapTermM f t
+      LNil -> return LNil
+      (LCons t1 t2) -> LCons <$> mapTermM f t1 <*> mapTermM f t2
+      VNil -> return VNil
+      (VCons t1 t2) -> VCons <$> mapTermM f t1 <*> mapTermM f t2
+      (MJust t) -> MJust <$> mapTermM f t
+      MNothing -> return MNothing
+      (Refl t) -> Refl <$> mapTermM f t
+      LTEZero -> return LTEZero
+      (LTESucc t) -> LTESucc <$> mapTermM f t
+
+class TermMappable t where
+  -- | Apply a term function to an item.
+  mapTermMappableM :: (Monad m) => (Term -> m (MapResult Term)) -> t -> m t
+
+  -- | Apply a term function to an item (non-monadic)
+  mapTermMappable :: (Term -> MapResult Term) -> t -> t
+  mapTermMappable f = runIdentity . mapTermMappableM (return . f)
+
+mapClauseM :: (Monad m) => (Term -> m (MapResult Term)) -> Clause -> m Clause
+mapClauseM f (Clause p t) = Clause <$> mapM (mapTermM f) p <*> mapTermM f t
+mapClauseM f (ImpossibleClause p) = ImpossibleClause <$> mapM (mapTermM f) p
+
+-- | Apply a term function to a constructor item.
+mapCtorItemM :: (Monad m) => (Term -> m (MapResult Term)) -> CtorItem -> m CtorItem
+mapCtorItemM f (CtorItem name ty d) = CtorItem name <$> mapTermM f ty <*> pure d
+
+-- | Apply a term function to a declaration item.
+mapItemM :: (Monad m) => (Term -> m (MapResult Term)) -> Item -> m Item
+mapItemM f (Decl (DeclItem name ty clauses)) = Decl <$> (DeclItem name <$> mapTermM f ty <*> mapM (mapClauseM f) clauses)
+mapItemM f (Data (DataItem name ty ctors)) = Data <$> (DataItem name <$> mapTermM f ty <*> mapM (mapCtorItemM f) ctors)
+
+-- | Apply a term function to a program.
+mapProgramM :: (Monad m) => (Term -> m (MapResult Term)) -> Program -> m Program
+mapProgramM f (Program items) = Program <$> mapM (mapItemM f) items
+
+instance TermMappable Term where
+  mapTermMappableM = mapTermM
+
+instance TermMappable Clause where
+  mapTermMappableM = mapClauseM
+
+instance TermMappable CtorItem where
+  mapTermMappableM = mapCtorItemM
+
+instance TermMappable Item where
+  mapTermMappableM = mapItemM
+
+instance TermMappable Program where
+  mapTermMappableM = mapProgramM
+
+instance TermMappable () where
+  mapTermMappableM _ = return
 
 -- Show instances for pretty printing:
 instance Show Var where
@@ -324,7 +388,7 @@ instance Show Pos where
   show (Pos l c) = show l ++ ":" ++ show c
 
 instance Show TermData where
-  show (TermData l) = show l
+  show (TermData l t) = "loc=" ++ show l ++ ", type=" ++ show t
 
 instance Show Term where
   show (Term t _) = show t
