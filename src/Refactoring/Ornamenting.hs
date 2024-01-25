@@ -3,7 +3,7 @@
 module Refactoring.Ornamenting (ornamentDeclItem, ornamentType) where
 
 import Checking.Vars (var)
-import Lang (Clause (..), DeclItem (..), Pat, Term (..), TermValue (..), Type, Var (..), genTerm, mapTerm, piTypeToList)
+import Lang (Clause (..), DeclItem (..), MapResult (Continue, Replace), Pat, Term (..), TermValue (..), Type, Var (..), genTerm, mapTerm, piTypeToList)
 
 -- | Ornament a declaration.
 ornamentDeclItem :: DeclItem -> (DeclItem, DeclItem)
@@ -53,8 +53,8 @@ ornamentClauseTerm i decl newRetType term = substitutedRecTerm
     substitutedRecTerm =
       mapTerm
         ( \case
-            Term (Global s) d | s == decl -> Just (foldl (\inner v -> genTerm (App inner (genTerm (Hole (var (show v)))))) (Term (Global s) d) [0 .. i - 1])
-            _ -> Nothing
+            Term (Global s) d | s == decl -> Replace (foldl (\inner v -> genTerm (App inner (genTerm (Hole (var (show v)))))) (Term (Global s) d) [0 .. i - 1])
+            _ -> Continue
         )
         (genTerm typeFixedTerm)
 
