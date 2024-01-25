@@ -34,7 +34,8 @@ library
       Parsing.Resolution
       Refactoring.Clauses
       Refactoring.Ornamenting
-      Refactoring.SpecialiseConstructorIndex
+      Refactoring.SpecCtor
+      Refactoring.Utils
   other-modules:
       Paths_fluid
   autogen-modules:
