@@ -214,5 +214,6 @@ handleTcAndGetState er a = do
 parseAndCheckPrelude :: InputT IO (Program, TcState)
 parseAndCheckPrelude = do
   parsed <- handleParse err (parseProgram preludePath preludeContents Nothing)
+  msg "Parsed prelude: " >> msg (show parsed)
   (checked, state) <- handleTcAndGetState err (checkProgram parsed)
   return (checked, state)

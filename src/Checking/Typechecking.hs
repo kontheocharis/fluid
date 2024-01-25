@@ -12,6 +12,7 @@ import Checking.Context
     enterPat,
     freshHole,
     freshHoleVar,
+    freshMeta,
     freshVar,
     inCtx,
     inGlobalCtx,
@@ -21,11 +22,13 @@ import Checking.Context
     lookupType,
     modifyCtx,
     modifyGlobalCtx,
+    varExists,
   )
 import Checking.Vars (Sub (..), Subst (sub), alphaRename, noSub, subVar)
 import Control.Monad (replicateM)
 import Control.Monad.Except (catchError, throwError)
 import Data.Bifunctor (second)
+import Debug.Trace (trace)
 import Lang
   ( Clause (..),
     CtorItem (..),
@@ -179,7 +182,7 @@ checkTerm (Term (V v) _) typ = do
   vTyp <- inCtx (lookupType v)
   case vTyp of
     Nothing -> do
-      -- If we are in a pattern, then this is a bound variable so we can add it
+      -- If it does not exist, then this is a bound variable so we can add it
       -- to the context.
       p <- inState inPat
       if p
@@ -190,25 +193,50 @@ checkTerm (Term (V v) _) typ = do
     Just vTyp' -> case termValue typ of
       Hole h -> return $ Sub [(h, vTyp')]
       _ -> unifyTerms typ vTyp'
-checkTerm (Term (App t1 t2) _) typ = do
-  v <- freshHoleVar
-  bodyTy <- freshHole
-  varTy <- freshHole
+checkTerm t@(Term (App t1 t2) _) typ = do
+  v <- trace ("Checking that " ++ show t ++ " : " ++ show typ) $ freshHoleVar
+  bodyTy <- freshMeta
+  varTy <- freshMeta
   let expectedTy = locatedAt t1 (PiT v varTy bodyTy)
-  s1 <- checkTerm t1 expectedTy
+
+  trace ("Expected type: " ++ show expectedTy) $ return ()
+
+  ty1 <- inferTerm t1
+
+  trace ("Inferred type of " ++ show t1 ++ " : " ++ show ty1) $ return ()
+
+  trace ("Unifying " ++ show ty1 ++ " and " ++ show expectedTy) $ return ()
+
+  s1 <- unifyTerms ty1 expectedTy
+
+  trace ("Unification result: " ++ show s1) $ return ()
+
   let bodyTy' = sub s1 bodyTy
   let varTy' = sub s1 varTy
 
+  trace ("Body type: " ++ show bodyTy' ++ " var type: " ++ show varTy' ++ " s1 = " ++ show s1) $ return ()
+
+  trace ("Checking " ++ show t2 ++ " : " ++ show varTy') $ return ()
+
   s2 <- checkTerm t2 varTy'
+
+  trace ("Checked " ++ show t2 ++ " : " ++ show varTy') $ return ()
+
   let t2' = sub (s1 <> s2) t2
+
   let bodyTy'' = sub s2 bodyTy'
 
+  trace ("Unifying " ++ show typ ++ " and " ++ show (subVar v t2' bodyTy'')) $ return ()
+
   s3 <- unifyTerms typ (subVar v t2' bodyTy'')
+
+  trace ("Unification result: " ++ show s3) $ return ()
 
   return (s1 <> s2 <> s3)
 checkTerm (Term (Hole _) _) typ = do
   hTy <- freshHoleVar
   return $ Sub [(hTy, typ)]
+checkTerm (Term (Meta _) _) _ = return noSub
 checkTerm (Term (Global g) _) typ = do
   decl <- inGlobalCtx (lookupItemOrCtor g)
   case decl of
@@ -277,22 +305,12 @@ unifyTerms (Term (Hole h) _) b@(Term _ _) = do
 unifyTerms a@(Term _ _) (Term (Hole h) _) = do
   return $ Sub [(h, a)]
 unifyTerms (Term (V l) _) (Term (V r) _) | l == r = return noSub
-unifyTerms a@(Term (V v) _) b@(Term _ _) = do
-  -- Pattern bindings can always be unified with.
-  patBind <- inCtx (isPatBind v)
-  p <- inState inPat
-  if patBind == Just True && p
-    then do
-      return $ Sub [(v, b)]
-    else throwError $ Mismatch a b
-unifyTerms a@(Term _ _) b@(Term (V v) _) = do
-  -- Pattern bindings can always be unified with.
-  patBind <- inCtx (isPatBind v)
-  p <- inState inPat
-  if patBind == Just True && p
-    then do
-      return $ Sub [(v, a)]
-    else throwError $ Mismatch b a
+unifyTerms (Term (Meta v) _) b@(Term _ _) = do
+  -- Metavariables can always be unified with.
+  return $ Sub [(v, b)]
+unifyTerms a@(Term _ _) (Term (Meta v) _) = do
+  -- Metavariables can always be unified with.
+  return $ Sub [(v, a)]
 unifyTerms a@(Term (Global l) _) b@(Term (Global r) _) =
   if l == r
     then return noSub

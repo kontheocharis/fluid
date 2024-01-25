@@ -70,6 +70,7 @@ subVarRec :: Var -> Term -> Term -> Maybe Term
 subVarRec v t' t'' = case termValue t'' of
   V v' | v == v' -> Just t'
   Hole v' | v == v' -> Just t'
+  Meta v' | v == v' -> Just t'
   PiT v' ty t | v == v' -> Just (Term (PiT v' (subVar v t' ty) t) (termData t''))
   Lam v' t | v == v' -> Just (Term (Lam v' (subVar v t' t)) (termData t''))
   SigmaT v' ty t | v == v' -> Just (Term (SigmaT v' (subVar v t' ty) t) (termData t''))

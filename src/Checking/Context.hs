@@ -21,12 +21,14 @@ module Checking.Context
     lookupType,
     freshHole,
     freshHoleVar,
+    freshMeta,
     freshVar,
     modifyCtx,
     enterCtx,
     modifyGlobalCtx,
     runTc,
     runTcAndGetState,
+    varExists,
   )
 where
 
@@ -34,6 +36,7 @@ import Control.Applicative ((<|>))
 import Control.Monad.Except (throwError)
 import Control.Monad.State (MonadState (..), StateT (runStateT))
 import Data.List (find, intercalate)
+import Data.Maybe (isJust)
 import Lang
   ( Clause,
     CtorItem (..),
@@ -194,6 +197,12 @@ lookupType :: Var -> Ctx -> Maybe Type
 lookupType _ (Ctx []) = Nothing
 lookupType v (Ctx ((Typing v' ty _) : c)) = if v == v' then Just ty else lookupType v (Ctx c)
 
+-- | Check if a variable exists in the current context.
+varExists :: Var -> Tc Bool
+varExists v = do
+  c <- inCtx id
+  return $ isJust (lookupType v c)
+
 -- | Lookup the type of a variable in the current context.
 isPatBind :: Var -> Ctx -> Maybe Bool
 isPatBind _ (Ctx []) = Nothing
@@ -230,7 +239,7 @@ freshVar = do
   put $ s {varCounter = h + 1}
   return $ Var ("v" ++ show h) h
 
--- | Get a fresh variable.
+-- | Get a fresh hole variable.
 freshHoleVar :: Tc Var
 freshHoleVar = do
   s <- get
@@ -238,6 +247,18 @@ freshHoleVar = do
   put $ s {varCounter = h + 1}
   return $ Var ("h" ++ show h) h
 
+-- | Get a fresh metavariable.
+freshMetaVar :: Tc Var
+freshMetaVar = do
+  s <- get
+  let h = varCounter s
+  put $ s {varCounter = h + 1}
+  return $ Var ("m" ++ show h) h
+
 -- | Get a fresh hole.
 freshHole :: Tc Term
 freshHole = genTerm . Hole <$> freshHoleVar
+
+-- | Get a fresh metavariable.
+freshMeta :: Tc Term
+freshMeta = genTerm . Meta <$> freshMetaVar

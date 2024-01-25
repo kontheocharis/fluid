@@ -75,6 +75,8 @@ data TermValue
     Global String
   | -- | Hole identified by an integer
     Hole Var
+  | -- | Metavariable
+    Meta Var
   deriving (Eq)
 
 -- | A term with associated data.
@@ -249,6 +251,7 @@ mapTermM f term = do
         (V v) -> return $ V v
         (Global s) -> return $ Global s
         (Hole i) -> return $ Hole i
+        (Meta i) -> return $ Meta i
       return (Term mappedTerm (termData term))
     Just t' -> return t'
 
@@ -293,12 +296,12 @@ instance TermMappable () where
 
 -- Show instances for pretty printing:
 instance Show Var where
-  show (Var s _) = s
+  show (Var s n) = s ++ "#" ++ show n
 
 -- | A set of prelude terms that accept implicit arguments.
 implicitMap :: [(String, Int)]
 implicitMap =
-  [ ("Eq", 1),
+  [ ("Eq", 0),
     ("LNil", 1),
     ("LCons", 1),
     ("VNil", 1),
@@ -378,6 +381,7 @@ instance Show TermValue where
   show (V v) = show v
   show (Global s) = fromMaybe s (lookup s constantMap)
   show (Hole i) = "?" ++ show i
+  show (Meta i) = "!" ++ show i
 
 instance Show Loc where
   show NoLoc = ""
