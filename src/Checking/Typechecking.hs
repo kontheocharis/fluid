@@ -258,7 +258,16 @@ checkTerm' (Term (Global g) _) typ = do
     Just (Left (Decl decl')) -> unifyTerms typ $ declTy decl'
     Just (Left (Data dat)) -> unifyTerms typ $ dataTy dat
     Just (Right ctor) -> unifyTerms typ $ ctorItemTy ctor
-checkTerm' (Term (Case _ _) _) _ = return noSub -- @@Todo
+checkTerm' (Term (Case s cs) _) typ = do
+  sTy <- inferTerm s
+  foldM
+    ( \sa (p, t) -> enterCtx $ do
+        sp <- enterPat $ checkTerm p sTy
+        st <- checkTerm t (sub sa typ)
+        return $ sp <> st
+    )
+    noSub
+    cs
 checkTerm' (Term (Refl t) d1) typ = do
   ty <- freshHoleVar
   checkCtor [ty] [V ty] (locatedAt d1 (EqT t t)) [t] typ
@@ -410,6 +419,18 @@ unifyTermsWH wh a@(Term (Global l) _) b@(Term (Global r) _) =
   if l == r
     then return noSub
     else normaliseAndUnifyTerms wh a b
+unifyTermsWH wh (Term (Case su1 cs1) _) (Term (Case su2 cs2) _) = do
+  s1 <- unifyTermsWH wh su1 su2
+  s2 <-
+    foldM
+      ( \s ((p1, t1), (p2, t2)) -> do
+          sp <- unifyTermsWH wh p1 p2
+          st <- unifyTermsWH wh t1 t2
+          return $ s <> sp <> st
+      )
+      s1
+      (zip cs1 cs2)
+  return (s1 <> s2)
 unifyTermsWH _ (Term NatT _) (Term NatT _) = return noSub
 unifyTermsWH wh (Term (ListT t) _) (Term (ListT r) _) = do
   unifyTermsWH wh t r
