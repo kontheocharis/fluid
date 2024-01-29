@@ -354,12 +354,37 @@ instance TermMappable () where
 instance Show Var where
   show (Var s _) = s
 
+-- | Check if a term is compound (i.e. contains spaces), for formatting purposes.
+termIsCompound :: TermValue -> Bool
+termIsCompound (PiT {}) = True
+termIsCompound (Lam _ _) = True
+termIsCompound (App _ _) = True
+termIsCompound (SigmaT {}) = True
+termIsCompound (MaybeT _) = True
+termIsCompound (VectT _ _) = True
+termIsCompound (EqT _ _) = True
+termIsCompound (FinT _) = True
+termIsCompound (LteT _ _) = True
+termIsCompound (FS _) = True
+termIsCompound (S _) = True
+termIsCompound (LCons _ _) = True
+termIsCompound (VCons _ _) = True
+termIsCompound (MJust _) = True
+termIsCompound (Refl _) = True
+termIsCompound (LTESucc _) = True
+termIsCompound _ = False
+
+-- | Show a term value, with parentheses if it is compound.
+showSingle :: TermValue -> String
+showSingle v | termIsCompound v = "(" ++ show v ++ ")"
+showSingle v = show v
+
 instance Show TermValue where
   show (PiT v t1 t2) = "(" ++ show v ++ " : " ++ show t1 ++ ") -> " ++ show t2
-  show (Lam v t) = "(\\" ++ show v ++ " => " ++ show t ++ ")"
-  show (App t1 t2) = "(" ++ show t1 ++ " " ++ show t2 ++ ")"
+  show (Lam v t) = "\\" ++ show v ++ " => " ++ show t
   show (SigmaT v t1 t2) = "(" ++ show v ++ " : " ++ show t1 ++ ") ** " ++ show t2
   show (Pair t1 t2) = "(" ++ show t1 ++ ", " ++ show t2 ++ ")"
+  show t@(App _ _) = intercalate " " $ map (showSingle . termValue) (let (x, xs) = appToList (genTerm t) in x : xs)
   show TyT = "Type"
   show Wild = "_"
   show (V v) = show v
@@ -367,24 +392,24 @@ instance Show TermValue where
   show (Hole i) = "?" ++ show i
   show NatT = "Nat"
   show (ListT t) = "[" ++ show t ++ "]"
-  show (MaybeT t) = "Maybe " ++ show t
-  show (VectT t n) = "Vect " ++ show t ++ " " ++ show n
-  show (FinT t) = "Fin " ++ show t
-  show (EqT t1 t2) = show t1 ++ " = " ++ show t2
-  show (LteT t1 t2) = "LTE " ++ show t1 ++ " " ++ show t2
+  show (MaybeT t) = "Maybe " ++ showSingle (termValue t)
+  show (VectT t n) = "Vect " ++ showSingle (termValue t) ++ " " ++ showSingle (termValue n)
+  show (FinT t) = "Fin " ++ showSingle (termValue t)
+  show (EqT t1 t2) = showSingle (termValue t1) ++ " = " ++ showSingle (termValue t2)
+  show (LteT t1 t2) = "LTE " ++ showSingle (termValue t1) ++ " " ++ showSingle (termValue t2)
   show FZ = "FZ"
-  show (FS t) = "(FS " ++ show t ++ ")"
+  show (FS t) = "FS " ++ showSingle (termValue t)
   show Z = "Z"
-  show (S t) = "(S " ++ show t ++ ")"
+  show (S t) = "S " ++ showSingle (termValue t)
   show LNil = "[]"
-  show (LCons t1 t2) = "(" ++ show t1 ++ "::" ++ show t2 ++ ")"
+  show (LCons t1 t2) = showSingle (termValue t1) ++ "::" ++ showSingle (termValue t2)
   show VNil = "[]"
-  show (VCons t1 t2) = "(" ++ show t1 ++ "::" ++ show t2 ++ ")"
-  show (MJust t) = "(Just " ++ show t ++ ")"
+  show (VCons t1 t2) = "VCons " ++ showSingle (termValue t1) ++ " " ++ showSingle (termValue t2)
+  show (MJust t) = "Just " ++ showSingle (termValue t)
   show MNothing = "Nothing"
-  show (Refl t) = "(Refl " ++ show t ++ ")"
+  show (Refl t) = "Refl " ++ showSingle (termValue t)
   show LTEZero = "LTEZero"
-  show (LTESucc t) = "(LTESucc " ++ show t ++ ")"
+  show (LTESucc t) = "LTESucc " ++ showSingle (termValue t)
 
 instance Show Loc where
   show NoLoc = ""
