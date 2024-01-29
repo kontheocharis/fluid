@@ -1,9 +1,11 @@
-module Parsing.Parser (parseProgram, parseTerm) where
+module Parsing.Parser (parseProgram, parseTerm, parseRefactorArgs) where
 
 import Checking.Context (GlobalCtx (GlobalCtx))
+import Control.Monad (void)
 import Data.Char (isSpace)
 import Data.String
 import Data.Text (Text)
+import Debug.Trace (traceShow)
 import Lang
   ( Clause (..),
     CtorItem (..),
@@ -11,34 +13,49 @@ import Lang
     DeclItem (..),
     GlobalName,
     Item (..),
+    Loc (..),
+    MapResult (..),
     Pat,
+    Pos (..),
     Program (..),
     Term (..),
+    TermMappable (..),
+    TermValue (..),
     Type,
     Var (..),
     isValidPat,
+    listToApp,
     mapTermM,
+    termDataAt,
   )
-import Parsing.Resolution (resolveGlobalsInItem)
+import Parsing.Resolution (resolveGlobalsRec)
+import Refactoring.Utils (RefactorArgKind (..), RefactorArgs (RefactorArgs))
 import Text.Parsec
   ( Parsec,
     between,
     char,
     choice,
+    endOfLine,
     eof,
+    getPosition,
     getState,
     many,
     many1,
     modifyState,
     newline,
+    option,
     optionMaybe,
+    optional,
     putState,
     runParser,
     satisfy,
+    sepBy,
+    sourceColumn,
+    sourceLine,
     string,
     (<|>),
   )
-import Text.Parsec.Char (alphaNum, letter)
+import Text.Parsec.Char (alphaNum, digit, letter)
 import Text.Parsec.Prim (try)
 import Text.Parsec.Text ()
 
@@ -97,43 +114,44 @@ parens = between (symbol "(") (symbol ")")
 -- | Parse whitespace or comments.
 white :: Parser ()
 white = do
-  _ <-
-    many $
-      do
-        (do _ <- satisfy (\c -> isSpace c && c /= '\n'); return ())
-        <|> try
-          ( reservedOp "--"
-              >> many (satisfy (/= '\n'))
-              >> return ()
-          )
+  _ <- many $ (void . try) (satisfy (\c -> isSpace c && c /= '\n')) <|> comment
+  return ()
+
+comment :: Parser ()
+comment = do
+  _ <- try $ do
+    reservedOp "--"
+    _ <- many (satisfy (/= '\n'))
+    return ()
   return ()
 
 -- | Parse vertical whitespace (i.e. a new line) or horizontal whitespace or comments.
 anyWhite :: Parser ()
 anyWhite = do
-  _ <- many $ do
-    white
-    _ <- newline
-    white
+  _ <- many $ (void . try) (satisfy isSpace) <|> comment
   return ()
 
 -- | Parse vertical whitespace (i.e. a single new line).
 enter :: Parser ()
 enter = do
-  _ <- newline
+  _ <- endOfLine
   white
   return ()
 
 -- | Reserved identifiers.
 reservedIdents :: [String]
-reservedIdents = ["data", "where", "impossible"]
+reservedIdents = ["data", "where", "impossible", "case", "of"]
 
-identifier :: Parser String
-identifier = try $ do
+anyIdentifier :: Parser String
+anyIdentifier = try $ do
   first <- letter <|> char '_'
   rest <- many (alphaNum <|> char '_' <|> char '\'')
   white
-  let name = first : rest
+  return $ first : rest
+
+identifier :: Parser String
+identifier = try $ do
+  name <- anyIdentifier
   if name `elem` reservedIdents
     then fail $ "Identifier " ++ name ++ " is reserved"
     else return name
@@ -156,6 +174,19 @@ comma = symbol ","
 colon :: Parser ()
 colon = symbol ":"
 
+-- | Get the current location in the source file.
+getPos :: Parser Pos
+getPos = do
+  s <- getPosition
+  return (Pos (sourceLine s) (sourceColumn s))
+
+locatedTerm :: Parser TermValue -> Parser Term
+locatedTerm p = do
+  start <- getPos
+  t <- p
+  end <- getPos
+  return $ Term t (termDataAt (Loc start end))
+
 -- | Parse a term from a string.
 parseTerm :: String -> Either String Term
 parseTerm contents = case runParser (term <* eof) initialParserState "" (fromString contents) of
@@ -173,7 +204,7 @@ program :: Parser Program
 program = whiteWrap $ do
   ds <- many ((Data <$> dataItem) <|> (Decl <$> declItem))
   -- Resolve the globals after getting all the declarations.
-  return $ Program (map (resolveGlobalsInItem (GlobalCtx ds)) ds)
+  return $ mapTermMappable (resolveGlobalsRec (GlobalCtx ds)) (Program ds)
 
 -- | Wrap a parser in whitespace.
 whiteWrap :: Parser a -> Parser a
@@ -229,7 +260,7 @@ declClause name = do
   let (im, ps) =
         if null ps'
           then (False, [])
-          else case last ps' of
+          else case termValue (last ps') of
             (V (Var "impossible" _)) -> (True, init ps')
             _ -> (False, ps')
   clause <-
@@ -245,7 +276,7 @@ declClause name = do
 -- Some are grouped to prevent lots of backtracking.
 term :: Parser Term
 term = do
-  t <- choice [piTOrSigmaT, lam, singleAppOrEqTOrCons]
+  t <- choice [caseExpr, piTOrSigmaT, lam, singleAppOrEqTOrCons]
   resolveTerm t
 
 -- | Parse a single term.
@@ -305,26 +336,27 @@ named =
 
 -- | Parse a pi type or sigma type.
 piTOrSigmaT :: Parser Type
-piTOrSigmaT = try $ do
+piTOrSigmaT = try . locatedTerm $ do
   (name, ty1) <- named
-  (reservedOp "->" >> PiT name ty1 <$> term)
-    <|> (reservedOp "**" >> SigmaT name ty1 <$> term)
+  binderT <- (reservedOp "->" >> return PiT) <|> (reservedOp "**" >> return SigmaT)
+  binderT name ty1 <$> term
 
 -- | Parse an application.
 app :: Parser Term
 app = try $ do
-  ts <- many1 singleTerm
-  return $ foldl1 App ts
+  t <- singleTerm
+  ts <- many singleTerm
+  return $ listToApp (t, ts)
 
 -- | Parse a single term, application, equality type or list cons.
 singleAppOrEqTOrCons :: Parser Term
-singleAppOrEqTOrCons = do
+singleAppOrEqTOrCons = locatedTerm $ do
   t1 <- app
-  (reservedOp "=" >> EqT t1 <$> term) <|> (reservedOp "::" >> LCons t1 <$> term) <|> return t1
+  (reservedOp "=" >> EqT t1 <$> term) <|> (reservedOp "::" >> LCons t1 <$> term) <|> return (termValue t1)
 
 -- | Parse a lambda.
 lam :: Parser Term
-lam = do
+lam = locatedTerm $ do
   reservedOp "\\"
   v <- newVar
   reservedOp "=>"
@@ -332,14 +364,14 @@ lam = do
 
 -- | Parse a pair.
 pair :: Parser Term
-pair = try . parens $ do
+pair = try . locatedTerm . parens $ do
   t1 <- term
   _ <- comma
   Pair t1 <$> term
 
 -- | Parse a variable or hole. Holes are prefixed with a question mark.
 varOrHole :: Parser Term
-varOrHole = try $ do
+varOrHole = try . locatedTerm $ do
   hole <- optionMaybe $ reservedOp "?"
   v <- var
   case hole of
@@ -348,37 +380,124 @@ varOrHole = try $ do
 
 -- | Parse a list nil.
 nil :: Parser Term
-nil = do
+nil = locatedTerm $ do
   reservedOp "[]"
   return LNil
+
+caseExpr :: Parser Term
+caseExpr = locatedTerm $ do
+  reserved "case"
+  t <- term
+  reserved "of"
+  clauses <- many caseClause
+  return $ Case t clauses
+
+caseClause :: Parser (Pat, Term)
+caseClause = do
+  try (anyWhite >> symbol "|")
+  p <- pat
+  reservedOp "=>"
+  t' <- term
+  return (p, t')
 
 -- | Resolve the "primitive" data types and constructors in a term.
 resolveTerm :: Term -> Parser Term
 resolveTerm = mapTermM r
   where
-    r (V (Var "_" _)) = do
+    r :: Term -> Parser (MapResult Term)
+    r (Term (V (Var "_" _)) d) = do
       isInPat <- parsingPat <$> getState
       if isInPat
-        then return . Just $ Wild
-        else do Just . Hole <$> freshVar
-    r (V (Var "Type" _)) = return $ Just TyT
-    r (V (Var "Nat" _)) = return $ Just NatT
-    r (App (V (Var "List" _)) t1) = Just . ListT <$> resolveTerm t1
-    r (App (V (Var "Maybe" _)) t1) = Just . MaybeT <$> resolveTerm t1
-    r (App (App (V (Var "Vect" _)) t1) t2) = Just <$> (VectT <$> resolveTerm t1 <*> resolveTerm t2)
-    r (App (V (Var "Fin" _)) t1) = Just . FinT <$> resolveTerm t1
-    r (App (App (V (Var "Eq" _)) t1) t2) = Just <$> (EqT <$> resolveTerm t1 <*> resolveTerm t2)
-    r (V (Var "Z" _)) = return $ Just Z
-    r (App (V (Var "S" _)) t1) = Just . S <$> resolveTerm t1
-    r (V (Var "FZ" _)) = return $ Just FZ
-    r (App (V (Var "FS" _)) t1) = Just . FS <$> resolveTerm t1
-    r (V (Var "LNil" _)) = return $ Just LNil
-    r (App (App (V (Var "LCons" _)) t1) t2) = Just <$> (LCons <$> resolveTerm t1 <*> resolveTerm t2)
-    r (V (Var "VNil" _)) = return $ Just VNil
-    r (App (App (V (Var "VCons" _)) t1) t2) = Just <$> (VCons <$> resolveTerm t1 <*> resolveTerm t2)
-    r (V (Var "Nothing" _)) = return $ Just MNothing
-    r (App (V (Var "Just" _)) t1) = Just . MJust <$> resolveTerm t1
-    r (App (V (Var "Refl" _)) t1) = Just . Refl <$> resolveTerm t1
-    r (V (Var "LTEZero" _)) = return $ Just LTEZero
-    r (App (V (Var "LTESucc" _)) t1) = Just . LTESucc <$> resolveTerm t1
-    r _ = return Nothing
+        then return . Replace $ Term Wild d
+        else do
+          v <- freshVar
+          return . Replace $ Term (Hole v) d
+    r (Term (V (Var "Type" _)) d) = return $ Replace (Term TyT d)
+    r (Term (V (Var "Nat" _)) d) = return $ Replace (Term NatT d)
+    r (Term (App (Term (V (Var "List" _)) _) t1) d) = do
+      t1' <- resolveTerm t1
+      return (Replace (Term (ListT t1') d))
+    r (Term (App (Term (V (Var "Maybe" _)) _) t1) d) = do
+      t1' <- resolveTerm t1
+      return (Replace (Term (MaybeT t1') d))
+    r (Term (App (Term (App (Term (V (Var "Vect" _)) _) t1) _) t2) d) = do
+      t1' <- resolveTerm t1
+      t2' <- resolveTerm t2
+      return (Replace (Term (VectT t1' t2') d))
+    r (Term (App (Term (V (Var "Fin" _)) _) t1) d) = do
+      t1' <- resolveTerm t1
+      return (Replace (Term (FinT t1') d))
+    r (Term (App (Term (App (Term (V (Var "Eq" _)) _) t1) _) t2) d) = do
+      t1' <- resolveTerm t1
+      t2' <- resolveTerm t2
+      return (Replace (Term (EqT t1' t2') d))
+    r (Term (V (Var "Z" _)) d) = return $ Replace (Term Z d)
+    r (Term (App (Term (V (Var "S" _)) _) t1) d) = do
+      t1' <- resolveTerm t1
+      return (Replace (Term (S t1') d))
+    r (Term (V (Var "FZ" _)) d) = return $ Replace (Term FZ d)
+    r (Term (App (Term (V (Var "FS" _)) _) t1) d) = do
+      t1' <- resolveTerm t1
+      return (Replace (Term (FS t1') d))
+    r (Term (V (Var "LNil" _)) d) = return $ Replace (Term LNil d)
+    r (Term (App (Term (App (Term (V (Var "LCons" _)) _) t1) _) t2) d) = do
+      t1' <- resolveTerm t1
+      t2' <- resolveTerm t2
+      return (Replace (Term (LCons t1' t2') d))
+    r (Term (V (Var "VNil" _)) d) = return $ Replace (Term VNil d)
+    r (Term (App (Term (App (Term (V (Var "VCons" _)) _) t1) _) t2) d) = do
+      t1' <- resolveTerm t1
+      t2' <- resolveTerm t2
+      return (Replace (Term (VCons t1' t2') d))
+    r (Term (V (Var "Nothing" _)) d) = return $ Replace (Term MNothing d)
+    r (Term (App (Term (V (Var "Just" _)) _) t1) d) = do
+      t1' <- resolveTerm t1
+      return (Replace (Term (MJust t1') d))
+    r (Term (App (Term (V (Var "Refl" _)) _) t1) d) = do
+      t1' <- resolveTerm t1
+      return (Replace (Term (Refl t1') d))
+    r (Term (V (Var "LTEZero" _)) d) = return $ Replace (Term LTEZero d)
+    r (Term (App (Term (V (Var "LTESucc" _)) _) t1) d) = do
+      t1' <- resolveTerm t1
+      return (Replace (Term (LTESucc t1') d))
+    r _ = return Continue
+
+-- | Parse a set of refactoring arguments.
+refactorArgs :: Parser RefactorArgs
+refactorArgs = RefactorArgs <$> sepBy refactorArg (symbol ",")
+
+-- | Parse a refactoring argument.
+refactorArg :: Parser (String, RefactorArgKind)
+refactorArg = do
+  name <- anyIdentifier
+  _ <- symbol "="
+  kind <- refactorArgKind
+  return (name, kind)
+
+-- | Parse an integer.
+integer :: Parser Int
+integer = do
+  digits <- many1 digit
+  return $ read digits
+
+-- | Parse a position.
+position :: Parser Pos
+position = do
+  line <- integer
+  _ <- char ':'
+  col <- integer
+  return $ Pos line col
+
+-- | Parse a refactoring argument kind.
+refactorArgKind :: Parser RefactorArgKind
+refactorArgKind =
+  try (Position <$> position)
+    <|> try (Idx <$> integer)
+    <|> try (Name <$> anyIdentifier)
+    <|> (Expr <$> between (symbol "`") (symbol "`") term)
+
+-- | Parse a term from a string.
+parseRefactorArgs :: String -> Either String RefactorArgs
+parseRefactorArgs contents = case runParser (refactorArgs <* eof) initialParserState "" (fromString contents) of
+  Left err -> Left $ show err
+  Right p -> Right p

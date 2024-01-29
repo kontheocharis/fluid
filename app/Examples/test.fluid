@@ -1,4 +1,6 @@
+
 f: (n:Nat) -> Maybe Nat 
 f Z = Just Z 
 f (S n) = Just Z 
+
 
