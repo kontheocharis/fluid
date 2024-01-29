@@ -61,6 +61,7 @@ data TermValue
   | App Term Term
   | SigmaT Var Type Term
   | Pair Term Term
+  | Case Term [(Pat, Term)]
   | -- | Type of types (no universe polymorphism)
     TyT
   | -- | Variable
@@ -281,6 +282,7 @@ mapTermM f term = do
       (App t1 t2) -> App <$> mapTermM f t1 <*> mapTermM f t2
       (SigmaT v t1 t2) -> SigmaT v <$> mapTermM f t1 <*> mapTermM f t2
       (Pair t1 t2) -> Pair <$> mapTermM f t1 <*> mapTermM f t2
+      (Case t cs) -> Case <$> mapTermM f t <*> mapM (\(p, c) -> (,) <$> mapTermM f p <*> mapTermM f c) cs
       TyT -> return TyT
       Wild -> return Wild
       (V v) -> return $ V v
@@ -354,37 +356,62 @@ instance TermMappable () where
 instance Show Var where
   show (Var s _) = s
 
--- | Check if a term is compound (i.e. contains spaces), for formatting purposes.
-termIsCompound :: TermValue -> Bool
-termIsCompound (PiT {}) = True
-termIsCompound (Lam _ _) = True
-termIsCompound (App _ _) = True
-termIsCompound (SigmaT {}) = True
-termIsCompound (MaybeT _) = True
-termIsCompound (VectT _ _) = True
-termIsCompound (EqT _ _) = True
-termIsCompound (FinT _) = True
-termIsCompound (LteT _ _) = True
-termIsCompound (FS _) = True
-termIsCompound (S _) = True
-termIsCompound (LCons _ _) = True
-termIsCompound (VCons _ _) = True
-termIsCompound (MJust _) = True
-termIsCompound (Refl _) = True
-termIsCompound (LTESucc _) = True
-termIsCompound _ = False
+class HasTermValue a where
+  getTermValue :: a -> TermValue
+
+instance HasTermValue Term where
+  getTermValue = termValue
+
+instance HasTermValue TermValue where
+  getTermValue = id
 
 -- | Show a term value, with parentheses if it is compound.
-showSingle :: TermValue -> String
-showSingle v | termIsCompound v = "(" ++ show v ++ ")"
+showSingle :: (HasTermValue a, Show a) => a -> String
+showSingle v | (isCompound . getTermValue) v = "(" ++ show v ++ ")"
 showSingle v = show v
+
+-- | Check if a term is compound (i.e. contains spaces), for formatting purposes.
+isCompound :: (HasTermValue a) => a -> Bool
+isCompound x =
+  let x' = getTermValue x
+   in case x' of
+        (PiT {}) -> True
+        (Lam _ _) -> True
+        (App _ _) -> True
+        (SigmaT {}) -> True
+        (MaybeT _) -> True
+        (VectT _ _) -> True
+        (EqT _ _) -> True
+        (FinT _) -> True
+        (LteT _ _) -> True
+        (FS _) -> True
+        (S _) -> True
+        (LCons _ _) -> True
+        (VCons _ _) -> True
+        (MJust _) -> True
+        (Refl _) -> True
+        (LTESucc _) -> True
+        _ -> False
+
+-- | Replace each newline with a newline followed by 2 spaces.
+indented :: String -> String
+indented str
+  | (l : ls) <- lines str = intercalate "\n" $ l : map ("  " ++) ls
+  | [] <- lines str = ""
 
 instance Show TermValue where
   show (PiT v t1 t2) = "(" ++ show v ++ " : " ++ show t1 ++ ") -> " ++ show t2
   show (Lam v t) = "\\" ++ show v ++ " => " ++ show t
   show (SigmaT v t1 t2) = "(" ++ show v ++ " : " ++ show t1 ++ ") ** " ++ show t2
   show (Pair t1 t2) = "(" ++ show t1 ++ ", " ++ show t2 ++ ")"
-  show t@(App _ _) = intercalate " " $ map (showSingle . termValue) (let (x, xs) = appToList (genTerm t) in x : xs)
+  show t@(App _ _) = intercalate " " $ map showSingle (let (x, xs) = appToList (genTerm t) in x : xs)
+  show (Case t cs) =
+    "case "
+      ++ show t
+      ++ " of\n"
+      ++ intercalate
+        "\n"
+        (map (\(p, c) -> "  | " ++ showSingle p ++ " => " ++ indented (show c)) cs)
   show TyT = "Type"
   show Wild = "_"
   show (V v) = show v
@@ -392,24 +419,24 @@ instance Show TermValue where
   show (Hole i) = "?" ++ show i
   show NatT = "Nat"
   show (ListT t) = "[" ++ show t ++ "]"
-  show (MaybeT t) = "Maybe " ++ showSingle (termValue t)
-  show (VectT t n) = "Vect " ++ showSingle (termValue t) ++ " " ++ showSingle (termValue n)
-  show (FinT t) = "Fin " ++ showSingle (termValue t)
-  show (EqT t1 t2) = showSingle (termValue t1) ++ " = " ++ showSingle (termValue t2)
-  show (LteT t1 t2) = "LTE " ++ showSingle (termValue t1) ++ " " ++ showSingle (termValue t2)
+  show (MaybeT t) = "Maybe " ++ showSingle t
+  show (VectT t n) = "Vect " ++ showSingle t ++ " " ++ showSingle n
+  show (FinT t) = "Fin " ++ showSingle t
+  show (EqT t1 t2) = showSingle t1 ++ " = " ++ showSingle t2
+  show (LteT t1 t2) = "LTE " ++ showSingle t1 ++ " " ++ showSingle t2
   show FZ = "FZ"
-  show (FS t) = "FS " ++ showSingle (termValue t)
+  show (FS t) = "FS " ++ showSingle t
   show Z = "Z"
-  show (S t) = "S " ++ showSingle (termValue t)
+  show (S t) = "S " ++ showSingle t
   show LNil = "[]"
-  show (LCons t1 t2) = showSingle (termValue t1) ++ "::" ++ showSingle (termValue t2)
+  show (LCons t1 t2) = showSingle t1 ++ "::" ++ showSingle t2
   show VNil = "[]"
-  show (VCons t1 t2) = "VCons " ++ showSingle (termValue t1) ++ " " ++ showSingle (termValue t2)
-  show (MJust t) = "Just " ++ showSingle (termValue t)
+  show (VCons t1 t2) = "VCons " ++ showSingle t1 ++ " " ++ showSingle t2
+  show (MJust t) = "Just " ++ showSingle t
   show MNothing = "Nothing"
-  show (Refl t) = "Refl " ++ showSingle (termValue t)
+  show (Refl t) = "Refl " ++ showSingle t
   show LTEZero = "LTEZero"
-  show (LTESucc t) = "LTESucc " ++ showSingle (termValue t)
+  show (LTESucc t) = "LTESucc " ++ showSingle t
 
 instance Show Loc where
   show NoLoc = ""

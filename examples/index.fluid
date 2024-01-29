@@ -1,3 +1,8 @@
 data Data1 : Nat -> Type where
   | Z1 : Data1 Z
   | S1 : (n : Nat) -> Data1 Z -> Data1 n
+
+
+toFin : (n : Nat) -> Fin (S n)
+toFin n = case n of
+  | m => ?h1
