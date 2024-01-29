@@ -1,6 +1,6 @@
 cabal-version: 2.2
 
--- This file has been generated from package.yaml by hpack version 0.35.2.
+-- This file has been generated from package.yaml by hpack version 0.36.0.
 --
 -- see: https://github.com/sol/hpack
 
@@ -33,6 +33,7 @@ library
       Parsing.Parser
       Parsing.Resolution
       Refactoring.Clauses
+      Refactoring.EnhancePatterns
       Refactoring.Ornamenting
       Refactoring.SpecCtor
       Refactoring.Utils
