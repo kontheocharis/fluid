@@ -1,4 +1,4 @@
-module Parsing.Parser (parseProgram, parseTerm) where
+module Parsing.Parser (parseProgram, parseTerm, parseRefactorArgs) where
 
 import Checking.Context (GlobalCtx (GlobalCtx))
 import Data.Char (isSpace)
@@ -27,6 +27,7 @@ import Lang
     termDataAt,
   )
 import Parsing.Resolution (resolveGlobalsRec)
+import Refactoring.Utils (RefactorArgKind (..), RefactorArgs (RefactorArgs))
 import Text.Parsec
   ( Parsec,
     between,
@@ -43,12 +44,13 @@ import Text.Parsec
     putState,
     runParser,
     satisfy,
+    sepBy,
     sourceColumn,
     sourceLine,
     string,
     (<|>),
   )
-import Text.Parsec.Char (alphaNum, letter)
+import Text.Parsec.Char (alphaNum, digit, letter)
 import Text.Parsec.Prim (try)
 import Text.Parsec.Text ()
 
@@ -138,12 +140,16 @@ enter = do
 reservedIdents :: [String]
 reservedIdents = ["data", "where", "impossible"]
 
-identifier :: Parser String
-identifier = try $ do
+anyIdentifier :: Parser String
+anyIdentifier = try $ do
   first <- letter <|> char '_'
   rest <- many (alphaNum <|> char '_' <|> char '\'')
   white
-  let name = first : rest
+  return $ first : rest
+
+identifier :: Parser String
+identifier = try $ do
+  name <- anyIdentifier
   if name `elem` reservedIdents
     then fail $ "Identifier " ++ name ++ " is reserved"
     else return name
@@ -336,8 +342,9 @@ piTOrSigmaT = try . locatedTerm $ do
 -- | Parse an application.
 app :: Parser Term
 app = try $ do
-  ts <- many1 singleTerm
-  return $ listToApp ts
+  t <- singleTerm
+  ts <- many singleTerm
+  return $ listToApp (t, ts)
 
 -- | Parse a single term, application, equality type or list cons.
 singleAppOrEqTOrCons :: Parser Term
@@ -436,3 +443,43 @@ resolveTerm = mapTermM r
       t1' <- resolveTerm t1
       return (Replace (Term (LTESucc t1') d))
     r _ = return Continue
+
+-- | Parse a set of refactoring arguments.
+refactorArgs :: Parser RefactorArgs
+refactorArgs = RefactorArgs <$> sepBy refactorArg (symbol ",")
+
+-- | Parse a refactoring argument.
+refactorArg :: Parser (String, RefactorArgKind)
+refactorArg = do
+  name <- anyIdentifier
+  _ <- symbol "="
+  kind <- refactorArgKind
+  return (name, kind)
+
+-- | Parse an integer.
+integer :: Parser Int
+integer = do
+  digits <- many1 digit
+  return $ read digits
+
+-- | Parse a position.
+position :: Parser Pos
+position = do
+  line <- integer
+  _ <- char ':'
+  col <- integer
+  return $ Pos line col
+
+-- | Parse a refactoring argument kind.
+refactorArgKind :: Parser RefactorArgKind
+refactorArgKind =
+  try (Position <$> position)
+    <|> try (Idx <$> integer)
+    <|> try (Name <$> anyIdentifier)
+    <|> (Expr <$> between (symbol "`") (symbol "`") term)
+
+-- | Parse a term from a string.
+parseRefactorArgs :: String -> Either String RefactorArgs
+parseRefactorArgs contents = case runParser (refactorArgs <* eof) initialParserState "" (fromString contents) of
+  Left err -> Left $ show err
+  Right p -> Right p

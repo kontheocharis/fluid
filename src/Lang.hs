@@ -33,6 +33,7 @@ module Lang
     termDataAt,
     locatedAt,
     typedAs,
+    appToList,
   )
 where
 
@@ -193,8 +194,13 @@ listToPiType ([], ty) = ty
 listToPiType ((v, ty1) : tys, ty2) = Term (PiT v ty1 (listToPiType (tys, ty2))) emptyTermData
 
 -- | Convert a *non-empty* list of terms to an application term
-listToApp :: [Term] -> Term
-listToApp = foldl1 (\acc x -> Term (App acc x) (termDataAt (termLoc acc <> termLoc x)))
+listToApp :: (Term, [Term]) -> Term
+listToApp (t, ts) = foldl (\acc x -> Term (App acc x) (termDataAt (termLoc acc <> termLoc x))) t ts
+
+-- | Convert an application term to a *non-empty* list of terms
+appToList :: Term -> (Term, [Term])
+appToList (Term (App t1 t2) _) = let (t, ts) = appToList t1 in (t, ts ++ [t2])
+appToList t = (t, [])
 
 -- | An item is either a declaration or a data item.
 data Item

@@ -1,0 +1,6 @@
+data Data1 : Nat -> List Nat -> Type  where
+    | C1 : (ind1 : List Nat) -> (ind2 : List Nat) -> (a:Type) -> (n: Nat) -> Data1 n ind1 -> Data1 n ind2 
+    | C2 : (n: Nat) -> (ind : List Nat) -> Nat -> Data1 n ind
+    | C3 : (ind :List Nat) -> Data1 Z ind
+
+
