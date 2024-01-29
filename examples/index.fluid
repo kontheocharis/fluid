@@ -1,3 +1,16 @@
 data Data1 : Nat -> Type where
   | Z1 : Data1 Z
   | S1 : (n : Nat) -> Data1 Z -> Data1 n
+
+
+main : Nat -> Nat
+main n = case n of
+  | Z => Z
+  | (S n) => S n
+
+
+main2 : Nat -> Nat
+main2 n = case n of
+  | Z => Z
+  | (S n) => S n
+

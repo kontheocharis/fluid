@@ -387,7 +387,7 @@ instance Show TermValue where
   show (SigmaT v t1 t2) = "(" ++ show v ++ " : " ++ show t1 ++ ") ** " ++ show t2
   show (Pair t1 t2) = "(" ++ show t1 ++ ", " ++ show t2 ++ ")"
   show t@(App _ _) = intercalate " " $ map (showSingle . termValue) (let (x, xs) = appToList (genTerm t) in x : xs)
-  show (Case t cs) = "case " ++ show t ++ " of\n" ++ intercalate "\n" (map (\(p, c) -> "  | " ++ show p ++ " => " ++ show c) cs)
+  show (Case t cs) = "case " ++ show t ++ " of\n" ++ intercalate "\n" (map (\(p, c) -> "  | " ++ (showSingle . termValue) p ++ " => " ++ show c) cs)
   show TyT = "Type"
   show Wild = "_"
   show (V v) = show v

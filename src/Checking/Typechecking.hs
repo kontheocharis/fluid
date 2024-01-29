@@ -258,6 +258,7 @@ checkTerm' (Term (Global g) _) typ = do
     Just (Left (Decl decl')) -> unifyTerms typ $ declTy decl'
     Just (Left (Data dat)) -> unifyTerms typ $ dataTy dat
     Just (Right ctor) -> unifyTerms typ $ ctorItemTy ctor
+checkTerm' (Term (Case _ _) _) _ = return noSub -- @@Todo
 checkTerm' (Term (Refl t) d1) typ = do
   ty <- freshHoleVar
   checkCtor [ty] [V ty] (locatedAt d1 (EqT t t)) [t] typ

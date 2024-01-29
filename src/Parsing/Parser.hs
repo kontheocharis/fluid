@@ -1,9 +1,11 @@
 module Parsing.Parser (parseProgram, parseTerm, parseRefactorArgs) where
 
 import Checking.Context (GlobalCtx (GlobalCtx))
+import Control.Monad (void)
 import Data.Char (isSpace)
 import Data.String
 import Data.Text (Text)
+import Debug.Trace (traceShow)
 import Lang
   ( Clause (..),
     CtorItem (..),
@@ -33,6 +35,7 @@ import Text.Parsec
     between,
     char,
     choice,
+    endOfLine,
     eof,
     getPosition,
     getState,
@@ -40,7 +43,9 @@ import Text.Parsec
     many1,
     modifyState,
     newline,
+    option,
     optionMaybe,
+    optional,
     putState,
     runParser,
     satisfy,
@@ -109,36 +114,33 @@ parens = between (symbol "(") (symbol ")")
 -- | Parse whitespace or comments.
 white :: Parser ()
 white = do
-  _ <-
-    many $
-      do
-        (do _ <- satisfy (\c -> isSpace c && c /= '\n'); return ())
-        <|> try
-          ( reservedOp "--"
-              >> many (satisfy (/= '\n'))
-              >> return ()
-          )
+  _ <- many $ (void . try) (satisfy (\c -> isSpace c && c /= '\n')) <|> comment
+  return ()
+
+comment :: Parser ()
+comment = do
+  _ <- try $ do
+    reservedOp "--"
+    _ <- many (satisfy (/= '\n'))
+    return ()
   return ()
 
 -- | Parse vertical whitespace (i.e. a new line) or horizontal whitespace or comments.
 anyWhite :: Parser ()
 anyWhite = do
-  _ <- many $ do
-    white
-    _ <- newline
-    white
+  _ <- many $ (void . try) (satisfy isSpace) <|> comment
   return ()
 
 -- | Parse vertical whitespace (i.e. a single new line).
 enter :: Parser ()
 enter = do
-  _ <- newline
+  _ <- endOfLine
   white
   return ()
 
 -- | Reserved identifiers.
 reservedIdents :: [String]
-reservedIdents = ["data", "where", "impossible"]
+reservedIdents = ["data", "where", "impossible", "case", "of"]
 
 anyIdentifier :: Parser String
 anyIdentifier = try $ do
@@ -274,7 +276,7 @@ declClause name = do
 -- Some are grouped to prevent lots of backtracking.
 term :: Parser Term
 term = do
-  t <- choice [piTOrSigmaT, lam, singleAppOrEqTOrCons]
+  t <- choice [caseExpr, piTOrSigmaT, lam, singleAppOrEqTOrCons]
   resolveTerm t
 
 -- | Parse a single term.
@@ -381,6 +383,22 @@ nil :: Parser Term
 nil = locatedTerm $ do
   reservedOp "[]"
   return LNil
+
+caseExpr :: Parser Term
+caseExpr = locatedTerm $ do
+  reserved "case"
+  t <- term
+  reserved "of"
+  clauses <- many caseClause
+  return $ Case t clauses
+
+caseClause :: Parser (Pat, Term)
+caseClause = do
+  try (anyWhite >> symbol "|")
+  p <- pat
+  reservedOp "=>"
+  t' <- term
+  return (p, t')
 
 -- | Resolve the "primitive" data types and constructors in a term.
 resolveTerm :: Term -> Parser Term
