@@ -31,7 +31,6 @@ import Control.Monad.Except (catchError, throwError)
 import Control.Monad.State (get)
 import Data.Bifunctor (second)
 import Data.Map (Map, (!?))
-import Debug.Trace (trace)
 import Lang
   ( Clause (..),
     CtorItem (..),
@@ -163,16 +162,24 @@ checkClause ((v, a) : as, t) (Clause (p : ps) r) = do
   (pt', _) <- enterPat $ checkTerm pt a
   let s' = Sub [(v, pt')]
   c <- checkClause (map (second (sub s')) as, sub s' t) (Clause ps r)
-  return $ prependPatToClause p c
+  return $ prependPatToClause pt' c
+checkClause ([], _) (ImpossibleClause []) = return (ImpossibleClause []) -- @@Todo: check
+checkClause ((v, a) : as, t) (ImpossibleClause (p : ps)) = do
+  pt <- patToTerm p
+  (pt', _) <- enterPat $ checkTerm pt a
+  let s' = Sub [(v, pt')]
+  c <- checkClause (map (second (sub s')) as, sub s' t) (ImpossibleClause ps)
+  return $ prependPatToClause pt' c
 checkClause ([], _) cl@(Clause (p : _) _) = throwError $ TooManyPatterns cl p
+checkClause ([], _) cl@(ImpossibleClause (p : _)) = throwError $ TooManyPatterns cl p
 checkClause ((_, t) : _, _) cl@(Clause [] _) = throwError $ TooFewPatterns cl t
-checkClause _ (ImpossibleClause _) = error "Impossible clauses not yet supported"
+checkClause ((_, t) : _, _) cl@(ImpossibleClause []) = throwError $ TooFewPatterns cl t
 
 -- | Check the type of a term, and set the type in the context.
 checkTerm :: Term -> Type -> Tc (Term, Type)
 checkTerm v t = do
   (v', t') <- checkTerm' v t
-  setType v' t'
+  setType v t'
   return (v', t')
 
 -- | Check the type of a term.
@@ -432,7 +439,6 @@ unifyTerms :: Term -> Term -> Tc ()
 unifyTerms a' b' = do
   a <- resolveShallow a'
   b <- resolveShallow b'
-  trace ("Unifying " ++ show a ++ " with " ++ show b) $ return ()
   case (classifyApp a, classifyApp b) of
     (Just (Flex v1 _), Just (Flex v2 _)) | v1 == v2 -> unifyTerms' a b
     (Just (Flex h1 ts1), _) -> solve h1 ts1 b
@@ -555,7 +561,7 @@ validateProb hole (x : xs) rhs = do
     V v -> do
       xs' <- validateProb hole xs rhs
       return $ v : xs'
-    _ -> throwError $ Mismatch (genTerm (Hole hole)) rhs -- @@Todo : better error message
+    _ -> throwError $ Mismatch (listToApp (genTerm (Meta hole), x : xs)) rhs -- @@Todo : better error message
 
 -- | Solve a pattern unification problem.
 solve :: Var -> [Term] -> Term -> Tc ()
