@@ -36,8 +36,7 @@ import Control.Applicative ((<|>))
 import Control.Monad.Except (throwError)
 import Control.Monad.State (MonadState (..), StateT (runStateT))
 import Data.List (find, intercalate)
-import Data.Map (Map, empty, insert, (!?))
-import Debug.Trace (trace)
+import Data.Map (Map, empty, insert)
 import Lang
   ( Clause,
     CtorItem (..),
