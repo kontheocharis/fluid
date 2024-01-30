@@ -23,7 +23,9 @@ import Checking.Context
     lookupType,
     modifyCtx,
     modifyGlobalCtx,
+    resolveShallow,
     setType,
+    solveHole,
   )
 import Checking.Vars (Sub (..), Subst (sub), alphaRename, noSub, subVar)
 import Control.Monad (foldM, replicateM)
@@ -48,6 +50,7 @@ import Lang
     TypeValue,
     Var,
     genTerm,
+    lams,
     listToApp,
     listToPiType,
     locatedAt,
@@ -520,3 +523,21 @@ patToTerm =
           return . Replace $ Term (V v) (termData t)
         _ -> return Continue
     )
+
+-- | Validate a pattern unification problem, returning the spine variables.
+validateProb :: Var -> [Term] -> Term -> Tc [Var]
+validateProb _ [] _ = return []
+validateProb hole (x : xs) rhs = do
+  x' <- resolveShallow x
+  case termValue x' of
+    V v -> do
+      xs' <- validateProb hole xs rhs
+      return $ v : xs'
+    _ -> throwError $ Mismatch (genTerm (Hole hole)) rhs -- @@Todo : better error message
+
+-- | Solve a pattern unification problem.
+solve :: Var -> [Term] -> Term -> Tc ()
+solve hole spine rhs = do
+  vars <- validateProb hole spine rhs
+  solution <- normaliseTermFully (lams vars rhs)
+  solveHole hole solution

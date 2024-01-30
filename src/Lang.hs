@@ -34,6 +34,7 @@ module Lang
     locatedAt,
     typedAs,
     appToList,
+    lams,
   )
 where
 
@@ -51,7 +52,7 @@ type GlobalName = String
 
 -- | A variable
 -- Represented by a string name and a unique integer identifier (no shadowing).
-data Var = Var String Int deriving (Eq)
+data Var = Var String Int deriving (Eq, Ord)
 
 -- | A term
 data TermValue
@@ -202,6 +203,11 @@ listToApp (t, ts) = foldl (\acc x -> Term (App acc x) (termDataAt (termLoc acc <
 appToList :: Term -> (Term, [Term])
 appToList (Term (App t1 t2) _) = let (t, ts) = appToList t1 in (t, ts ++ [t2])
 appToList t = (t, [])
+
+-- | Wrap a term in `n` lambdas.
+lams :: [Var] -> Term -> Term
+lams [] t = t
+lams (v : vs) t = Term (Lam v (lams vs t)) (termDataAt t)
 
 -- | An item is either a declaration or a data item.
 data Item

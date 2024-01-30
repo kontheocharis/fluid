@@ -5,7 +5,6 @@ import Control.Monad (void)
 import Data.Char (isSpace)
 import Data.String
 import Data.Text (Text)
-import Debug.Trace (traceShow)
 import Lang
   ( Clause (..),
     CtorItem (..),
@@ -42,10 +41,7 @@ import Text.Parsec
     many,
     many1,
     modifyState,
-    newline,
-    option,
     optionMaybe,
-    optional,
     putState,
     runParser,
     satisfy,

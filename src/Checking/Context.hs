@@ -27,6 +27,8 @@ module Checking.Context
     modifyGlobalCtx,
     runTc,
     setType,
+    solveHole,
+    resolveShallow,
   )
 where
 
@@ -104,12 +106,14 @@ data TcState = TcState
     -- | Whether we are in a pattern
     inPat :: Bool,
     -- | Term types, indexed by location.
-    termTypes :: Map Loc Type
+    termTypes :: Map Loc Type,
+    -- | Holes
+    holeValues :: Map Var Term
   }
 
 -- | The empty typechecking state.
 emptyTcState :: TcState
-emptyTcState = TcState (Ctx []) (GlobalCtx []) 0 False empty
+emptyTcState = TcState (Ctx []) (GlobalCtx []) 0 False empty empty
 
 -- | The typechecking monad.
 type Tc a = StateT TcState (Either TcError) a
@@ -251,3 +255,21 @@ freshHoleVar = do
 -- | Get a fresh hole.
 freshHole :: Tc Term
 freshHole = genTerm . Hole <$> freshHoleVar
+
+-- | Solve a hole.
+solveHole :: Var -> Term -> Tc ()
+solveHole h t = do
+  s <- get
+  put $ s {holeValues = insert h t (holeValues s)}
+
+-- | Resolve a term by filling in holes if present.
+resolveShallow :: Term -> Tc Term
+resolveShallow (Term (Hole h) d) = do
+  s <- get
+  case holeValues s !? h of
+    Just t -> resolveShallow t
+    Nothing -> return $ Term (Hole h) d
+resolveShallow (Term (App t1 t2) d) = do
+  t1' <- resolveShallow t1
+  return $ Term (App t1' t2) d
+resolveShallow t = return t

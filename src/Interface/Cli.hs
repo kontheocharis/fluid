@@ -7,21 +7,19 @@ import Checking.Typechecking (checkProgram, inferTerm, normaliseTermFully)
 import Control.Monad (void, when)
 import Control.Monad.Cont (MonadIO (liftIO))
 import Data.Char (isSpace)
-import Data.List (isPrefixOf, isSuffixOf, unfoldr)
 import Data.String
 import Data.Text.IO (hPutStrLn)
-import Lang (Pos (..), Program)
+import Lang (Program)
 import Options.Applicative (execParser, value, (<**>), (<|>))
 import Options.Applicative.Builder (fullDesc, header, help, info, long, maybeReader, option, progDesc, short, strOption, switch)
 import Options.Applicative.Common (Parser)
 import Options.Applicative.Extra (helper)
 import Parsing.Parser (parseProgram, parseRefactorArgs, parseTerm)
 import Refactoring.SpecCtor (specCtor)
-import Refactoring.Utils (FromRefactorArgs (..), Refact, RefactorArgKind (..), RefactorArgs (..), evalRefact)
+import Refactoring.Utils (FromRefactorArgs (..), Refact, RefactorArgs (..), evalRefact)
 import System.Console.Haskeline (InputT, defaultSettings, getInputLine, outputStrLn, runInputT)
 import System.Exit (exitFailure)
 import System.IO (stderr)
-import Text.Read (readMaybe)
 
 -- | What mode to run in.
 data Mode
