@@ -5,6 +5,7 @@ module Checking.Context
     TcState (..),
     Tc,
     TcError (..),
+    FlexApp (..),
     emptyTcState,
     inGlobalCtx,
     inCtx,
@@ -19,16 +20,16 @@ module Checking.Context
     isPatBind,
     enterPat,
     lookupType,
-    freshHole,
-    freshHoleVar,
     freshVar,
     modifyCtx,
     enterCtx,
     modifyGlobalCtx,
     runTc,
     setType,
-    solveHole,
+    solveMeta,
+    freshMeta,
     resolveShallow,
+    classifyApp,
   )
 where
 
@@ -52,6 +53,7 @@ import Lang
     Var (..),
     genTerm,
     itemName,
+    listToApp,
   )
 
 -- | A typing judgement.
@@ -108,7 +110,7 @@ data TcState = TcState
     -- | Term types, indexed by location.
     termTypes :: Map Loc Type,
     -- | Holes
-    holeValues :: Map Var Term
+    metaValues :: Map Var Term
   }
 
 -- | The empty typechecking state.
@@ -237,47 +239,58 @@ addItem :: Item -> GlobalCtx -> GlobalCtx
 addItem d (GlobalCtx c) = GlobalCtx (d : c)
 
 -- | Get a fresh variable.
-freshVar :: Tc Var
-freshVar = do
+freshVarPrefixed :: String -> Tc Var
+freshVarPrefixed n = do
   s <- get
   let h = varCounter s
   put $ s {varCounter = h + 1}
-  return $ Var ("v" ++ show h) h
+  return $ Var (n ++ show h) h
 
 -- | Get a fresh variable.
-freshHoleVar :: Tc Var
-freshHoleVar = do
+freshVar :: Tc Var
+freshVar = freshVarPrefixed "v"
+
+-- | Get all variables in a context.
+ctxVars :: Ctx -> [Var]
+ctxVars (Ctx []) = []
+ctxVars (Ctx ((Typing v _ _) : c)) = v : ctxVars (Ctx c)
+
+-- | Get a fresh applied metavariable in the current context.
+freshMeta :: Tc Term
+freshMeta = do
+  v <- freshVarPrefixed "m"
+  vrs <- inCtx ctxVars
+  return $ listToApp (genTerm (Meta v), map (genTerm . V) vrs)
+
+-- | Solve a meta.
+solveMeta :: Var -> Term -> Tc ()
+solveMeta h t = do
   s <- get
-  let h = varCounter s
-  put $ s {varCounter = h + 1}
-  return $ Var ("h" ++ show h) h
+  put $ s {metaValues = insert h t (metaValues s)}
 
--- | Get a fresh hole.
-freshHole :: Tc Term
-freshHole = genTerm . Hole <$> freshHoleVar
-
--- | Solve a hole.
-solveHole :: Var -> Term -> Tc ()
-solveHole h t = do
-  s <- get
-  put $ s {holeValues = insert h t (holeValues s)}
-
--- | Resolve a term by filling in holes if present.
+-- | Resolve a term by filling in metas if present.
 resolveShallow :: Term -> Tc Term
-resolveShallow (Term (Hole h) d) = do
+resolveShallow (Term (Meta h) d) = do
   s <- get
-  case holeValues s !? h of
+  case metaValues s !? h of
     Just t -> resolveShallow t
-    Nothing -> return $ Term (Hole h) d
+    Nothing -> return $ Term (Meta h) d
 resolveShallow (Term (App t1 t2) d) = do
   t1' <- resolveShallow t1
   return $ Term (App t1' t2) d
 resolveShallow t = return t
 
--- | Interpret a term as a flexible (hole) application.
-flexibleApp :: Term -> Maybe (Var, [Term])
-flexibleApp (Term (Hole h) _) = return (h, [])
-flexibleApp (Term (App t1 t2) _) = do
-  (h, ts) <- flexibleApp t1
-  return (h, ts ++ [t2])
-flexibleApp _ = Nothing
+-- | A flexible (meta) application.
+data FlexApp = Flex Var [Term]
+
+-- | Add a term to a `TermApp`
+addTerm :: Term -> FlexApp -> FlexApp
+addTerm t (Flex h ts) = Flex h (ts ++ [t])
+
+-- | Interpret a `TermApp`
+classifyApp :: Term -> Maybe FlexApp
+classifyApp (Term (Meta h) _) = return $ Flex h []
+classifyApp (Term (App t1 t2) _) = do
+  c <- classifyApp t1
+  return $ addTerm t2 c
+classifyApp _ = Nothing

@@ -4,6 +4,7 @@ module Lang
     Var (..),
     Term (..),
     TermValue (..),
+    HasTermValue (..),
     TermData (..),
     PatValue,
     TypeValue,
@@ -73,6 +74,8 @@ data TermValue
     Global String
   | -- | Hole identified by an integer
     Hole Var
+  | -- | Metavar identified by an integer
+    Meta Var
   | -- Data types:
     NatT
   | ListT Type
@@ -294,6 +297,7 @@ mapTermM f term = do
       (V v) -> return $ V v
       (Global s) -> return $ Global s
       (Hole i) -> return $ Hole i
+      (Meta i) -> return $ Meta i
       NatT -> return NatT
       (ListT t) -> ListT <$> mapTermM f t
       (MaybeT t) -> MaybeT <$> mapTermM f t
@@ -423,8 +427,9 @@ instance Show TermValue where
   show (V v) = show v
   show (Global s) = s
   show (Hole i) = "?" ++ show i
+  show (Meta i) = "!" ++ show i
   show NatT = "Nat"
-  show (ListT t) = "[" ++ show t ++ "]"
+  show (ListT t) = "List " ++ showSingle t
   show (MaybeT t) = "Maybe " ++ showSingle t
   show (VectT t n) = "Vect " ++ showSingle t ++ " " ++ showSingle n
   show (FinT t) = "Fin " ++ showSingle t
