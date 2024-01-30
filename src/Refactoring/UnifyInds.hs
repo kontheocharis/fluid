@@ -245,6 +245,7 @@ renameVars (newVar:varsToRename) (ImpossibleClause pats) =
 
 
 
+--like in clauses, but for handling case expressions
 updateUsecase_patTerm:: String -> [Int] -> (Pat,Term) -> (Pat,Term)
 updateUsecase_patTerm constrName indPosns (pat,term) = 
     let (patRes, varsToRename) = updateUsecase_pats constrName indPosns [pat] 
@@ -253,9 +254,7 @@ updateUsecase_patTerm constrName indPosns (pat,term) =
             case varsToRename of 
                 [] -> (patRes!!0, newrhs)
                 (newVar:varsToRename) -> (patRes!!0, renameVars_term newVar varsToRenameTV newrhs)
-
 --todo: Q: can we have case impossible?
-
 
 
 updateUsecase_patTerms:: String -> [Int] -> [(Pat,Term)] -> [(Pat,Term)]
@@ -307,7 +306,6 @@ updateUsecase datName constrName indPosns (Program itemL) =
 
 ---------------------------------------------------
 
-
 --given data name, and constructor name, positions I of the index to unify (index from 0, right to left), 
 --all variables in I\I1 will now have the name of I1
 --TODO: move the biggest number in I to the front so that we retain the earliest var
@@ -319,16 +317,16 @@ unifyInds_ast datName constrName indPosns ast =
 ---------------------------------------------------
 
 
--- Arguments to the specialise constructor refactoring.
+-- Arguments to the unify indices refactoring.
 data UnifyIndsArgs = UnifyIndsArgs
-  { -- | The name of the data type to specialise.
+  { -- | The name of the data type of the constructor 
     unifyIndsDataName :: String,
-    -- | The name of the constructor to specialise.
+    -- | The name of the constructor whose indices are to be unified
     unifyIndsCtorName :: String,
-    -- | The position of the index to specialise.
-    unifyIndIndPosToBeUnified  :: Int,
-    -- | The term to specialise the index to.
-    unifyIndIndPosToUnify :: Int
+    -- | The position of the index to be retained
+    unifyIndsUnifyToIndex  :: Int,
+    -- | The position of the index to be unified to the index above
+    unifyIndsIndexToUnify :: Int
   }
 
 instance FromRefactorArgs UnifyIndsArgs where
@@ -336,14 +334,12 @@ instance FromRefactorArgs UnifyIndsArgs where
     UnifyIndsArgs
       <$> lookupNameArg "data" args
       <*> lookupNameArg "ctor" args
-      <*> lookupIdxArg "indexToBeUnified" args
+      <*> lookupIdxArg "unifyToIndex" args
       <*> lookupIdxArg "indexToUnify" args
 
 -- | Specialise a constructor at a given index to a given term.
 unifyInds :: UnifyIndsArgs -> Program -> Refact Program
 unifyInds args ast = 
-    return (unifyInds_ast (unifyIndsDataName args) (unifyIndsCtorName args) ([unifyIndIndPosToBeUnified args]++[unifyIndIndPosToUnify args])  ast )
+    return (unifyInds_ast (unifyIndsDataName args) (unifyIndsCtorName args) [unifyIndsUnifyToIndex args,unifyIndsIndexToUnify args]  ast )
 
-
-
--- stack run -- -r app/Examples/test.fluid -n unify-inds -a 'data=Data2, ctor=C21, indexToBeUnified=4, indexToUnify=3'
+-- stack run -- -r examples/testUnifyInds.fluid -n unify-inds -a 'data=Data2, ctor=C21, unifyToIndex=4, indexToUnify=3'
