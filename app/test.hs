@@ -17,7 +17,7 @@ import Lang
     piTypeToList,
     listToPiType
   )
-import Refactoring.UnifyConstrIndices (unifyIndices_ast)
+import Refactoring.UnifyInds (unifyInds)
 
 
 
@@ -40,7 +40,7 @@ getAST fname fContents = case parseProgram fname fContents of
 tryRefactor:: String ->  String -> String -> [Int] -> Program 
 tryRefactor codeStr datName constrName indPosns =  
     let ast = getAST testFileName codeStr in 
-        unifyIndices_ast datName constrName indPosns ast 
+        unifyInds datName constrName indPosns ast 
             
 
 
@@ -55,7 +55,7 @@ showAll = do
   putStrLn fluidCode
   putStrLn "refactored code:"
  -- print (tryRefactor fluidCode "Data1" "C1" [5,4])  
-  print (tryRefactor fluidCode "Data2" "C21" [3,2])  
+  print (tryRefactor fluidCode "Data2" "C21" [4,3])  
   putStrLn ""
 
 

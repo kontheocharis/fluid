@@ -1,18 +1,20 @@
 
-data Data1 : List Nat -> Type  where
-    | C1 : (ind1 : List Nat) -> (ind2 : List Nat) -> (a:Type) -> (n: Nat) -> Data1 ind1 -> Data1 ind2 
-    | C2 : (ind : List Nat) -> Nat -> Data1 ind
-    | C3 : (ind :List Nat) -> Data1 ind
-
-
 data Data2 : Nat -> Type  where
-    | C21 : (n1: Nat) -> (n2:Nat) -> (n3:Nat) -> Data2 n2
-
+    | C21 : (n1: Nat) -> (n2:Nat) -> (n3:Nat) -> Data2 n2 -> Data2 n2
+    | C22 : (n1: Nat) -> Data2 n1
 
 g: (n1:Nat) -> (n2:Nat) -> (n3:Nat) ->  Data2 n2
-g n1 n2 n3  = C21 n1 n2 n3
+g n1 n2 n3  = C21 n1 n2 n3 (C22 n2)
+
+h: (n:Nat) -> (Data2 n) -> Nat
+h n (C21 n1 n2 n3 d) = n2
+h n (C22 n1) = n1
 
 
-h: (n:Nat) -> (Data2 n) -> (Nat ,Nat)
-h n2 (C21 n1 n2 n3) = (n2,n2) 
+f: (n:Nat) -> (Data2 n) -> Nat
+f n d = case d of 
+            | (C21 n1 n2 n3 d) => n2 
+            | (C22 n1) => n1
+
+
 
