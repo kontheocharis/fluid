@@ -2,22 +2,38 @@ module Lang
   ( Type,
     GlobalName,
     Var (..),
-    Pat,
     Term (..),
+    TermValue (..),
+    TermData (..),
+    PatValue,
+    TypeValue,
+    Loc (..),
+    Pos (..),
+    Pat,
     Item (..),
     DataItem (..),
     CtorItem (..),
     DeclItem (..),
     Program (..),
     Clause (..),
+    HasLoc (..),
+    TermMappable (..),
+    MapResult (..),
     mapTerm,
     mapTermM,
     clausePats,
     prependPatToClause,
     piTypeToList,
     listToPiType,
+    listToApp,
     itemName,
     isValidPat,
+    termLoc,
+    genTerm,
+    termDataAt,
+    locatedAt,
+    typedAs,
+    appToList,
   )
 where
 
@@ -38,13 +54,14 @@ type GlobalName = String
 data Var = Var String Int deriving (Eq)
 
 -- | A term
-data Term
+data TermValue
   = -- Dependently-typed lambda calculus with Pi and Sigma:
-    PiT Var Type Type
+    PiT Var Type Term
   | Lam Var Term
   | App Term Term
-  | SigmaT Var Type Type
+  | SigmaT Var Type Term
   | Pair Term Term
+  | Case Term [(Pat, Term)]
   | -- | Type of types (no universe polymorphism)
     TyT
   | -- | Variable
@@ -60,7 +77,7 @@ data Term
   | ListT Type
   | MaybeT Type
   | VectT Type Term
-  | FinT Term
+  | FinT Type
   | EqT Term Term
   | LteT Term Term
   | -- Constructors:
@@ -79,15 +96,112 @@ data Term
   | LTESucc Term
   deriving (Eq)
 
+-- | A term with associated data.
+data Term = Term {termValue :: TermValue, termData :: TermData} deriving (Eq)
+
+-- | Alias for type values (just for documentation purposes)
+type TypeValue = TermValue
+
+-- | Alias for pattern values (just for documentation purposes)
+type PatValue = TermValue
+
+-- | An optional location in the source code, represented by a start (inclusive) and
+-- end (exclusive) position.
+data Loc = NoLoc | Loc Pos Pos deriving (Eq)
+
+-- | A monoid instance for locations, that gets the maximum span.
+instance Monoid Loc where
+  mempty = NoLoc
+
+instance Semigroup Loc where
+  NoLoc <> NoLoc = NoLoc
+  NoLoc <> Loc s e = Loc s e
+  Loc s e <> NoLoc = Loc s e
+  Loc s1 e1 <> Loc s2 e2 = Loc (min s1 s2) (max e1 e2)
+
+instance Ord Loc where
+  NoLoc <= _ = True
+  _ <= NoLoc = False
+  Loc s1 e1 <= Loc s2 e2 = s1 <= s2 && e1 <= e2
+
+-- | A position in the source code, represented by a line and column number.
+data Pos = Pos Int Int deriving (Eq)
+
+-- | An ordering for positions, that gets the minimum position.
+instance Ord Pos where
+  Pos l1 c1 <= Pos l2 c2 = l1 < l2 || (l1 == l2 && c1 <= c2)
+
+-- | Get the starting position of a location.
+startPos :: Loc -> Maybe Pos
+startPos NoLoc = Nothing
+startPos (Loc start _) = Just start
+
+-- | Get the ending position of a location.
+endPos :: Loc -> Maybe Pos
+endPos NoLoc = Nothing
+endPos (Loc _ end) = Just end
+
+-- | Auxiliary data contained alongside a term.
+--
+-- For now stores only the location in the source code, but will
+-- be extended to store type information too.
+data TermData = TermData {loc :: Loc, annotTy :: Maybe Type} deriving (Eq)
+
+-- | Empty term data.
+emptyTermData :: TermData
+emptyTermData = TermData NoLoc Nothing
+
+-- | Class of types that have a location.
+class HasLoc a where
+  getLoc :: a -> Loc
+
+instance HasLoc Term where
+  getLoc = termLoc
+
+instance HasLoc TermData where
+  getLoc = loc
+
+instance HasLoc Loc where
+  getLoc = id
+
+-- | Create a term with the given value and location.
+locatedAt :: (HasLoc a) => a -> TermValue -> Term
+locatedAt a t = Term t (termDataAt (getLoc a))
+
+-- | Create term data with the given location.
+termDataAt :: (HasLoc a) => a -> TermData
+termDataAt x = TermData (getLoc x) Nothing
+
+-- | Get the term data from a term.
+termLoc :: Term -> Loc
+termLoc = loc . termData
+
+-- | Set the type annotation of a term.
+typedAs :: Type -> Term -> Term
+typedAs ty (Term t d) = Term t (d {annotTy = Just ty})
+
+-- | Generated term, no data
+genTerm :: TermValue -> Term
+genTerm t = Term t emptyTermData
+
 -- | Convert a pi type to a list of types and the return type.
 piTypeToList :: Type -> ([(Var, Type)], Type)
-piTypeToList (PiT v ty1 ty2) = let (tys, ty) = piTypeToList ty2 in ((v, ty1) : tys, ty)
+piTypeToList (Term (PiT v ty1 ty2) _) = let (tys, ty) = piTypeToList ty2 in ((v, ty1) : tys, ty)
 piTypeToList t = ([], t)
 
 -- | Convert a list of types and the return type to a pi type.
 listToPiType :: ([(Var, Type)], Type) -> Type
 listToPiType ([], ty) = ty
-listToPiType ((v, ty1) : tys, ty2) = PiT v ty1 (listToPiType (tys, ty2))
+listToPiType ((v, ty1) : tys, ty2) = Term (PiT v ty1 (listToPiType (tys, ty2))) emptyTermData
+
+-- | Convert a *non-empty* list of terms to an application term
+listToApp :: (Term, [Term]) -> Term
+listToApp (t, ts) = foldl (\acc x -> Term (App acc x) (termDataAt (termLoc acc <> termLoc x))) t ts
+
+-- | Convert an application term to a *non-empty* list of terms
+appToList :: Term -> (Term, [Term])
+appToList (Term (App t1 t2) _) = let (t, ts) = appToList t1 in (t, ts ++ [t2])
+appToList t = (t, [])
 
 -- | An item is either a declaration or a data item.
 data Item
@@ -142,21 +256,33 @@ prependPatToClause p (ImpossibleClause ps) = ImpossibleClause (p : ps)
 newtype Program = Program [Item]
   deriving (Eq)
 
+-- | Result of a term map.
+data MapResult a = Continue | Replace a | ReplaceAndContinue a
+
 -- | Apply a function to a term, if it is a Just, otherwise return the term.
-mapTerm :: (Term -> Maybe Term) -> Term -> Term
+mapTerm :: (Term -> MapResult Term) -> Term -> Term
 mapTerm f term = runIdentity $ mapTermM (return . f) term
 
 -- | Apply a function to a term, if it is a Just, otherwise return the term (monadic).
-mapTermM :: (Monad m) => (Term -> m (Maybe Term)) -> Term -> m Term
+mapTermM :: (Monad m) => (Term -> m (MapResult Term)) -> Term -> m Term
 mapTermM f term = do
   term' <- f term
   case term' of
-    Nothing -> case term of
+    Continue -> do
+      mappedTerm <- mapTermRec term
+      return (Term mappedTerm (termData term))
+    ReplaceAndContinue t' -> do
+      mappedTerm <- mapTermRec t'
+      return (Term mappedTerm (termData t'))
+    Replace t' -> return t'
+  where
+    mapTermRec t' = case termValue t' of
       (PiT v t1 t2) -> PiT v <$> mapTermM f t1 <*> mapTermM f t2
       (Lam v t) -> Lam v <$> mapTermM f t
       (App t1 t2) -> App <$> mapTermM f t1 <*> mapTermM f t2
       (SigmaT v t1 t2) -> SigmaT v <$> mapTermM f t1 <*> mapTermM f t2
       (Pair t1 t2) -> Pair <$> mapTermM f t1 <*> mapTermM f t2
+      (Case t cs) -> Case <$> mapTermM f t <*> mapM (\(p, c) -> (,) <$> mapTermM f p <*> mapTermM f c) cs
       TyT -> return TyT
       Wild -> return Wild
       (V v) -> return $ V v
@@ -182,18 +308,110 @@ mapTermM f term = do
       (Refl t) -> Refl <$> mapTermM f t
       LTEZero -> return LTEZero
       (LTESucc t) -> LTESucc <$> mapTermM f t
-    Just t' -> return t'
+
+class TermMappable t where
+  -- | Apply a term function to an item.
+  mapTermMappableM :: (Monad m) => (Term -> m (MapResult Term)) -> t -> m t
+
+  -- | Apply a term function to an item (non-monadic)
+  mapTermMappable :: (Term -> MapResult Term) -> t -> t
+  mapTermMappable f = runIdentity . mapTermMappableM (return . f)
+
+mapClauseM :: (Monad m) => (Term -> m (MapResult Term)) -> Clause -> m Clause
+mapClauseM f (Clause p t) = Clause <$> mapM (mapTermM f) p <*> mapTermM f t
+mapClauseM f (ImpossibleClause p) = ImpossibleClause <$> mapM (mapTermM f) p
+
+-- | Apply a term function to a constructor item.
+mapCtorItemM :: (Monad m) => (Term -> m (MapResult Term)) -> CtorItem -> m CtorItem
+mapCtorItemM f (CtorItem name ty d) = CtorItem name <$> mapTermM f ty <*> pure d
+
+-- | Apply a term function to a declaration item.
+mapItemM :: (Monad m) => (Term -> m (MapResult Term)) -> Item -> m Item
+mapItemM f (Decl (DeclItem name ty clauses)) = Decl <$> (DeclItem name <$> mapTermM f ty <*> mapM (mapClauseM f) clauses)
+mapItemM f (Data (DataItem name ty ctors)) = Data <$> (DataItem name <$> mapTermM f ty <*> mapM (mapCtorItemM f) ctors)
+
+-- | Apply a term function to a program.
+mapProgramM :: (Monad m) => (Term -> m (MapResult Term)) -> Program -> m Program
+mapProgramM f (Program items) = Program <$> mapM (mapItemM f) items
+
+instance TermMappable Term where
+  mapTermMappableM = mapTermM
+
+instance TermMappable Clause where
+  mapTermMappableM = mapClauseM
+
+instance TermMappable CtorItem where
+  mapTermMappableM = mapCtorItemM
+
+instance TermMappable Item where
+  mapTermMappableM = mapItemM
+
+instance TermMappable Program where
+  mapTermMappableM = mapProgramM
+
+instance TermMappable () where
+  mapTermMappableM _ = return
 
 -- Show instances for pretty printing:
 instance Show Var where
   show (Var s _) = s
 
-instance Show Term where
+class HasTermValue a where
+  getTermValue :: a -> TermValue
+
+instance HasTermValue Term where
+  getTermValue = termValue
+
+instance HasTermValue TermValue where
+  getTermValue = id
+
+-- | Show a term value, with parentheses if it is compound.
+showSingle :: (HasTermValue a, Show a) => a -> String
+showSingle v | (isCompound . getTermValue) v = "(" ++ show v ++ ")"
+showSingle v = show v
+
+-- | Check if a term is compound (i.e. contains spaces), for formatting purposes.
+isCompound :: (HasTermValue a) => a -> Bool
+isCompound x =
+  let x' = getTermValue x
+   in case x' of
+        (PiT {}) -> True
+        (Lam _ _) -> True
+        (App _ _) -> True
+        (SigmaT {}) -> True
+        (MaybeT _) -> True
+        (VectT _ _) -> True
+        (EqT _ _) -> True
+        (FinT _) -> True
+        (LteT _ _) -> True
+        (FS _) -> True
+        (S _) -> True
+        (LCons _ _) -> True
+        (VCons _ _) -> True
+        (MJust _) -> True
+        (Refl _) -> True
+        (LTESucc _) -> True
+        _ -> False
+
+-- | Replace each newline with a newline followed by 2 spaces.
+indented :: String -> String
+indented str
+  | (l : ls) <- lines str = intercalate "\n" $ l : map ("  " ++) ls
+  | [] <- lines str = ""
+
+instance Show TermValue where
   show (PiT v t1 t2) = "(" ++ show v ++ " : " ++ show t1 ++ ") -> " ++ show t2
-  show (Lam v t) = "(\\" ++ show v ++ " => " ++ show t ++ ")"
-  show (App t1 t2) = "(" ++ show t1 ++ " " ++ show t2 ++ ")"
+  show (Lam v t) = "\\" ++ show v ++ " => " ++ show t
   show (SigmaT v t1 t2) = "(" ++ show v ++ " : " ++ show t1 ++ ") ** " ++ show t2
   show (Pair t1 t2) = "(" ++ show t1 ++ ", " ++ show t2 ++ ")"
+  show t@(App _ _) = intercalate " " $ map showSingle (let (x, xs) = appToList (genTerm t) in x : xs)
+  show (Case t cs) =
+    "case "
+      ++ show t
+      ++ " of\n"
+      ++ intercalate
+        "\n"
+        (map (\(p, c) -> "  | " ++ showSingle p ++ " => " ++ indented (show c)) cs)
   show TyT = "Type"
   show Wild = "_"
   show (V v) = show v
@@ -201,24 +419,37 @@ instance Show Term where
   show (Hole i) = "?" ++ show i
   show NatT = "Nat"
   show (ListT t) = "[" ++ show t ++ "]"
-  show (MaybeT t) = "Maybe " ++ show t
-  show (VectT t n) = "Vect " ++ show t ++ " " ++ show n
-  show (FinT t) = "Fin " ++ show t
-  show (EqT t1 t2) = show t1 ++ " = " ++ show t2
-  show (LteT t1 t2) = "LTE " ++ show t1 ++ " " ++ show t2
+  show (MaybeT t) = "Maybe " ++ showSingle t
+  show (VectT t n) = "Vect " ++ showSingle t ++ " " ++ showSingle n
+  show (FinT t) = "Fin " ++ showSingle t
+  show (EqT t1 t2) = showSingle t1 ++ " = " ++ showSingle t2
+  show (LteT t1 t2) = "LTE " ++ showSingle t1 ++ " " ++ showSingle t2
   show FZ = "FZ"
-  show (FS t) = "(FS " ++ show t ++ ")"
+  show (FS t) = "FS " ++ showSingle t
   show Z = "Z"
-  show (S t) = "(S " ++ show t ++ ")"
+  show (S t) = "S " ++ showSingle t
   show LNil = "[]"
-  show (LCons t1 t2) = "(" ++ show t1 ++ "::" ++ show t2 ++ ")"
+  show (LCons t1 t2) = showSingle t1 ++ "::" ++ showSingle t2
   show VNil = "[]"
-  show (VCons t1 t2) = "(" ++ show t1 ++ "::" ++ show t2 ++ ")"
-  show (MJust t) = "(Just " ++ show t ++ ")"
+  show (VCons t1 t2) = "VCons " ++ showSingle t1 ++ " " ++ showSingle t2
+  show (MJust t) = "Just " ++ showSingle t
   show MNothing = "Nothing"
-  show (Refl t) = "(Refl " ++ show t ++ ")"
+  show (Refl t) = "Refl " ++ showSingle t
   show LTEZero = "LTEZero"
-  show (LTESucc t) = "(LTESucc " ++ show t ++ ")"
+  show (LTESucc t) = "LTESucc " ++ showSingle t
+
+instance Show Loc where
+  show NoLoc = ""
+  show (Loc l c) = show l ++ "--" ++ show c
+
+instance Show Pos where
+  show (Pos l c) = show l ++ ":" ++ show c
+
+instance Show TermData where
+  show (TermData l t) = "loc=" ++ show l ++ ", type=" ++ show t
+
+instance Show Term where
+  show (Term t _) = show t
 
 instance Show Item where
   show (Decl d) = show d
@@ -245,21 +476,21 @@ instance Show Program where
 
 -- | Check if a given term is a valid pattern (no typechecking).
 isValidPat :: Term -> Bool
-isValidPat (App a b) = isValidPat a && isValidPat b
-isValidPat (V _) = True
-isValidPat Wild = True
-isValidPat (Pair p1 p2) = isValidPat p1 && isValidPat p2
-isValidPat LNil = True
-isValidPat (LCons p1 p2) = isValidPat p1 && isValidPat p2
-isValidPat VNil = True
-isValidPat (VCons p1 p2) = isValidPat p1 && isValidPat p2
-isValidPat FZ = True
-isValidPat (FS p) = isValidPat p
-isValidPat Z = True
-isValidPat (S p) = isValidPat p
-isValidPat (MJust p) = isValidPat p
-isValidPat MNothing = True
-isValidPat (Refl p) = isValidPat p
-isValidPat LTEZero = True
-isValidPat (LTESucc p) = isValidPat p
+isValidPat (Term (App a b) _) = isValidPat a && isValidPat b
+isValidPat (Term (V _) _) = True
+isValidPat (Term Wild _) = True
+isValidPat (Term (Pair p1 p2) _) = isValidPat p1 && isValidPat p2
+isValidPat (Term LNil _) = True
+isValidPat (Term (LCons p1 p2) _) = isValidPat p1 && isValidPat p2
+isValidPat (Term VNil _) = True
+isValidPat (Term (VCons p1 p2) _) = isValidPat p1 && isValidPat p2
+isValidPat (Term FZ _) = True
+isValidPat (Term (FS p) _) = isValidPat p
+isValidPat (Term Z _) = True
+isValidPat (Term (S p) _) = isValidPat p
+isValidPat (Term (MJust p) _) = isValidPat p
+isValidPat (Term MNothing _) = True
+isValidPat (Term (Refl p) _) = isValidPat p
+isValidPat (Term LTEZero _) = True
+isValidPat (Term (LTESucc p) _) = isValidPat p
 isValidPat _ = False

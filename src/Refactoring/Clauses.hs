@@ -1,6 +1,6 @@
 module Refactoring.Clauses (expandDeclItemPat, expandDeclItemFully) where
 
-import Lang (Clause (..), DeclItem (..), Pat, Term (..), Type, piTypeToList)
+import Lang (Clause (..), DeclItem (..), Pat, Term (termValue), TermValue (..), Type, genTerm, piTypeToList)
 
 -- | Expand all wildcard patterns in a declaration, one level deep.
 expandDeclItemFully :: DeclItem -> DeclItem
@@ -40,10 +40,12 @@ expandClausePat ty idx clause = expandedClauses
 --
 -- For now this only expands wildcards.
 expandPat :: Type -> Pat -> [Pat]
-expandPat NatT Wild = [Z, S Wild]
-expandPat (FinT _) Wild = [FZ, FS Wild]
-expandPat (ListT _) Wild = [VNil, VCons Wild Wild]
-expandPat (MaybeT _) Wild = [MNothing, MJust Wild]
-expandPat (VectT _ _) Wild = [LNil, LCons Wild Wild]
-expandPat (SigmaT {}) Wild = [Pair Wild Wild]
-expandPat _ p = [p]
+expandPat t p = expandPat' (termValue t) (termValue p)
+  where
+    expandPat' NatT Wild = [genTerm Z, genTerm (S (genTerm Wild))]
+    expandPat' (FinT _) Wild = [genTerm FZ, genTerm (FS (genTerm Wild))]
+    expandPat' (ListT _) Wild = [genTerm VNil, genTerm (VCons (genTerm Wild) (genTerm Wild))]
+    expandPat' (MaybeT _) Wild = [genTerm MNothing, genTerm (MJust (genTerm Wild))]
+    expandPat' (VectT _ _) Wild = [genTerm LNil, genTerm (LCons (genTerm Wild) (genTerm Wild))]
+    expandPat' (SigmaT {}) Wild = [genTerm (Pair (genTerm Wild) (genTerm Wild))]
+    expandPat' _ p' = [genTerm p']

@@ -1,3 +1,4 @@
+
 data Data1 : List Nat -> Type  where
     | C1 : (ind1 : List Nat) -> (ind2 : List Nat) -> (a:Type) -> (n: Nat) -> Data1 ind1 -> Data1 ind2 
     | C2 : (ind : List Nat) -> Nat -> Data1 ind
