@@ -2,7 +2,7 @@
 
 module Interface.Cli (runCli) where
 
-import Checking.Context (Tc, runTc)
+import Checking.Context (Tc, TcState, runTc)
 import Checking.Typechecking (checkProgram, inferTerm, normaliseTermFully)
 import Control.Monad (void, when)
 import Control.Monad.Cont (MonadIO (liftIO))
@@ -149,9 +149,10 @@ parseAndCheckFile file flags = do
   contents <- liftIO $ readFile file
   parsed <- handleParse err (parseProgram file contents)
   when (dumpParsed flags) $ msg $ "Parsed program:\n" ++ show parsed
-  checked <- handleTc err (checkProgram parsed)
+  (checked, state) <- handleTc err (checkProgram parsed)
   when (verbose flags) $ msg "\nTypechecked program successfully"
   when (dumpParsed flags) $ msg $ "Parsed + checked program:\n" ++ show checked
+  when (verbose flags) $ msg $ "\nEnding state:\n" ++ show state
   return checked
 
 -- | Apply a refactoring to a file.
@@ -195,8 +196,8 @@ handleParse er res = do
     Right p -> return p
 
 -- | Handle a checking result.
-handleTc :: (String -> InputT IO a) -> Tc a -> InputT IO a
+handleTc :: (String -> InputT IO (a, TcState)) -> Tc a -> InputT IO (a, TcState)
 handleTc er a = do
   case runTc a of
     Left e -> er $ "Error: " ++ show e
-    Right p -> return p
+    Right (p, s) -> return (p, s)

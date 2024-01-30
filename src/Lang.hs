@@ -441,7 +441,7 @@ instance Show TermValue where
   show (S t) = "S " ++ showSingle t
   show LNil = "[]"
   show (LCons t1 t2) = showSingle t1 ++ "::" ++ showSingle t2
-  show VNil = "[]"
+  show VNil = "VNil"
   show (VCons t1 t2) = "VCons " ++ showSingle t1 ++ " " ++ showSingle t2
   show (MJust t) = "Just " ++ showSingle t
   show MNothing = "Nothing"

@@ -28,7 +28,6 @@ module Checking.Context
     setType,
     solveMeta,
     freshMeta,
-    resolveShallow,
     classifyApp,
   )
 where
@@ -74,7 +73,7 @@ instance Show Ctx where
   show (Ctx js) = intercalate "\n" $ map show js
 
 -- | The global context, represented as a list of string-decl pairs.
-newtype GlobalCtx = GlobalCtx [Item]
+newtype GlobalCtx = GlobalCtx [Item] deriving (Show)
 
 -- | A typechecking error.
 data TcError
@@ -86,6 +85,7 @@ data TcError
   | NeedMoreTypeHints [Var]
   | TooManyPatterns Clause Pat
   | TooFewPatterns Clause Type
+  | NotAFunction Term
 
 instance Show TcError where
   show (VariableNotFound v) = "Variable not found: " ++ show v
@@ -96,6 +96,7 @@ instance Show TcError where
   show (NeedMoreTypeHints vs) = "Need more type hints to resolve the holes: " ++ show vs
   show (TooManyPatterns c p) = "Too many patterns in '" ++ show c ++ "' . Unexpected: " ++ show p
   show (TooFewPatterns c t) = "Too few patterns in '" ++ show c ++ "'. Expected pattern for: " ++ show t
+  show (NotAFunction t) = "Not a function: " ++ show t
 
 -- | The typechecking state.
 data TcState = TcState
@@ -112,6 +113,7 @@ data TcState = TcState
     -- | Meta values, indexed by variable.
     metaValues :: Map Var Term
   }
+  deriving (Show)
 
 -- | The empty typechecking state.
 emptyTcState :: TcState
@@ -121,10 +123,10 @@ emptyTcState = TcState (Ctx []) (GlobalCtx []) 0 False empty empty
 type Tc a = StateT TcState (Either TcError) a
 
 -- | Run a typechecking computation.
-runTc :: Tc a -> Either TcError a
+runTc :: Tc a -> Either TcError (a, TcState)
 runTc tc = do
-  (res, _) <- runStateT tc emptyTcState
-  return res
+  (res, endState) <- runStateT tc emptyTcState
+  return (res, endState)
 
 -- | Map over some context.
 withSomeCtx :: (TcState -> c) -> (c -> Tc a) -> Tc a
@@ -152,9 +154,6 @@ inGlobalCtx f = withSomeCtx globalCtx (return . f)
 setType :: Term -> Type -> Tc ()
 setType t ty = do
   s <- get
-  case termTypes s !? getLoc t of
-    Just ty' -> trace ("Found existing type for " ++ show t ++ " : " ++ show ty ++ ", which is " ++ show ty') $ return ()
-    Nothing -> return ()
   put $ s {termTypes = insert (getLoc t) ty (termTypes s)}
 
 -- | Enter a pattern by setting the inPat flag to True.
@@ -267,18 +266,6 @@ solveMeta :: Var -> Term -> Tc ()
 solveMeta h t = do
   s <- get
   put $ s {metaValues = insert h t (metaValues s)}
-
--- | Resolve a term by filling in metas if present.
-resolveShallow :: Term -> Tc Term
-resolveShallow (Term (Meta h) d) = do
-  s <- get
-  case metaValues s !? h of
-    Just t -> resolveShallow t
-    Nothing -> return $ Term (Meta h) d
-resolveShallow (Term (App t1 t2) d) = do
-  t1' <- resolveShallow t1
-  return $ Term (App t1' t2) d
-resolveShallow t = return t
 
 -- | A flexible (meta) application.
 data FlexApp = Flex Var [Term]
