@@ -479,8 +479,8 @@ instance Show DeclItem where
   show (DeclItem v ty clauses) = intercalate "\n" ((v ++ " : " ++ show ty) : map (\c -> v ++ " " ++ show c) clauses)
 
 instance Show Clause where
-  show (Clause p t) = intercalate " " (map show p) ++ " = " ++ show t
-  show (ImpossibleClause p) = intercalate " " (map show p) ++ " impossible"
+  show (Clause p t) = intercalate " " (map showSingle p) ++ " = " ++ show t
+  show (ImpossibleClause p) = intercalate " " (map showSingle p) ++ " impossible"
 
 instance Show Program where
   show (Program ds) = intercalate "\n\n" $ map show ds
