@@ -17,6 +17,7 @@ import Checking.Context
     inCtx,
     inGlobalCtx,
     inState,
+    isPatBind,
     lookupItemOrCtor,
     lookupType,
     modifyCtx,
@@ -30,6 +31,7 @@ import Control.Monad.Except (catchError, throwError)
 import Control.Monad.State (get)
 import Data.Bifunctor (second)
 import Data.Map (Map, (!?))
+import Debug.Trace (trace)
 import Lang
   ( Clause (..),
     CtorItem (..),
@@ -430,6 +432,7 @@ unifyTerms :: Term -> Term -> Tc ()
 unifyTerms a' b' = do
   a <- resolveShallow a'
   b <- resolveShallow b'
+  trace ("Unifying " ++ show a ++ " with " ++ show b) $ return ()
   case (classifyApp a, classifyApp b) of
     (Just (Flex v1 _), Just (Flex v2 _)) | v1 == v2 -> unifyTerms' a b
     (Just (Flex h1 ts1), _) -> solve h1 ts1 b
@@ -450,6 +453,18 @@ unifyTerms a' b' = do
       unifyTerms l2 r2
     unifyTerms' (Term TyT _) (Term TyT _) = return ()
     unifyTerms' (Term (V l) _) (Term (V r) _) | l == r = return ()
+    unifyTerms' a@(Term (V l) _) b = do
+      pt <- inCtx (isPatBind l)
+      case pt of
+        Just True -> do
+          modifyCtx (sub (Sub [(l, b)]))
+        _ -> throwError $ Mismatch a b
+    unifyTerms' a b@(Term (V l) _) = do
+      pt <- inCtx (isPatBind l)
+      case pt of
+        Just True -> do
+          modifyCtx (sub (Sub [(l, a)]))
+        _ -> throwError $ Mismatch a b
     unifyTerms' a@(Term (Global l) _) b@(Term (Global r) _) =
       if l == r
         then return ()

@@ -1,27 +1,5 @@
--- data Data1 : Nat -> Type where
---   | Z1 : Data1 Z
---   | S1 : (n : Nat) -> Data1 Z -> Data1 n
---
---
--- toFin : (n : Nat) -> Fin (S n)
--- toFin n = case n of
---   | m => ?h1
---
-add : (n : Nat) -> (m : Nat) -> Nat
-add n m = case n of
-  | Z => m
-  | (S a) => S (add a m)
+reflexivity : (a : Type) -> (n : a) -> (n = n)
+reflexivity _ n = Refl n
 
-zeros : (n : Nat) -> Vect Nat n
-zeros Z = VNil
-zeros (S a) = VCons Z (zeros a)
-
-main : (n : _) -> Vect Nat _
-main m = VCons (S Z) (zeros m)
-
-main2 : Vect _ _
-main2 = VNil
-
-h: (n:Nat) -> (Data2 n) -> Nat
-h n (C21 n1 n2 n3 d) = n2
-h n (C22 n1) = n1
+symmetry : (a : Type) -> (n : a) -> (m : a) -> (n = m) -> (m = n)
+symmetry a n m (Refl x) = Refl x
