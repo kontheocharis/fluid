@@ -18,3 +18,6 @@ zeros (S a) = VCons Z (zeros a)
 
 main : (n : _) -> Vect Nat _
 main m = VCons (S Z) (zeros m)
+
+main2 : Vect _ _
+main2 = VNil
