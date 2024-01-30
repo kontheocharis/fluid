@@ -187,7 +187,8 @@ unifyTermsTo t1 t2 = do
   return t1
 
 -- | Check the type of a term. (The type itself should already be checked.)
--- This might produce a substitution.
+--
+-- This also performs elaboration by filling named holes and wildcards with metavariables.
 checkTerm' :: Term -> Type -> Tc (Term, Type)
 checkTerm' ((Term (Lam v t) d1)) ((Term (PiT var' ty1 ty2) d2)) = do
   (t', ty2') <- enterCtxMod (addTyping v ty1 False) $ checkTerm t (alphaRename var' (v, d2) ty2)
@@ -409,7 +410,7 @@ normaliseTerm (Term (App t1 t2) d1) = do
     Nothing -> return Nothing
     Just t1'' -> do
       return $ Just (Term (App t1'' t2) d1)
-normaliseTerm _ = return Nothing -- TODO: normalise declarations
+normaliseTerm _ = return Nothing -- @@Todo: normalise declarations
 
 -- | Reduce a term to normal form (fully).
 normaliseTermFully :: Term -> Tc Term
@@ -515,11 +516,6 @@ normaliseAndUnifyTerms l r = do
         Just r'' -> unifyTerms l r''
     Just l'' -> do
       unifyTerms l'' r
-
--- | Ensure that a substitution is empty.
-ensureEmptySub :: Sub -> Tc ()
-ensureEmptySub (Sub []) = return ()
-ensureEmptySub (Sub xs) = throwError $ NeedMoreTypeHints (map fst xs)
 
 -- | Convert a pattern to a term, converting wildcards to fresh variables.
 patToTerm :: Pat -> Tc Term

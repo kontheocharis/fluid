@@ -269,11 +269,11 @@ solveMeta h t = do
 -- | A flexible (meta) application.
 data FlexApp = Flex Var [Term]
 
--- | Add a term to a `TermApp`
+-- | Add a term to a `FlexApp`
 addTerm :: Term -> FlexApp -> FlexApp
 addTerm t (Flex h ts) = Flex h (ts ++ [t])
 
--- | Interpret a `TermApp`
+-- | Interpret a `FlexApp`
 classifyApp :: Term -> Maybe FlexApp
 classifyApp (Term (Meta h) _) = return $ Flex h []
 classifyApp (Term (App t1 t2) _) = do
