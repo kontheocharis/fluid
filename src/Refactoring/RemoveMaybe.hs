@@ -23,10 +23,6 @@ import Refactoring.Utils (FromRefactorArgs (..), Refact, lookupExprArg, lookupId
 
 --remove Just in a term
 removeJust_term:: Term -> Term 
-removeJust_term (Term (App term1 term2) termDat) = 
-  Term (App (removeJust_term term1) (removeJust_term term2))  termDat 
-removeJust_term (Term (Lam var term2) termDat) = Term (Lam var (removeJust_term term2)) termDat 
-removeJust_term (Term (Pair term1 term2) termDat) = Term (Pair (removeJust_term term1) (removeJust_term term2)) termDat 
 removeJust_term (Term (Case cterm ptList) termDat) = Term (Case cterm (map (\pair -> ((fst pair), removeJust_term (snd pair))) ptList)) termDat 
 removeJust_term (Term (MJust term) termDat) = term 
 removeJust_term term = term
@@ -111,4 +107,4 @@ removeMaybe args (Program itemL)=
           itemL
       ))
 
---stack run -- -r app/Examples/test.fluid -n remove-maybe -a 'func=f'
+--stack run -- -r examples/testRemoveMaybe.fluid -n remove-maybe -a 'func=f'
