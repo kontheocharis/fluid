@@ -60,31 +60,3 @@ showAll = do
 
 
 
-
-{-    
-original code:
-
-data Data2 : Nat -> Type  where
-    | C21 : (n1: Nat) -> (n2:Nat) -> (n3:Nat) -> Data2 n2
-
-
-g: (n1:Nat) -> (n2:Nat) -> (n3:Nat) ->  Data2 n2
-g n1 n2 n3  = C21 n1 n2 n3
-
-
-h: (n:Nat) -> (Data2 n) -> Nat
-h n2 (C21 n1 n2 n3) = n2
-
-
-refactored code:
-
-data Data2 : (n13 : Nat) -> Type where
-  | C21 : (n1 : Nat) -> (n3 : Nat) -> (Data2 n1)
-
-g : (n1 : Nat) -> (n2 : Nat) -> (n3 : Nat) -> (Data2 n2)
-g n1 n2 n3 = ((C21 ?n1_2) n3)
-
-h : (n : Nat) -> (n23 : (Data2 n)) -> Nat
-h n1 ((C21 n1) n3) = n1
-
--}

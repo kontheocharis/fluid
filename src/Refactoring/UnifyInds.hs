@@ -20,6 +20,7 @@ import Lang
     termDataAt
   )
 import Data.List (partition)
+import Refactoring.Utils (FromRefactorArgs (..), Refact, lookupExprArg, lookupIdxArg, lookupNameArg)
 
 
 
@@ -310,10 +311,39 @@ updateUsecase datName constrName indPosns (Program itemL) =
 --given data name, and constructor name, positions I of the index to unify (index from 0, right to left), 
 --all variables in I\I1 will now have the name of I1
 --TODO: move the biggest number in I to the front so that we retain the earliest var
-unifyInds :: String -> String -> [Int] ->  Program ->  Program
-unifyInds datName constrName indPosns ast = 
+unifyInds_ast :: String -> String -> [Int] ->  Program ->  Program
+unifyInds_ast datName constrName indPosns ast = 
     let dataRefactored = changeConstr_ast datName constrName indPosns ast in  --change data definition
         updateUsecase datName constrName indPosns dataRefactored              --update use case of changed constructor
 
+---------------------------------------------------
 
 
+-- Arguments to the specialise constructor refactoring.
+data UnifyIndsArgs = UnifyIndsArgs
+  { -- | The name of the data type to specialise.
+    unifyIndsDataName :: String,
+    -- | The name of the constructor to specialise.
+    unifyIndsCtorName :: String,
+    -- | The position of the index to specialise.
+    unifyIndIndPosToBeUnified  :: Int,
+    -- | The term to specialise the index to.
+    unifyIndIndPosToUnify :: Int
+  }
+
+instance FromRefactorArgs UnifyIndsArgs where
+  fromRefactorArgs args =
+    UnifyIndsArgs
+      <$> lookupNameArg "data" args
+      <*> lookupNameArg "ctor" args
+      <*> lookupIdxArg "indexToBeUnified" args
+      <*> lookupIdxArg "indexToUnify" args
+
+-- | Specialise a constructor at a given index to a given term.
+unifyInds :: UnifyIndsArgs -> Program -> Refact Program
+unifyInds args ast = 
+    return (unifyInds_ast (unifyIndsDataName args) (unifyIndsCtorName args) ([unifyIndIndPosToBeUnified args]++[unifyIndIndPosToUnify args])  ast )
+
+
+
+-- stack run -- -r app/Examples/test.fluid -n unify-inds -a 'data=Data2, ctor=C21, indexToBeUnified=4, indexToUnify=3'
