@@ -109,7 +109,7 @@ data TcState = TcState
     inPat :: Bool,
     -- | Term types, indexed by location.
     termTypes :: Map Loc Type,
-    -- | Holes
+    -- | Meta values, indexed by variable.
     metaValues :: Map Var Term
   }
 

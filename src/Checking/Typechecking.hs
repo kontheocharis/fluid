@@ -82,7 +82,7 @@ checkItem (Data dat) = Data <$> checkDataItem dat
 checkDataItem :: DataItem -> Tc DataItem
 checkDataItem (DataItem name ty ctors) = do
   -- Check the signature of the data type.
-  ty' <- checkTerm ty (locatedAt ty TyT)
+  (ty', _) <- checkTerm ty (locatedAt ty TyT)
   let (_, ret) = piTypeToList ty'
   unifyTerms ret (locatedAt ret TyT)
 
@@ -102,7 +102,7 @@ checkCtorItem dTy (CtorItem name ty dTyName) = do
   let dTyArgCount = length . fst $ piTypeToList dTy
 
   -- Check the signature of the constructor.
-  ty' <- checkTerm ty (genTerm TyT)
+  (ty', _) <- checkTerm ty (genTerm TyT)
   let (tys, ret) = piTypeToList ty'
 
   -- \| Add all the arguments to the context
@@ -153,16 +153,18 @@ checkClause ((_, t) : _, _) cl@(Clause [] _) = throwError $ TooFewPatterns cl t
 checkClause _ (ImpossibleClause _) = error "Impossible clauses not yet supported"
 
 -- | Check the type of a term, and set the type in the context.
-checkTerm :: Term -> Type -> Tc Type
+checkTerm :: Term -> Type -> Tc (Term, Type)
 checkTerm v t = do
-  t' <- checkTerm' v t
-  setType v t'
-  return t'
+  (v', t') <- checkTerm' v t
+  v'' <- resolveShallow v'
+  t'' <- resolveShallow t'
+  setType v'' t''
+  return (v'', t'')
 
 -- | Check the type of a term.
 --
 -- The location of the type is inherited from the term.
-checkTermExpected :: Term -> TypeValue -> Tc Type
+checkTermExpected :: Term -> TypeValue -> Tc (Term, Type)
 checkTermExpected v t = checkTerm v (locatedAt v t)
 
 -- | Unify two terms and resolve the holes.
@@ -173,56 +175,70 @@ unifyTermsAndResolve t1 t2 = do
 
 -- | Check the type of a term. (The type itself should already be checked.)
 -- This might produce a substitution.
-checkTerm' :: Term -> Type -> Tc Type
-checkTerm' ((Term (Lam v t) _)) ((Term (PiT var' ty1 ty2) d2)) = do
-  ty2' <- enterCtxMod (addTyping v ty1 False) $ checkTerm t (alphaRename var' (v, d2) ty2)
-  return $ locatedAt d2 (PiT var' ty1 ty2')
+checkTerm' :: Term -> Type -> Tc (Term, Type)
+checkTerm' ((Term (Lam v t) d1)) ((Term (PiT var' ty1 ty2) d2)) = do
+  (t', ty2') <- enterCtxMod (addTyping v ty1 False) $ checkTerm t (alphaRename var' (v, d2) ty2)
+  return (locatedAt d1 (Lam v t'), locatedAt d2 (PiT var' ty1 ty2'))
 checkTerm' ((Term (Lam v t1) d1)) typ = do
   varTy <- freshMeta
-  bodyTy <- enterCtxMod (addTyping v varTy False) $ inferTerm t1
-  unifyTermsAndResolve typ $ locatedAt d1 (PiT v varTy bodyTy)
-checkTerm' (Term (Pair t1 t2) _) (Term (SigmaT v ty1 ty2) d2) = do
-  ty1' <- checkTerm t1 ty1
-  ty2' <- checkTerm t2 (subVar v t1 ty2)
-  return $ locatedAt d2 (SigmaT v ty1' ty2')
+  (t1', bodyTy) <- enterCtxMod (addTyping v varTy False) $ inferTerm t1
+  typ' <- unifyTermsAndResolve typ $ locatedAt d1 (PiT v varTy bodyTy)
+  return (locatedAt d1 (Lam v t1'), typ')
+checkTerm' (Term (Pair t1 t2) d1) (Term (SigmaT v ty1 ty2) d2) = do
+  (t1', ty1') <- checkTerm t1 ty1
+  (t2', ty2') <- checkTerm t2 (subVar v t1 ty2)
+  return (locatedAt d1 (Pair t1' t2'), locatedAt d2 (SigmaT v ty1' ty2'))
 checkTerm' (Term (Pair t1 t2) d1) typ = do
-  t1' <- inferTerm t1
-  t2' <- inferTerm t2
+  (t1', ty1) <- inferTerm t1
+  (t2', ty2) <- inferTerm t2
   v <- freshVar
-  unifyTermsAndResolve typ $ locatedAt d1 (SigmaT v t1' t2')
+  typ' <- unifyTermsAndResolve typ $ locatedAt d1 (SigmaT v ty1 ty2)
+  return (locatedAt d1 (Pair t1' t2'), typ')
 checkTerm' (Term (PiT v t1 t2) d1) typ = do
-  _ <- checkTermExpected t1 TyT
-  _ <- enterCtxMod (addTyping v t1 False) $ checkTermExpected t2 TyT
-  unifyTermsAndResolve typ $ locatedAt d1 TyT
+  (t1', _) <- checkTermExpected t1 TyT
+  (t2', _) <- enterCtxMod (addTyping v t1 False) $ checkTermExpected t2 TyT
+  typ' <- unifyTermsAndResolve typ (locatedAt d1 TyT)
+  return (locatedAt d1 (PiT v t1' t2'), typ')
 checkTerm' (Term (SigmaT v t1 t2) d1) typ = do
-  _ <- checkTermExpected t1 TyT
-  _ <- enterCtxMod (addTyping v t1 False) $ checkTermExpected t2 TyT
-  unifyTermsAndResolve typ (locatedAt d1 TyT)
-checkTerm' (Term TyT d1) typ = unifyTermsAndResolve typ (Term TyT d1)
-checkTerm' (Term NatT d1) typ = unifyTermsAndResolve typ (Term TyT d1)
+  (t1', _) <- checkTermExpected t1 TyT
+  (t2', _) <- enterCtxMod (addTyping v t1 False) $ checkTermExpected t2 TyT
+  typ' <- unifyTermsAndResolve typ (locatedAt d1 TyT)
+  return (locatedAt d1 (SigmaT v t1' t2'), typ')
+checkTerm' (Term TyT d1) typ = do
+  typ' <- unifyTermsAndResolve typ (locatedAt d1 TyT)
+  return (Term TyT d1, typ')
+checkTerm' (Term NatT d1) typ = do
+  typ' <- unifyTermsAndResolve typ (locatedAt d1 TyT)
+  return (Term NatT d1, typ')
 checkTerm' (Term (ListT t) d1) typ = do
-  _ <- checkTermExpected t TyT
-  unifyTermsAndResolve typ (locatedAt d1 TyT)
+  (t', _) <- checkTermExpected t TyT
+  typ' <- unifyTermsAndResolve typ (locatedAt d1 TyT)
+  return (locatedAt d1 (ListT t'), typ')
 checkTerm' (Term (VectT t n) d1) typ = do
-  _ <- checkTermExpected t TyT
-  _ <- checkTermExpected n NatT
-  unifyTermsAndResolve typ (Term TyT d1)
+  (t', _) <- checkTermExpected t TyT
+  (n', _) <- checkTermExpected n NatT
+  typ' <- unifyTermsAndResolve typ (locatedAt d1 TyT)
+  return (locatedAt d1 (VectT t' n'), typ')
 checkTerm' (Term (FinT t) d1) typ = do
-  _ <- checkTermExpected t NatT
-  unifyTermsAndResolve typ (Term TyT d1)
+  (t', _) <- checkTermExpected t NatT
+  typ' <- unifyTermsAndResolve typ (locatedAt d1 TyT)
+  return (locatedAt d1 (FinT t'), typ')
 checkTerm' (Term (EqT t1 t2) d1) typ = do
-  ty1 <- inferTerm t1
-  ty2 <- inferTerm t2
+  (t1', ty1) <- inferTerm t1
+  (t2', ty2) <- inferTerm t2
   _ <- unifyTermsAndResolve ty1 ty2
-  unifyTermsAndResolve typ (Term TyT d1)
+  typ' <- unifyTermsAndResolve typ (locatedAt d1 TyT)
+  return (locatedAt d1 (EqT t1' t2'), typ')
 checkTerm' (Term (LteT t1 t2) d1) typ = do
   _ <- checkTermExpected t1 NatT
   _ <- checkTermExpected t2 NatT
-  unifyTermsAndResolve typ (Term TyT d1)
+  typ' <- unifyTermsAndResolve typ (locatedAt d1 TyT)
+  return (locatedAt d1 (LteT t1 t2), typ')
 checkTerm' (Term (MaybeT t) d1) typ = do
-  _ <- checkTermExpected t TyT
-  unifyTermsAndResolve typ (Term TyT d1)
-checkTerm' (Term (V v) _) typ = do
+  (t', _) <- checkTermExpected t TyT
+  typ' <- unifyTermsAndResolve typ (locatedAt d1 TyT)
+  return (locatedAt d1 (MaybeT t'), typ')
+checkTerm' t@(Term (V v) _) typ = do
   vTyp <- inCtx (lookupType v)
   case vTyp of
     Nothing -> do
@@ -232,98 +248,135 @@ checkTerm' (Term (V v) _) typ = do
       if p
         then do
           modifyCtx (addTyping v typ True)
-          return typ
+          return (t, typ)
         else throwError $ VariableNotFound v
-    Just vTyp' -> unifyTermsAndResolve typ vTyp'
+    Just vTyp' -> do
+      typ' <- unifyTermsAndResolve typ vTyp'
+      return (t, typ')
 checkTerm' (Term (App t1 t2) _) typ = do
   varTy <- freshMeta
   bodyTy <- freshMeta
   v <- freshVar
-  let inferredTy = locatedAt t1 (PiT v varTy bodyTy)
-  _ <- checkTerm t1 inferredTy
-  unifyTermsAndResolve typ $ subVar v t2 bodyTy
-checkTerm' (Term (Global g) _) typ = do
+  let subjectTy = locatedAt t1 (PiT v varTy bodyTy)
+  (t1', _) <- checkTerm t1 subjectTy
+  (t2', _) <- checkTerm t2 varTy
+  typ' <- unifyTermsAndResolve typ $ subVar v t2' bodyTy
+  return (locatedAt t1 (App t1' t2'), typ')
+checkTerm' t@(Term (Global g) _) typ = do
   decl <- inGlobalCtx (lookupItemOrCtor g)
   case decl of
     Nothing -> throwError $ ItemNotFound g
-    Just (Left (Decl decl')) -> unifyTermsAndResolve typ $ declTy decl'
-    Just (Left (Data dat)) -> unifyTermsAndResolve typ $ dataTy dat
-    Just (Right ctor) -> unifyTermsAndResolve typ $ ctorItemTy ctor
+    Just (Left (Decl decl')) -> do
+      typ' <- unifyTermsAndResolve typ $ declTy decl'
+      return (t, typ')
+    Just (Left (Data dat)) -> do
+      typ' <- unifyTermsAndResolve typ $ dataTy dat
+      return (t, typ')
+    Just (Right ctor) -> do
+      typ' <- unifyTermsAndResolve typ $ ctorItemTy ctor
+      return (t, typ')
 checkTerm' (Term (Case s cs) _) typ = do
-  sTy <- inferTerm s
-  mapM_
-    ( \(p, t) -> enterCtx $ do
-        _ <- enterPat $ checkTerm p sTy
-        _ <- checkTerm t typ
-        return ()
-    )
-    cs
-  return typ
+  (s', sTy) <- inferTerm s
+  cs' <-
+    mapM
+      ( \(p, t) -> enterCtx $ do
+          pt <- patToTerm p
+          (pt', _) <- enterPat $ checkTerm pt sTy
+          (t', _) <- checkTerm t typ
+          return (pt', t')
+      )
+      cs
+  return (locatedAt s (Case s' cs'), typ)
 checkTerm' (Term (Refl t) d1) typ = do
   ty <- freshMeta
-  checkCtor [ty] [ty] (locatedAt d1 (EqT t t)) [t] typ
+  ([t'], typ') <- checkCtor [ty] [ty] (locatedAt d1 (EqT t t)) [t] typ
+  return (locatedAt d1 (Refl t'), typ')
 checkTerm' (Term Z d1) typ = do
-  checkCtor [] [] (locatedAt d1 NatT) [] typ
+  ([], typ') <- checkCtor [] [] (locatedAt d1 NatT) [] typ
+  return (Term Z d1, typ')
 checkTerm' (Term (S n) d1) typ = do
-  checkCtor [] [genTerm NatT] (locatedAt d1 NatT) [n] typ
+  ([n'], typ') <- checkCtor [] [genTerm NatT] (locatedAt d1 NatT) [n] typ
+  return (locatedAt d1 (S n'), typ')
 checkTerm' (Term LNil d1) typ = do
   ty <- freshMeta
-  checkCtor [ty] [] (locatedAt d1 (ListT ty)) [] typ
+  ([], typ') <- checkCtor [ty] [] (locatedAt d1 (ListT ty)) [] typ
+  return (Term LNil d1, typ')
 checkTerm' (Term (LCons h t) d1) typ = do
   ty <- freshMeta
-  checkCtor [ty] [ty, genTerm (ListT ty)] (locatedAt d1 (ListT ty)) [h, t] typ
+  ([h', t'], typ') <- checkCtor [ty] [ty, genTerm (ListT ty)] (locatedAt d1 (ListT ty)) [h, t] typ
+  return (locatedAt d1 (LCons h' t'), typ')
 checkTerm' (Term (MJust t) d1) typ = do
   ty <- freshMeta
-  checkCtor [ty] [ty] (locatedAt d1 (MaybeT ty)) [t] typ
+  ([t'], typ') <- checkCtor [ty] [ty] (locatedAt d1 (MaybeT ty)) [t] typ
+  return (locatedAt d1 (MJust t'), typ')
 checkTerm' (Term MNothing d1) typ = do
   ty <- freshMeta
-  checkCtor [ty] [] (locatedAt d1 (MaybeT ty)) [] typ
+  ([], typ') <- checkCtor [ty] [] (locatedAt d1 (MaybeT ty)) [] typ
+  return (Term MNothing d1, typ')
 checkTerm' (Term LTEZero d1) typ = do
   right <- freshMeta
-  checkCtor [right] [] (locatedAt d1 (LteT (locatedAt d1 Z) right)) [] typ
+  ([], typ') <- checkCtor [right] [] (locatedAt d1 (LteT (locatedAt d1 Z) right)) [] typ
+  return (Term LTEZero d1, typ')
 checkTerm' (Term (LTESucc t) d1) typ = do
   left <- freshMeta
   right <- freshMeta
-  checkCtor
-    [left, right]
-    [genTerm (LteT left right)]
-    (locatedAt d1 (LteT (locatedAt t (S left)) (locatedAt t (S right))))
-    [t]
-    typ
+  ([t'], typ') <-
+    checkCtor
+      [left, right]
+      [genTerm (LteT left right)]
+      (locatedAt d1 (LteT (locatedAt t (S left)) (locatedAt t (S right))))
+      [t]
+      typ
+  return (locatedAt d1 (LTESucc t'), typ')
 checkTerm' (Term FZ d1) typ = do
   n <- freshMeta
-  checkCtor [n] [] (locatedAt d1 (FinT (locatedAt d1 (S n)))) [] typ
+  ([], typ') <- checkCtor [n] [] (locatedAt d1 (FinT (locatedAt d1 (S n)))) [] typ
+  return (Term FZ d1, typ')
 checkTerm' (Term (FS t) d1) typ = do
   n <- freshMeta
-  checkCtor [n] [genTerm (FinT n)] (locatedAt d1 (FinT (locatedAt t (S n)))) [t] typ
+  ([t'], typ') <-
+    checkCtor [n] [genTerm (FinT n)] (locatedAt d1 (FinT (locatedAt t (S n)))) [t] typ
+  return (locatedAt d1 (FS t'), typ')
 checkTerm' (Term VNil d1) typ = do
   ty <- freshMeta
-  checkCtor [ty] [] (locatedAt d1 (VectT ty (locatedAt d1 Z))) [] typ
+  ([], typ') <- checkCtor [ty] [] (locatedAt d1 (VectT ty (locatedAt d1 Z))) [] typ
+  return (Term VNil d1, typ')
 checkTerm' (Term (VCons t1 t2) d1) typ = do
   n <- freshMeta
   ty <- freshMeta
-  checkCtor
-    [n, ty]
-    [ty, genTerm (VectT ty n)]
-    (locatedAt d1 (VectT ty (locatedAt t2 (S n))))
-    [t1, t2]
-    typ
+  ([t1', t2'], typ') <-
+    checkCtor
+      [n, ty]
+      [ty, genTerm (VectT ty n)]
+      (locatedAt d1 (VectT ty (locatedAt t2 (S n))))
+      [t1, t2]
+      typ
+  return (locatedAt d1 (VCons t1' t2'), typ')
 
 -- Wild and hole are turned into metavars:
-checkTerm' (Term Wild _) typ = return typ
-checkTerm' (Term (Meta _) _) typ = return typ
+checkTerm' (Term Wild _) typ = do
+  m <- freshMeta
+  return (m, typ)
 checkTerm' (Term (Hole _) _) typ = do
-  hTy <- freshMeta
-  unifyTermsAndResolve typ hTy
+  m <- freshMeta
+  return (m, typ) -- @@Enhancement: retain the hole name in the meta?
+checkTerm' t@(Term (Meta _) _) typ = error $ "Found metavar during checking: " ++ show t ++ " : " ++ show typ
 
 -- | Check the type of a constructor.
-checkCtor :: [Term] -> [Type] -> Type -> [Term] -> Type -> Tc Type
-checkCtor _ ctorParams ctorRet ctorArgs annotType = do
-  mapM_ (\(ty, arg) -> checkTerm arg ty) (zip ctorParams ctorArgs)
-  unifyTermsAndResolve annotType ctorRet
+checkCtor :: [Term] -> [Type] -> Type -> [Term] -> Type -> Tc ([Term], Type)
+checkCtor _ ctorParams ctorRet ctorArgs typ = do
+  ctorArgs' <-
+    mapM
+      ( \(ty, arg) -> do
+          (arg', _) <- checkTerm arg ty
+          return arg'
+      )
+      (zip ctorParams ctorArgs)
+  typ' <- unifyTermsAndResolve typ ctorRet
+  return (ctorArgs', typ')
 
 -- | Infer the type of a term.
-inferTerm :: Term -> Tc Type
+inferTerm :: Term -> Tc (Term, Type)
 inferTerm t = do
   ty <- freshMeta
   checkTerm t ty
