@@ -273,3 +273,11 @@ resolveShallow (Term (App t1 t2) d) = do
   t1' <- resolveShallow t1
   return $ Term (App t1' t2) d
 resolveShallow t = return t
+
+-- | Interpret a term as a flexible (hole) application.
+flexibleApp :: Term -> Maybe (Var, [Term])
+flexibleApp (Term (Hole h) _) = return (h, [])
+flexibleApp (Term (App t1 t2) _) = do
+  (h, ts) <- flexibleApp t1
+  return (h, ts ++ [t2])
+flexibleApp _ = Nothing
