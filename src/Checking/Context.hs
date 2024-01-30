@@ -5,6 +5,7 @@ module Checking.Context
     TcState (..),
     Tc,
     TcError (..),
+    FlexApp (..),
     emptyTcState,
     inGlobalCtx,
     inCtx,
@@ -19,14 +20,15 @@ module Checking.Context
     isPatBind,
     enterPat,
     lookupType,
-    freshHole,
-    freshHoleVar,
     freshVar,
     modifyCtx,
     enterCtx,
     modifyGlobalCtx,
     runTc,
     setType,
+    solveMeta,
+    freshMeta,
+    classifyApp,
   )
 where
 
@@ -34,8 +36,7 @@ import Control.Applicative ((<|>))
 import Control.Monad.Except (throwError)
 import Control.Monad.State (MonadState (..), StateT (runStateT))
 import Data.List (find, intercalate)
-import Data.Map (Map, empty, insert, (!?))
-import Debug.Trace (trace)
+import Data.Map (Map, empty, insert)
 import Lang
   ( Clause,
     CtorItem (..),
@@ -50,6 +51,7 @@ import Lang
     Var (..),
     genTerm,
     itemName,
+    listToApp,
   )
 
 -- | A typing judgement.
@@ -70,7 +72,7 @@ instance Show Ctx where
   show (Ctx js) = intercalate "\n" $ map show js
 
 -- | The global context, represented as a list of string-decl pairs.
-newtype GlobalCtx = GlobalCtx [Item]
+newtype GlobalCtx = GlobalCtx [Item] deriving (Show)
 
 -- | A typechecking error.
 data TcError
@@ -82,6 +84,7 @@ data TcError
   | NeedMoreTypeHints [Var]
   | TooManyPatterns Clause Pat
   | TooFewPatterns Clause Type
+  | NotAFunction Term
 
 instance Show TcError where
   show (VariableNotFound v) = "Variable not found: " ++ show v
@@ -92,6 +95,7 @@ instance Show TcError where
   show (NeedMoreTypeHints vs) = "Need more type hints to resolve the holes: " ++ show vs
   show (TooManyPatterns c p) = "Too many patterns in '" ++ show c ++ "' . Unexpected: " ++ show p
   show (TooFewPatterns c t) = "Too few patterns in '" ++ show c ++ "'. Expected pattern for: " ++ show t
+  show (NotAFunction t) = "Not a function: " ++ show t
 
 -- | The typechecking state.
 data TcState = TcState
@@ -104,21 +108,24 @@ data TcState = TcState
     -- | Whether we are in a pattern
     inPat :: Bool,
     -- | Term types, indexed by location.
-    termTypes :: Map Loc Type
+    termTypes :: Map Loc Type,
+    -- | Meta values, indexed by variable.
+    metaValues :: Map Var Term
   }
+  deriving (Show)
 
 -- | The empty typechecking state.
 emptyTcState :: TcState
-emptyTcState = TcState (Ctx []) (GlobalCtx []) 0 False empty
+emptyTcState = TcState (Ctx []) (GlobalCtx []) 0 False empty empty
 
 -- | The typechecking monad.
 type Tc a = StateT TcState (Either TcError) a
 
 -- | Run a typechecking computation.
-runTc :: Tc a -> Either TcError a
+runTc :: Tc a -> Either TcError (a, TcState)
 runTc tc = do
-  (res, _) <- runStateT tc emptyTcState
-  return res
+  (res, endState) <- runStateT tc emptyTcState
+  return (res, endState)
 
 -- | Map over some context.
 withSomeCtx :: (TcState -> c) -> (c -> Tc a) -> Tc a
@@ -146,9 +153,6 @@ inGlobalCtx f = withSomeCtx globalCtx (return . f)
 setType :: Term -> Type -> Tc ()
 setType t ty = do
   s <- get
-  case termTypes s !? getLoc t of
-    Just ty' -> trace ("Found existing type for " ++ show t ++ " : " ++ show ty ++ ", which is " ++ show ty') $ return ()
-    Nothing -> return ()
   put $ s {termTypes = insert (getLoc t) ty (termTypes s)}
 
 -- | Enter a pattern by setting the inPat flag to True.
@@ -233,21 +237,46 @@ addItem :: Item -> GlobalCtx -> GlobalCtx
 addItem d (GlobalCtx c) = GlobalCtx (d : c)
 
 -- | Get a fresh variable.
-freshVar :: Tc Var
-freshVar = do
+freshVarPrefixed :: String -> Tc Var
+freshVarPrefixed n = do
   s <- get
   let h = varCounter s
   put $ s {varCounter = h + 1}
-  return $ Var ("v" ++ show h) h
+  return $ Var (n ++ show h) h
 
 -- | Get a fresh variable.
-freshHoleVar :: Tc Var
-freshHoleVar = do
-  s <- get
-  let h = varCounter s
-  put $ s {varCounter = h + 1}
-  return $ Var ("h" ++ show h) h
+freshVar :: Tc Var
+freshVar = freshVarPrefixed "v"
 
--- | Get a fresh hole.
-freshHole :: Tc Term
-freshHole = genTerm . Hole <$> freshHoleVar
+-- | Get all variables in a context.
+ctxVars :: Ctx -> [Var]
+ctxVars (Ctx []) = []
+ctxVars (Ctx ((Typing v _ _) : c)) = v : ctxVars (Ctx c)
+
+-- | Get a fresh applied metavariable in the current context.
+freshMeta :: Tc Term
+freshMeta = do
+  v <- freshVarPrefixed "m"
+  vrs <- inCtx ctxVars
+  return $ listToApp (genTerm (Meta v), map (genTerm . V) vrs)
+
+-- | Solve a meta.
+solveMeta :: Var -> Term -> Tc ()
+solveMeta h t = do
+  s <- get
+  put $ s {metaValues = insert h t (metaValues s)}
+
+-- | A flexible (meta) application.
+data FlexApp = Flex Var [Term]
+
+-- | Add a term to a `FlexApp`
+addTerm :: Term -> FlexApp -> FlexApp
+addTerm t (Flex h ts) = Flex h (ts ++ [t])
+
+-- | Interpret a `FlexApp`
+classifyApp :: Term -> Maybe FlexApp
+classifyApp (Term (Meta h) _) = return $ Flex h []
+classifyApp (Term (App t1 t2) _) = do
+  c <- classifyApp t1
+  return $ addTerm t2 c
+classifyApp _ = Nothing

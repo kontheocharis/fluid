@@ -2,26 +2,24 @@
 
 module Interface.Cli (runCli) where
 
-import Checking.Context (Tc, runTc)
+import Checking.Context (Tc, TcState, runTc)
 import Checking.Typechecking (checkProgram, inferTerm, normaliseTermFully)
 import Control.Monad (void, when)
 import Control.Monad.Cont (MonadIO (liftIO))
 import Data.Char (isSpace)
-import Data.List (isPrefixOf, isSuffixOf, unfoldr)
 import Data.String
 import Data.Text.IO (hPutStrLn)
-import Lang (Pos (..), Program)
+import Lang (Program)
 import Options.Applicative (execParser, value, (<**>), (<|>))
 import Options.Applicative.Builder (fullDesc, header, help, info, long, maybeReader, option, progDesc, short, strOption, switch)
 import Options.Applicative.Common (Parser)
 import Options.Applicative.Extra (helper)
 import Parsing.Parser (parseProgram, parseRefactorArgs, parseTerm)
 import Refactoring.SpecCtor (specCtor)
-import Refactoring.Utils (FromRefactorArgs (..), Refact, RefactorArgKind (..), RefactorArgs (..), evalRefact)
+import Refactoring.Utils (FromRefactorArgs (..), Refact, RefactorArgs (..), evalRefact)
 import System.Console.Haskeline (InputT, defaultSettings, getInputLine, outputStrLn, runInputT)
 import System.Exit (exitFailure)
 import System.IO (stderr)
-import Text.Read (readMaybe)
 
 -- | What mode to run in.
 data Mode
@@ -151,9 +149,10 @@ parseAndCheckFile file flags = do
   contents <- liftIO $ readFile file
   parsed <- handleParse err (parseProgram file contents)
   when (dumpParsed flags) $ msg $ "Parsed program:\n" ++ show parsed
-  checked <- handleTc err (checkProgram parsed)
+  (checked, state) <- handleTc err (checkProgram parsed)
   when (verbose flags) $ msg "\nTypechecked program successfully"
   when (dumpParsed flags) $ msg $ "Parsed + checked program:\n" ++ show checked
+  when (verbose flags) $ msg $ "\nEnding state:\n" ++ show state
   return checked
 
 -- | Apply a refactoring to a file.
@@ -197,8 +196,8 @@ handleParse er res = do
     Right p -> return p
 
 -- | Handle a checking result.
-handleTc :: (String -> InputT IO a) -> Tc a -> InputT IO a
+handleTc :: (String -> InputT IO (a, TcState)) -> Tc a -> InputT IO (a, TcState)
 handleTc er a = do
   case runTc a of
     Left e -> er $ "Error: " ++ show e
-    Right p -> return p
+    Right (p, s) -> return (p, s)

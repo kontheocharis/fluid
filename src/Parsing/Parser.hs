@@ -5,7 +5,6 @@ import Control.Monad (void)
 import Data.Char (isSpace)
 import Data.String
 import Data.Text (Text)
-import Debug.Trace (traceShow)
 import Lang
   ( Clause (..),
     CtorItem (..),
@@ -42,10 +41,7 @@ import Text.Parsec
     many,
     many1,
     modifyState,
-    newline,
-    option,
     optionMaybe,
-    optional,
     putState,
     runParser,
     satisfy,
@@ -405,13 +401,7 @@ resolveTerm :: Term -> Parser Term
 resolveTerm = mapTermM r
   where
     r :: Term -> Parser (MapResult Term)
-    r (Term (V (Var "_" _)) d) = do
-      isInPat <- parsingPat <$> getState
-      if isInPat
-        then return . Replace $ Term Wild d
-        else do
-          v <- freshVar
-          return . Replace $ Term (Hole v) d
+    r (Term (V (Var "_" _)) d) = return . Replace $ Term Wild d
     r (Term (V (Var "Type" _)) d) = return $ Replace (Term TyT d)
     r (Term (V (Var "Nat" _)) d) = return $ Replace (Term NatT d)
     r (Term (App (Term (V (Var "List" _)) _) t1) d) = do

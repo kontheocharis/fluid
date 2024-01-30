@@ -1,8 +1,23 @@
-data Data1 : Nat -> Type where
-  | Z1 : Data1 Z
-  | S1 : (n : Nat) -> Data1 Z -> Data1 n
+-- data Data1 : Nat -> Type where
+--   | Z1 : Data1 Z
+--   | S1 : (n : Nat) -> Data1 Z -> Data1 n
+--
+--
+-- toFin : (n : Nat) -> Fin (S n)
+-- toFin n = case n of
+--   | m => ?h1
+--
+add : (n : Nat) -> (m : Nat) -> Nat
+add n m = case n of
+  | Z => m
+  | (S a) => S (add a m)
 
+zeros : (n : Nat) -> Vect Nat n
+zeros Z = VNil
+zeros (S a) = VCons Z (zeros a)
 
-toFin : (n : Nat) -> Fin (S n)
-toFin n = case n of
-  | m => ?h1
+main : (n : _) -> Vect Nat _
+main m = VCons (S Z) (zeros m)
+
+main2 : Vect _ _
+main2 = VNil

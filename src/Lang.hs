@@ -4,6 +4,7 @@ module Lang
     Var (..),
     Term (..),
     TermValue (..),
+    HasTermValue (..),
     TermData (..),
     PatValue,
     TypeValue,
@@ -34,6 +35,7 @@ module Lang
     locatedAt,
     typedAs,
     appToList,
+    lams,
   )
 where
 
@@ -51,7 +53,7 @@ type GlobalName = String
 
 -- | A variable
 -- Represented by a string name and a unique integer identifier (no shadowing).
-data Var = Var String Int deriving (Eq)
+data Var = Var String Int deriving (Eq, Ord)
 
 -- | A term
 data TermValue
@@ -72,6 +74,8 @@ data TermValue
     Global String
   | -- | Hole identified by an integer
     Hole Var
+  | -- | Metavar identified by an integer
+    Meta Var
   | -- Data types:
     NatT
   | ListT Type
@@ -203,6 +207,11 @@ appToList :: Term -> (Term, [Term])
 appToList (Term (App t1 t2) _) = let (t, ts) = appToList t1 in (t, ts ++ [t2])
 appToList t = (t, [])
 
+-- | Wrap a term in `n` lambdas.
+lams :: [Var] -> Term -> Term
+lams [] t = t
+lams (v : vs) t = Term (Lam v (lams vs t)) (termDataAt t)
+
 -- | An item is either a declaration or a data item.
 data Item
   = Decl DeclItem
@@ -288,6 +297,7 @@ mapTermM f term = do
       (V v) -> return $ V v
       (Global s) -> return $ Global s
       (Hole i) -> return $ Hole i
+      (Meta i) -> return $ Meta i
       NatT -> return NatT
       (ListT t) -> ListT <$> mapTermM f t
       (MaybeT t) -> MaybeT <$> mapTermM f t
@@ -417,8 +427,9 @@ instance Show TermValue where
   show (V v) = show v
   show (Global s) = s
   show (Hole i) = "?" ++ show i
+  show (Meta i) = "!" ++ show i
   show NatT = "Nat"
-  show (ListT t) = "[" ++ show t ++ "]"
+  show (ListT t) = "List " ++ showSingle t
   show (MaybeT t) = "Maybe " ++ showSingle t
   show (VectT t n) = "Vect " ++ showSingle t ++ " " ++ showSingle n
   show (FinT t) = "Fin " ++ showSingle t
@@ -430,7 +441,7 @@ instance Show TermValue where
   show (S t) = "S " ++ showSingle t
   show LNil = "[]"
   show (LCons t1 t2) = showSingle t1 ++ "::" ++ showSingle t2
-  show VNil = "[]"
+  show VNil = "VNil"
   show (VCons t1 t2) = "VCons " ++ showSingle t1 ++ " " ++ showSingle t2
   show (MJust t) = "Just " ++ showSingle t
   show MNothing = "Nothing"
