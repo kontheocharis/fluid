@@ -1,4 +1,4 @@
-module Refactoring.RemoveMaybe (removeMaybe_ast) where
+module Refactoring.RemoveMaybe (removeMaybe) where
 
 import Parsing.Parser (parseProgram)
 import Lang
@@ -11,21 +11,24 @@ import Lang
     Pat,
     Program (..),
     Term (..),
+    TermValue (..),
     Type,
     Var (..),
     piTypeToList,
     listToPiType
   )
+import Refactoring.Utils (FromRefactorArgs (..), Refact, lookupExprArg, lookupIdxArg, lookupNameArg)
 
 
 
 --remove Just in a term
 removeJust_term:: Term -> Term 
-removeJust_term (App term1 term2) = App (removeJust_term term1) (removeJust_term term2) 
-removeJust_term (Lam var term2) = Lam var (removeJust_term term2) 
-removeJust_term (Pair term1 term2) = Pair (removeJust_term term1) (removeJust_term term2) 
---TODO: recurse down case expressions
-removeJust_term (MJust term) = (term) 
+removeJust_term (Term (App term1 term2) termDat) = 
+  Term (App (removeJust_term term1) (removeJust_term term2))  termDat 
+removeJust_term (Term (Lam var term2) termDat) = Term (Lam var (removeJust_term term2)) termDat 
+removeJust_term (Term (Pair term1 term2) termDat) = Term (Pair (removeJust_term term1) (removeJust_term term2)) termDat 
+removeJust_term (Term (Case cterm ptList) termDat) = Term (Case cterm (map (\pair -> ((fst pair), removeJust_term (snd pair))) ptList)) termDat 
+removeJust_term (Term (MJust term) termDat) = term 
 removeJust_term term = term
 
 
@@ -41,19 +44,23 @@ removeJust_cls cls = map (\cl -> case cl of
 removeMaybe_sig:: Type -> Type 
 removeMaybe_sig ty = let (inpTy, resTy) = piTypeToList ty in 
                          case resTy of 
-                            MaybeT ty -> listToPiType (inpTy, ty) 
+                            Term (MaybeT ty) _ -> listToPiType (inpTy, ty) 
                             ty -> listToPiType (inpTy, resTy) 
+
+
 
 
 --check if term do not have Nothing
 onlyJust_term :: Term -> Bool
-onlyJust_term (App term1 term2) = (onlyJust_term term1) && (onlyJust_term term2) 
-onlyJust_term (Lam var term2) = (onlyJust_term term2) 
-onlyJust_term (Pair term1 term2) =  (onlyJust_term term1) && (onlyJust_term term2) 
-onlyJust_term (MJust term) = (onlyJust_term term) 
-onlyJust_term MNothing = False
+onlyJust_term (Term (App term1 term2) termDat) = (onlyJust_term term1) && (onlyJust_term term2) 
+onlyJust_term (Term (Lam var term2) termDat) = (onlyJust_term term2) 
+onlyJust_term (Term (Pair term1 term2) termDat) =  (onlyJust_term term1) && (onlyJust_term term2) 
+onlyJust_term (Term (MJust term) termDat) = (onlyJust_term term)  
+onlyJust_term (Term (Case cterm ptList) termDat) = all  (\pair -> onlyJust_term (snd pair)) ptList
+onlyJust_term (Term MNothing termDat) = False
 onlyJust_term term = True
---TODO: recurse through case
+
+
 
 --check if the rhs of equations do not have Nothing
   --TODO: need to rethink if we allow Maybe type elsewhere
@@ -66,29 +73,42 @@ onlyJust decl = all (\cl -> case cl of
 
 
 --refactor function
-removeMaybe_func :: String -> DeclItem ->  DeclItem
-removeMaybe_func funcName decl = 
+removeMaybe_func :: DeclItem ->  DeclItem
+removeMaybe_func decl = 
     let (inpTys, resTy) = piTypeToList (declTy decl) in 
         case resTy of --check return type is a Maybe
-            MaybeT ty -> if onlyJust decl then 
-                            DeclItem (declName decl) (removeMaybe_sig (declTy decl)) (removeJust_cls (declClauses decl))
-                         else 
-                            decl
+            Term (MaybeT ty) termDat -> if onlyJust decl then 
+                                            DeclItem (declName decl) (removeMaybe_sig (declTy decl)) (removeJust_cls (declClauses decl))
+                                        else 
+                                            decl
             otherTy -> decl
 
 
---refactor the program
---recurse to function
-removeMaybe_ast :: String -> Program ->  Program
-removeMaybe_ast funcName (Program itemL)= 
-    Program 
-        (map (\item -> 
-            case item of 
-                (Decl decl) -> if (declName decl) == funcName then 
-                                    Decl (removeMaybe_func funcName decl)
-                                else 
-                                    Decl decl
-                (Data dat) -> Data dat        
-            )
-            itemL
-        )
+
+data RemMaybeArgs = RemMaybeArgs
+  { -- | The name of the function that has Maybe as return type
+    removeMaybeFuncName :: String
+  }
+
+instance FromRefactorArgs RemMaybeArgs where
+  fromRefactorArgs args =
+    RemMaybeArgs
+      <$> lookupNameArg "func" args
+
+
+removeMaybe :: RemMaybeArgs -> Program -> Refact Program
+removeMaybe args (Program itemL)= 
+  return 
+    (Program 
+      (map (\item -> 
+          case item of 
+              (Decl decl) -> if (declName decl) == (removeMaybeFuncName args) then 
+                                  Decl (removeMaybe_func decl)
+                              else 
+                                  Decl decl
+              (Data dat) -> Data dat        
+          )
+          itemL
+      ))
+
+--stack run -- -r app/Examples/test.fluid -n remove-maybe -a 'func=f'

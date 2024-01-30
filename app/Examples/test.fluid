@@ -3,4 +3,17 @@ f: (n:Nat) -> Maybe Nat
 f Z = Just Z 
 f (S n) = Just Z 
 
+add : (n : Nat) -> (m : Nat) -> Maybe Nat
+add n m = case n of
+  | Z => Just m
+  | (S a) => add a m 
+ 
+add2 : (n : Nat) -> (m : Nat) -> Maybe Nat
+add2 n m = case n of
+  | Z => Just m
+  | (S a) => case add2 a m of 
+                | Nothing => Nothing 
+                | (Just x) => Just (S x)
+
+
 
