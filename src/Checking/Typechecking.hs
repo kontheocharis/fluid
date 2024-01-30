@@ -158,9 +158,8 @@ checkClause ([], t) (Clause [] r) = do
   return (Clause [] r')
 checkClause ((v, a) : as, t) (Clause (p : ps) r) = do
   pt <- patToTerm p
-  _ <- enterPat $ checkTerm pt a
-  -- let instantiatedPat = sub s pt
-  let s' = Sub [(v, pt)]
+  (pt', _) <- enterPat $ checkTerm pt a
+  let s' = Sub [(v, pt')]
   c <- checkClause (map (second (sub s')) as, sub s' t) (Clause ps r)
   return $ prependPatToClause p c
 checkClause ([], _) cl@(Clause (p : _) _) = throwError $ TooManyPatterns cl p
@@ -373,6 +372,10 @@ checkTerm' (Term (Hole _) _) typ = do
   m <- freshMeta
   return (m, typ) -- @@Enhancement: retain the hole name in the meta?
 checkTerm' t@(Term (Meta _) _) typ = error $ "Found metavar during checking: " ++ show t ++ " : " ++ show typ
+
+-- @@Enhancement(kontheocharis):
+-- I really dislike the presence of primitives here--they take up 90% of the space.
+-- They should be in a prelude instead. Implement implicit arguments already!
 
 -- | Check the type of a constructor (arity 2).
 checkCtor2 :: (Type, Type) -> Type -> (Term, Term) -> Type -> Tc ((Term, Term), Type)
