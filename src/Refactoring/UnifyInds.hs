@@ -122,7 +122,7 @@ changeConstr_ast datName constrName indPosns (Program itemL)=
 updateUsecase_constrTerm:: [Term] -> [Int] -> [Term]
 updateUsecase_constrTerm termList indPosns = 
     map (\i -> if elem (i+1) indPosns then
-                    case termList!!i of --TODO: use fresh hole name
+                    case termList!!i of 
                         Term (V (Var str int)) td -> Term (Hole (Var (str ++ "_" ++ show i ) int) ) td --hole name [oldname]_[position]
                         term -> term 
                 else 
@@ -167,7 +167,7 @@ listToAppTerm (term:terms) =
 
 
 
---TODO: add vars name if wildcards are used. Q: how to generate fresh variables?
+--TODO: add vars name if wildcards are used - need to work in monad to generate fresh vars - ignore for now
 removeWildcards :: [Term] -> [Term]
 removeWildcards termList = termList  
 
