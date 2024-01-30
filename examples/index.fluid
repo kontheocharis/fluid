@@ -21,3 +21,7 @@ main m = VCons (S Z) (zeros m)
 
 main2 : Vect _ _
 main2 = VNil
+
+h: (n:Nat) -> (Data2 n) -> Nat
+h n (C21 n1 n2 n3 d) = n2
+h n (C22 n1) = n1
