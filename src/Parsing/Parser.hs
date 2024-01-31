@@ -470,6 +470,10 @@ integer = do
   digits <- many1 digit
   return $ read digits
 
+-- | Parse an integer list.
+integerList :: Parser [Int]
+integerList = between (symbol "[") (symbol "]") $ sepBy integer (symbol ",")
+
 -- | Parse a position.
 position :: Parser Pos
 position = do
@@ -484,6 +488,7 @@ refactorArgKind =
   try (Position <$> position)
     <|> try (Idx <$> integer)
     <|> try (Name <$> anyIdentifier)
+    <|> try (IdxList <$> integerList)
     <|> (Expr <$> between (symbol "`") (symbol "`") term)
 
 -- | Parse a term from a string.

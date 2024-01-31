@@ -85,7 +85,7 @@ parseFlags =
           <> short 'a'
           <> help
             ( "If -r and -n are chosen, provide arguments relevant to the chosen refactoring."
-                ++ " Arguments are of the form <name>=<argument> where <argument> is either an index <n>, name <x> or location <l>:<c>"
+                ++ " Arguments are of the form <name>=<argument> where <argument> is either an index <n>, name <x>, index list [<n1>,..,<ni>], or location <l>:<c>"
             )
           <> value (RefactorArgs [])
       )
