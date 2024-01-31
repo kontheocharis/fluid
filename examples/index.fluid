@@ -27,4 +27,7 @@ nil x = fix (ListT _) (Nil x _)
 cons : (x : Type) -> (e : x) -> (es : Fix (ListT x)) -> Fix (ListT x)
 cons x e es = fix (ListT _) (Cons x _ e es)
 
-
+zeros : (n : Nat) -> Vect Nat n
+zeros l = case l of
+  | Z => VNil
+  | (S m) => VCons Z (zeros m)
