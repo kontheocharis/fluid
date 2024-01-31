@@ -13,13 +13,14 @@ module Checking.Context
     enterGlobalCtxMod,
     inState,
     addTyping,
+    addSubst,
     addItem,
     withinCtx,
     lookupTypeOrError,
     lookupItemOrCtor,
-    isPatBind,
     enterPat,
     lookupType,
+    lookupSubst,
     freshVar,
     modifyCtx,
     enterCtx,
@@ -55,15 +56,11 @@ import Lang
   )
 
 -- | A typing judgement.
-data Judgement = Typing
-  { judgementVar :: Var,
-    judgementType :: Type,
-    -- Whether this is a pattern binding.
-    judgementIsPatBind :: Bool
-  }
+data Judgement = Typing Var Type | Subst Var Term
 
 instance Show Judgement where
-  show (Typing v ty b) = show v ++ " : " ++ show ty ++ (if b then " (pat)" else "")
+  show (Typing v ty) = show v ++ " : " ++ show ty
+  show (Subst v t) = show v ++ " = " ++ show t
 
 -- | A context, represented as a list of typing judgements.
 newtype Ctx = Ctx [Judgement]
@@ -203,16 +200,17 @@ modifyGlobalCtx f = do
   s <- get
   put $ s {globalCtx = f (globalCtx s)}
 
+-- | Lookup a substitution of a variable in the current context.
+lookupSubst :: Var -> Ctx -> Maybe Term
+lookupSubst _ (Ctx []) = Nothing
+lookupSubst v (Ctx ((Subst v' term) : c)) = if v == v' then Just term else lookupSubst v (Ctx c)
+lookupSubst v (Ctx (_ : c)) = lookupSubst v (Ctx c)
+
 -- | Lookup the type of a variable in the current context.
 lookupType :: Var -> Ctx -> Maybe Type
 lookupType _ (Ctx []) = Nothing
-lookupType v (Ctx ((Typing v' ty _) : c)) = if v == v' then Just ty else lookupType v (Ctx c)
-
--- | Lookup the type of a variable in the current context.
-isPatBind :: Var -> Ctx -> Maybe Bool
-isPatBind _ (Ctx []) = Nothing
-isPatBind v (Ctx ((Typing v' _ b) : _)) | v' == v = Just b
-isPatBind v (Ctx ((Typing {}) : c)) = isPatBind v (Ctx c)
+lookupType v (Ctx ((Typing v' ty) : c)) = if v == v' then Just ty else lookupType v (Ctx c)
+lookupType v (Ctx (_ : c)) = lookupType v (Ctx c)
 
 -- | Lookup the type of a variable in the current context.
 lookupTypeOrError :: Var -> Ctx -> Tc Type
@@ -229,8 +227,12 @@ lookupItemOrCtor s (GlobalCtx ((Data (DataItem _ _ ctors)) : c)) =
 lookupItemOrCtor s (GlobalCtx (_ : c)) = lookupItemOrCtor s (GlobalCtx c)
 
 -- | Add a variable to the current context.
-addTyping :: Var -> Type -> Bool -> Ctx -> Ctx
-addTyping v t b (Ctx c) = Ctx (Typing v t b : c)
+addTyping :: Var -> Type -> Ctx -> Ctx
+addTyping v t (Ctx c) = Ctx (Typing v t : c)
+
+-- | Add a substitution to the current context.
+addSubst :: Var -> Term -> Ctx -> Ctx
+addSubst v t (Ctx c) = Ctx (Subst v t : c)
 
 -- | Add a declaration to the global context.
 addItem :: Item -> GlobalCtx -> GlobalCtx
@@ -251,7 +253,8 @@ freshVar = freshVarPrefixed "v"
 -- | Get all variables in a context.
 ctxVars :: Ctx -> [Var]
 ctxVars (Ctx []) = []
-ctxVars (Ctx ((Typing v _ _) : c)) = v : ctxVars (Ctx c)
+ctxVars (Ctx ((Typing v _) : c)) = v : ctxVars (Ctx c)
+ctxVars (Ctx (_ : c)) = ctxVars (Ctx c)
 
 -- | Get a fresh applied metavariable in the current context.
 freshMeta :: Tc Term

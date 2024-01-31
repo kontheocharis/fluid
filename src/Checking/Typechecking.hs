@@ -6,6 +6,7 @@ import Checking.Context
     TcError (..),
     TcState (inPat, metaValues, termTypes),
     addItem,
+    addSubst,
     addTyping,
     classifyApp,
     enterCtx,
@@ -17,8 +18,8 @@ import Checking.Context
     inCtx,
     inGlobalCtx,
     inState,
-    isPatBind,
     lookupItemOrCtor,
+    lookupSubst,
     lookupType,
     modifyCtx,
     modifyGlobalCtx,
@@ -122,7 +123,7 @@ checkCtorItem dTy (CtorItem name ty dTyName) = do
   let (tys, ret) = piTypeToList ty'
 
   -- \| Add all the arguments to the context
-  enterCtxMod (\c -> foldr (\(v, t) c' -> addTyping v t False c') c tys) $ do
+  enterCtxMod (\c -> foldr (\(v, t) c' -> addTyping v t c') c tys) $ do
     -- \| Check that the return type is the data type.
     dummyArgs <- replicateM dTyArgCount freshMeta
     let dummyRet = listToApp (genTerm (Global dTyName), dummyArgs)
@@ -199,11 +200,11 @@ unifyTermsTo t1 t2 = do
 -- This also performs elaboration by filling named holes and wildcards with metavariables.
 checkTerm' :: Term -> Type -> Tc (Term, Type)
 checkTerm' ((Term (Lam v t) d1)) ((Term (PiT var' ty1 ty2) d2)) = do
-  (t', ty2') <- enterCtxMod (addTyping v ty1 False) $ checkTerm t (alphaRename var' (v, d2) ty2)
+  (t', ty2') <- enterCtxMod (addTyping v ty1) $ checkTerm t (alphaRename var' (v, d2) ty2)
   return (locatedAt d1 (Lam v t'), locatedAt d2 (PiT var' ty1 ty2'))
 checkTerm' ((Term (Lam v t1) d1)) typ = do
   varTy <- freshMeta
-  (t1', bodyTy) <- enterCtxMod (addTyping v varTy False) $ inferTerm t1
+  (t1', bodyTy) <- enterCtxMod (addTyping v varTy) $ inferTerm t1
   typ' <- unifyTermsTo typ $ locatedAt d1 (PiT v varTy bodyTy)
   return (locatedAt d1 (Lam v t1'), typ')
 checkTerm' (Term (Pair t1 t2) d1) (Term (SigmaT v ty1 ty2) d2) = do
@@ -218,12 +219,12 @@ checkTerm' (Term (Pair t1 t2) d1) typ = do
   return (locatedAt d1 (Pair t1' t2'), typ')
 checkTerm' (Term (PiT v t1 t2) d1) typ = do
   (t1', _) <- checkTermExpected t1 TyT
-  (t2', _) <- enterCtxMod (addTyping v t1 False) $ checkTermExpected t2 TyT
+  (t2', _) <- enterCtxMod (addTyping v t1) $ checkTermExpected t2 TyT
   typ' <- unifyTermsTo typ (locatedAt d1 TyT)
   return (locatedAt d1 (PiT v t1' t2'), typ')
 checkTerm' (Term (SigmaT v t1 t2) d1) typ = do
   (t1', _) <- checkTermExpected t1 TyT
-  (t2', _) <- enterCtxMod (addTyping v t1 False) $ checkTermExpected t2 TyT
+  (t2', _) <- enterCtxMod (addTyping v t1) $ checkTermExpected t2 TyT
   typ' <- unifyTermsTo typ (locatedAt d1 TyT)
   return (locatedAt d1 (SigmaT v t1' t2'), typ')
 checkTerm' (Term TyT d1) typ = do
@@ -269,7 +270,7 @@ checkTerm' t@(Term (V v) _) typ = do
       p <- inState inPat
       if p
         then do
-          modifyCtx (addTyping v typ True)
+          modifyCtx (addTyping v typ)
           return (t, typ)
         else throwError $ VariableNotFound v
     Just vTyp' -> do
@@ -314,7 +315,17 @@ checkTerm' (Term (Case s cs) _) typ = do
     mapM
       ( \(p, t) -> enterCtx $ do
           pt <- patToTerm p
-          (pt', _) <- enterPat $ checkTerm pt sTy
+          pt' <- enterPat $ do
+            (pt', _) <- checkTerm pt sTy
+
+            -- If the pattern is a variable,
+            -- then we can unify with the subject for dependent
+            -- pattern matching.
+            case s' of
+              Term (V _) _ -> unifyTerms pt' s'
+              _ -> return ()
+
+            return pt'
           (t', _) <- checkTerm t typ
           return (pt', t')
       )
@@ -445,6 +456,20 @@ unifyTerms a' b' = do
     (_, Just (Flex h2 ts2)) -> solve h2 ts2 a
     _ -> unifyTerms' a b
   where
+    -- \| Unify a variable with a term. Returns True if successful.
+    unifyVarWithTerm :: Term -> Var -> Term -> Tc ()
+    unifyVarWithTerm vOrigin v t = do
+      -- Check if the variable exists in a substitution in
+      -- the context.
+      subst <- inCtx (lookupSubst v)
+      case subst of
+        Just s -> unifyTerms s t
+        Nothing -> do
+          pt <- inState inPat
+          if pt
+            then modifyCtx (addSubst v t)
+            else throwError $ Mismatch vOrigin t
+
     unifyTerms' :: Term -> Term -> Tc ()
     unifyTerms' (Term (PiT lv l1 l2) d1) (Term (PiT rv r1 r2) _) = do
       unifyTerms l1 r1
@@ -459,18 +484,8 @@ unifyTerms a' b' = do
       unifyTerms l2 r2
     unifyTerms' (Term TyT _) (Term TyT _) = return ()
     unifyTerms' (Term (V l) _) (Term (V r) _) | l == r = return ()
-    unifyTerms' a@(Term (V l) _) b = do
-      pt <- inCtx (isPatBind l)
-      case pt of
-        Just True -> do
-          modifyCtx (sub (Sub [(l, b)]))
-        _ -> throwError $ Mismatch a b
-    unifyTerms' a b@(Term (V l) _) = do
-      pt <- inCtx (isPatBind l)
-      case pt of
-        Just True -> do
-          modifyCtx (sub (Sub [(l, a)]))
-        _ -> throwError $ Mismatch a b
+    unifyTerms' a@(Term (V l) _) b = unifyVarWithTerm a l b
+    unifyTerms' a b@(Term (V l) _) = unifyVarWithTerm b l a
     unifyTerms' a@(Term (Global l) _) b@(Term (Global r) _) =
       if l == r
         then return ()
