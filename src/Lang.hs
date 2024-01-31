@@ -200,7 +200,7 @@ instance Show Term where
   show (Global s) = s
   show (Hole i) = "?" ++ show i
   show NatT = "Nat"
-  show (ListT t) = "List " ++ show t 
+  show (ListT t) = "List " ++ show t
   show (MaybeT t) = "Maybe " ++ show t
   show (VectT t n) = "Vect " ++ show t ++ " " ++ show n
   show (FinT t) = "Fin " ++ show t
