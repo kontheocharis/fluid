@@ -454,7 +454,7 @@ instance Show TermData where
   show (TermData l t) = "loc=" ++ show l ++ ", type=" ++ show t
 
 instance Show Term where
-  show (Term t _) = show t
+  show (Term t d) = show t ++ " " ++ show d
 
 instance Show Item where
   show (Decl d) = show d

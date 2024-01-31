@@ -18,9 +18,7 @@ instance FromRefactorArgs EnhancePatsArgs where
     EnhancePatsArgs
       <$> lookupPositionArg "pos" args
       
-getPos :: Maybe Pos -> Pos 
-getPos Nothing = error "Location in source code not found!"
-getPos (Just p) = p
+
 
 
 refacClause :: [Clause] -> Refact [Clause]
@@ -28,27 +26,10 @@ refacClause clauses = return clauses
 
 
 enhancePatsRefac :: EnhancePatsArgs -> Program -> Refact Program
-enhancePatsRefac (EnhancePatsArgs p) (Program items) =   
-  return 
-    (Program 
-      (map (\item -> 
-          case item of
-              (Decl (DeclItem name ty clauses)) -> error "bob"
-              {-   (map (\cl -> 
-                  case cl of 
-                    (Clause pats t) -> error "bob"
-                      {- map (\pat ->
-                        case pat of 
-                          (Term (V (Var name id)) d) -> if getPos (startPos (getLoc d)) == p 
-                                                          then error "here" 
-                                                          else error "other" -- Term (V (Var name id))  d
-                          p -> p
-                      ) pats -}
-                  --   c -> (Decl (DeclItem name ty clauses))
-                ) clauses ) 
-              d -> d -}
-      ) items 
-      ))
+enhancePatsRefac (EnhancePatsArgs p) prog@(Program items) =  -- error (show prog)
+  do 
+    let t = locToTerm p prog
+    error (show t)
 
 
 {-              (Decl decl) -> if (declName decl) == (removeMaybeFuncName args) then 

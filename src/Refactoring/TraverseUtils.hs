@@ -11,10 +11,6 @@ import Generics.SYB hiding (Generic, Refl)
 
 type SimpPos = (Int, Int)
 
-getPos :: Maybe Pos -> Pos 
-getPos Nothing = error "Location in source code not found!"
-getPos (Just p) = p
-
 locToTerm :: (Data t)
             => Pos 
             -> t
@@ -23,5 +19,6 @@ locToTerm p t =
    Generics.SYB.something (Nothing `Generics.SYB.mkQ` termBind) t
   where
      termBind term@((Term (V (Var name id)) d)) 
-       | getPos (startPos (getLoc d)) == p  = Just term
+       | Just p == startPos (getLoc d)    = Just term 
        | otherwise = Nothing
+     termBind _ = Nothing 
