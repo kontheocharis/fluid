@@ -34,9 +34,14 @@ module Lang
     locatedAt,
     typedAs,
     appToList,
+    startPos,
+    endPos
   )
 where
 
+import GHC.Generics (Generic)
+import Data.Generics (Data)
+import Data.Typeable (Typeable)
 import Control.Monad.Identity (runIdentity)
 import Data.List (intercalate)
 
@@ -51,7 +56,7 @@ type GlobalName = String
 
 -- | A variable
 -- Represented by a string name and a unique integer identifier (no shadowing).
-data Var = Var String Int deriving (Eq)
+data Var = Var String Int deriving (Eq, Generic, Data, Typeable)
 
 -- | A term
 data TermValue
@@ -94,10 +99,10 @@ data TermValue
   | Refl Term
   | LTEZero
   | LTESucc Term
-  deriving (Eq)
+  deriving (Eq, Generic, Data, Typeable)
 
 -- | A term with associated data.
-data Term = Term {termValue :: TermValue, termData :: TermData} deriving (Eq)
+data Term = Term {termValue :: TermValue, termData :: TermData} deriving (Eq, Generic, Data, Typeable)
 
 -- | Alias for type values (just for documentation purposes)
 type TypeValue = TermValue
@@ -107,7 +112,7 @@ type PatValue = TermValue
 
 -- | An optional location in the source code, represented by a start (inclusive) and
 -- end (exclusive) position.
-data Loc = NoLoc | Loc Pos Pos deriving (Eq)
+data Loc = NoLoc | Loc Pos Pos deriving (Eq, Generic, Data, Typeable)
 
 -- | A monoid instance for locations, that gets the maximum span.
 instance Monoid Loc where
@@ -125,7 +130,7 @@ instance Ord Loc where
   Loc s1 e1 <= Loc s2 e2 = s1 <= s2 && e1 <= e2
 
 -- | A position in the source code, represented by a line and column number.
-data Pos = Pos Int Int deriving (Eq)
+data Pos = Pos Int Int deriving (Eq, Generic, Data, Typeable)
 
 -- | An ordering for positions, that gets the minimum position.
 instance Ord Pos where
@@ -145,7 +150,7 @@ endPos (Loc _ end) = Just end
 --
 -- For now stores only the location in the source code, but will
 -- be extended to store type information too.
-data TermData = TermData {loc :: Loc, annotTy :: Maybe Type} deriving (Eq)
+data TermData = TermData {loc :: Loc, annotTy :: Maybe Type} deriving (Eq, Generic, Data, Typeable)
 
 -- | Empty term data.
 emptyTermData :: TermData
@@ -207,7 +212,7 @@ appToList t = (t, [])
 data Item
   = Decl DeclItem
   | Data DataItem
-  deriving (Eq)
+  deriving (Eq, Generic, Data, Typeable)
 
 -- | Get the name of an item.
 itemName :: Item -> String
@@ -220,7 +225,7 @@ data DeclItem = DeclItem
     declTy :: Type,
     declClauses :: [Clause]
   }
-  deriving (Eq)
+  deriving (Eq, Generic, Data, Typeable)
 
 -- | A data item is an indexed inductive data type declaration, with a sequence
 -- of constructors.
@@ -229,7 +234,7 @@ data DataItem = DataItem
     dataTy :: Type,
     dataCtors :: [CtorItem]
   }
-  deriving (Eq)
+  deriving (Eq, Generic, Data, Typeable)
 
 -- | A constructor item is a constructor name and type.
 data CtorItem = CtorItem
@@ -237,11 +242,11 @@ data CtorItem = CtorItem
     ctorItemTy :: Type,
     ctorItemDataName :: String
   }
-  deriving (Eq)
+  deriving (Eq, Generic, Data, Typeable)
 
 -- | A clause is a sequence of patterns followed by a term.
 data Clause = Clause [Pat] Term | ImpossibleClause [Pat]
-  deriving (Eq)
+  deriving (Eq, Generic, Data, Typeable)
 
 -- | Get the patterns from a clause.
 clausePats :: Clause -> [Pat]
@@ -254,7 +259,7 @@ prependPatToClause p (ImpossibleClause ps) = ImpossibleClause (p : ps)
 
 -- | A program is a sequence of items.
 newtype Program = Program [Item]
-  deriving (Eq)
+  deriving (Eq, Generic, Data, Typeable)
 
 -- | Result of a term map.
 data MapResult a = Continue | Replace a | ReplaceAndContinue a
