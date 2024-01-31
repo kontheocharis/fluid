@@ -19,18 +19,31 @@ instance FromRefactorArgs EnhancePatsArgs where
       <$> lookupPositionArg "pos" args
       
 
-
-
 refacClause :: [Clause] -> Refact [Clause]
 refacClause clauses = return clauses
 
+-- given a Type, return its constructors and number of parameters for each constructor
+{-
+getConstructorsAndParams :: TermValue -> [(String, Int)]
+getConstructorsAndParams (ListT x) = [("Nil", 0), (Cons, 2)]
+getConstructorsAndParams (Global g) = error (show g)
+-}
 
 enhancePatsRefac :: EnhancePatsArgs -> Program -> Refact Program
 enhancePatsRefac (EnhancePatsArgs p) prog@(Program items) =  -- error (show prog)
   do 
-    let t = locToTerm p prog
-    error (show t)
-
+    let (Just t) = locToTerm p prog
+    let c = termToClause t prog
+    error (show c)
+    
+{-
+    case t of 
+      (Just (Term (V (Var n id)) (TermData l (Term ty d2)))) -> 
+             case ty of
+                (ListT ty3) -> --- (Just (Term (V (Var n id)) (TermData l (Term ty d2))))
+               
+      _                     -> error "error: please select a pattern variable to expand"
+-}
 
 {-              (Decl decl) -> if (declName decl) == (removeMaybeFuncName args) then 
                                   Decl (removeMaybe_func decl)

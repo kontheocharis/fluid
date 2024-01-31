@@ -35,7 +35,9 @@ module Lang
     typedAs,
     appToList,
     startPos,
-    endPos
+    endPos,
+    getLinePos,
+    getColPos
   )
 where
 
@@ -141,6 +143,12 @@ startPos :: Loc -> Maybe Pos
 startPos NoLoc = Nothing
 startPos (Loc start _) = Just start
 
+getLinePos :: Maybe Pos -> Int 
+getLinePos (Just (Pos l c)) = l 
+
+getColPos :: Maybe Pos -> Int 
+getColPos (Just (Pos l c)) = c
+
 -- | Get the ending position of a location.
 endPos :: Loc -> Maybe Pos
 endPos NoLoc = Nothing
@@ -245,17 +253,17 @@ data CtorItem = CtorItem
   deriving (Eq, Generic, Data, Typeable)
 
 -- | A clause is a sequence of patterns followed by a term.
-data Clause = Clause [Pat] Term | ImpossibleClause [Pat]
+data Clause = Clause [Pat] Term Loc | ImpossibleClause [Pat] Loc
   deriving (Eq, Generic, Data, Typeable)
 
 -- | Get the patterns from a clause.
 clausePats :: Clause -> [Pat]
-clausePats (Clause pats _) = pats
-clausePats (ImpossibleClause pats) = pats
+clausePats (Clause pats _ _) = pats
+clausePats (ImpossibleClause pats _) = pats
 
 prependPatToClause :: Pat -> Clause -> Clause
-prependPatToClause p (Clause ps t) = Clause (p : ps) t
-prependPatToClause p (ImpossibleClause ps) = ImpossibleClause (p : ps)
+prependPatToClause p (Clause ps t l) = Clause (p : ps) t l
+prependPatToClause p (ImpossibleClause ps l) = ImpossibleClause (p : ps) l
 
 -- | A program is a sequence of items.
 newtype Program = Program [Item]
@@ -323,8 +331,8 @@ class TermMappable t where
   mapTermMappable f = runIdentity . mapTermMappableM (return . f)
 
 mapClauseM :: (Monad m) => (Term -> m (MapResult Term)) -> Clause -> m Clause
-mapClauseM f (Clause p t) = Clause <$> mapM (mapTermM f) p <*> mapTermM f t
-mapClauseM f (ImpossibleClause p) = ImpossibleClause <$> mapM (mapTermM f) p
+mapClauseM f (Clause p t l) = Clause <$> mapM (mapTermM f) p <*> mapTermM f t <*> pure l
+mapClauseM f (ImpossibleClause p l) = ImpossibleClause <$> mapM (mapTermM f) p <*> pure l
 
 -- | Apply a term function to a constructor item.
 mapCtorItemM :: (Monad m) => (Term -> m (MapResult Term)) -> CtorItem -> m CtorItem
@@ -473,11 +481,12 @@ instance Show DeclItem where
   show (DeclItem v ty clauses) = intercalate "\n" ((v ++ " : " ++ show ty) : map (\c -> v ++ " " ++ show c) clauses)
 
 instance Show Clause where
-  show (Clause p t) = intercalate " " (map show p) ++ " = " ++ show t
-  show (ImpossibleClause p) = intercalate " " (map show p) ++ " impossible"
+  show (Clause p t l ) = intercalate " " (map show p) ++ " = " ++ show t 
+  show (ImpossibleClause p l) = intercalate " " (map show p) ++ " impossible"
 
 instance Show Program where
   show (Program ds) = intercalate "\n\n" $ map show ds
+
 
 -- | Check if a given term is a valid pattern (no typechecking).
 isValidPat :: Term -> Bool
