@@ -1,6 +1,6 @@
 module Refactoring.Clauses (expandDeclItemPat, expandDeclItemFully) where
 
-import Lang (Clause (..), DeclItem (..), Pat, Term (termValue), TermValue (..), Type, genTerm, piTypeToList)
+import Lang (Loc (..), Clause (..), DeclItem (..), Pat, Term (termValue), TermValue (..), Type, genTerm, piTypeToList)
 
 -- | Expand all wildcard patterns in a declaration, one level deep.
 expandDeclItemFully :: DeclItem -> DeclItem
@@ -9,8 +9,8 @@ expandDeclItemFully decl = foldr expandDeclItemPat decl allPatIndices
     (DeclItem _ _ clauses) = decl
     allPatIndices = case clauses of
       [] -> []
-      (Clause ps _ : _) -> [0 .. length ps - 1]
-      (ImpossibleClause ps : _) -> [0 .. length ps - 1]
+      (Clause ps _ _ : _) -> [0 .. length ps - 1]
+      (ImpossibleClause ps _ : _) -> [0 .. length ps - 1]
 
 -- | Expand a pattern in a declaration at the given index, one level deep.
 expandDeclItemPat :: Int -> DeclItem -> DeclItem
@@ -23,16 +23,16 @@ expandClausePat ty idx clause = expandedClauses
     (piTypes, _) = piTypeToList ty
     (_, targetType) = piTypes !! idx
     (targetPat, pats, term) = case clause of
-      Clause ps t -> (ps !! idx, ps, Just t)
-      ImpossibleClause ps -> (ps !! idx, ps, Nothing)
+      Clause ps t _ -> (ps !! idx, ps, Just t)
+      ImpossibleClause ps _ -> (ps !! idx, ps, Nothing)
     expandedPats = expandPat targetType targetPat
     expandedClauses =
       map
         ( \p ->
             let ps = take idx pats ++ [p] ++ drop (idx + 1) pats
              in case term of
-                  Just t -> Clause ps t
-                  Nothing -> ImpossibleClause ps
+                  Just t -> Clause ps t NoLoc
+                  Nothing -> ImpossibleClause ps NoLoc
         )
         expandedPats
 

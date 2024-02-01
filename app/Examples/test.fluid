@@ -4,3 +4,5 @@ data Data1 : Nat -> List Nat -> Type  where
     | C3 : (ind :List Nat) -> Data1 Z ind
 
 
+f : (n : Nat) -> (l : List Nat) -> Data1 n l -> Nat 
+f n l d = (S Z)

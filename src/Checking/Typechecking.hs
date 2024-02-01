@@ -155,26 +155,20 @@ checkDeclItem decl = do
 
 -- | Check a clause against a list of types which are its signature.
 checkClause :: ([(Var, Type)], Type) -> Clause -> Tc Clause
-checkClause ([], t) (Clause [] r) = do
-  (r', _) <- checkTerm r t
-  return (Clause [] r')
-checkClause ((v, a) : as, t) (Clause (p : ps) r) = do
+checkClause ([], t) (Clause [] r l) = do
+  s <- checkTerm r t
+  return (Clause [] (sub s r) l)
+checkClause ((v, a) : as, t) (Clause (p : ps) r l) = do
   pt <- patToTerm p
-  (pt', _) <- enterPat $ checkTerm pt a
-  let s' = Sub [(v, pt')]
-  c <- checkClause (map (second (sub s')) as, sub s' t) (Clause ps r)
-  return $ prependPatToClause pt' c
-checkClause ([], _) (ImpossibleClause []) = return (ImpossibleClause []) -- @@Todo: check
-checkClause ((v, a) : as, t) (ImpossibleClause (p : ps)) = do
-  pt <- patToTerm p
-  (pt', _) <- enterPat $ checkTerm pt a
-  let s' = Sub [(v, pt')]
-  c <- checkClause (map (second (sub s')) as, sub s' t) (ImpossibleClause ps)
-  return $ prependPatToClause pt' c
-checkClause ([], _) cl@(Clause (p : _) _) = throwError $ TooManyPatterns cl p
-checkClause ([], _) cl@(ImpossibleClause (p : _)) = throwError $ TooManyPatterns cl p
-checkClause ((_, t) : _, _) cl@(Clause [] _) = throwError $ TooFewPatterns cl t
-checkClause ((_, t) : _, _) cl@(ImpossibleClause []) = throwError $ TooFewPatterns cl t
+  s <- enterPat $ checkTerm pt a
+  let instantiatedPat = sub s pt
+  let s' = s <> Sub [(v, instantiatedPat)]
+  c <- checkClause (map (second (sub s')) as, sub s' t) (Clause ps r l)
+  return $ prependPatToClause p c
+checkClause ([], _) cl@(Clause (p : _) _ _) = throwError $ TooManyPatterns cl p
+checkClause ((_, t) : _, _) cl@(Clause [] _ _) = throwError $ TooFewPatterns cl t
+checkClause _ (ImpossibleClause _ _) = error "Impossible clauses not yet supported"
+
 
 -- | Check the type of a term, and set the type in the context.
 checkTerm :: Term -> Type -> Tc (Term, Type)
