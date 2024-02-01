@@ -54,13 +54,13 @@ import Lang
     itemName,
     listToApp,
   )
-
+import Interface.Pretty 
 -- | A typing judgement.
 data Judgement = Typing Var Type | Subst Var Term
 
 instance Show Judgement where
-  show (Typing v ty) = show v ++ " : " ++ show ty
-  show (Subst v t) = show v ++ " = " ++ show t
+  show (Typing v ty) = printVar v ++ " : " ++ printTerm ty
+  show (Subst v t) = printVar v ++ " = " ++ printTerm t
 
 -- | A context, represented as a list of typing judgements.
 newtype Ctx = Ctx [Judgement]
@@ -84,15 +84,15 @@ data TcError
   | NotAFunction Term
 
 instance Show TcError where
-  show (VariableNotFound v) = "Variable not found: " ++ show v
-  show (Mismatch t1 t2) = "Term mismatch: " ++ show t1 ++ " vs " ++ show t2
+  show (VariableNotFound v) = "Variable not found: " ++ printVar v
+  show (Mismatch t1 t2) = "Term mismatch: " ++ printTerm t1 ++ " vs " ++ printTerm t2
   show (ItemNotFound s) = "Item not found: " ++ s
-  show (CannotUnifyTwoHoles h1 h2) = "Cannot unify two holes: " ++ show h1 ++ " and " ++ show h2
-  show (CannotInferHoleType h) = "Cannot infer hole type: " ++ show h
-  show (NeedMoreTypeHints vs) = "Need more type hints to resolve the holes: " ++ show vs
-  show (TooManyPatterns c p) = "Too many patterns in '" ++ show c ++ "' . Unexpected: " ++ show p
-  show (TooFewPatterns c t) = "Too few patterns in '" ++ show c ++ "'. Expected pattern for: " ++ show t
-  show (NotAFunction t) = "Not a function: " ++ show t
+  show (CannotUnifyTwoHoles h1 h2) = "Cannot unify two holes: " ++ printVar h1 ++ " and " ++ printVar h2
+  show (CannotInferHoleType h) = "Cannot infer hole type: " ++ printVar h
+  show (NeedMoreTypeHints vs) = "Need more type hints to resolve the holes: " ++ (concat (map printVar vs))
+  show (TooManyPatterns c p) = "Too many patterns in '" ++ printClause c ++ "' . Unexpected: " ++ printTerm p
+  show (TooFewPatterns c t) = "Too few patterns in '" ++ printClause c ++ "'. Expected pattern for: " ++ printTerm t
+  show (NotAFunction t) = "Not a function: " ++ printTerm t
 
 -- | The typechecking state.
 data TcState = TcState

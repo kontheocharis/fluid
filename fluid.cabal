@@ -29,6 +29,7 @@ library
       Checking.Typechecking
       Checking.Vars
       Interface.Cli
+      Interface.Pretty
       Lang
       Parsing.Parser
       Parsing.Resolution

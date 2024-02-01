@@ -18,6 +18,7 @@ import Parsing.Parser (parseProgram, parseRefactorArgs, parseTerm)
 import Refactoring.SpecCtor (specCtor)
 import Refactoring.EnhancePatterns (enhancePatsRefac)
 import Refactoring.Utils (FromRefactorArgs (..), Refact, RefactorArgKind (..), RefactorArgs (..), evalRefact)
+import Interface.Pretty
 
 import System.Console.Haskeline (InputT, defaultSettings, getInputLine, outputStrLn, runInputT)
 import System.Exit (exitFailure)
@@ -169,9 +170,9 @@ applyRefactoring f args flags r = do
   let refactored = evalRefact (r args' program)
   when (verbose flags) $ msg "Refactored program"
   case applyChanges flags of
-    InPlace -> liftIO $ writeFile f (show refactored)
-    Print -> msg $ show refactored
-    NewFile -> liftIO $ writeFile ("refactored_" ++ f) (show refactored)
+    InPlace -> liftIO $ writeFile f (printProgram refactored)
+    Print -> msg $ printProgram refactored
+    NewFile -> liftIO $ writeFile ("refactored_" ++ f) (printProgram refactored)
 
 -- | Run the REPL.
 runRepl :: InputT IO a
