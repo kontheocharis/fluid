@@ -75,28 +75,49 @@ funcHasTyAsParam decl dName =
 --relating params of constructor refactoring
 relFuncParams :: RelFuncArgs -> Program -> Refact Program
 relFuncParams args (Program items) = 
-    let newP = Program 
+    let indToAddTo = getIndToAddTo (Program items)
+        newP = relFuncParams_prog indToAddTo (Program items)
+        usecaseUpdate = updateUsecase indToAddTo newP 
+        in return $ usecaseUpdate
+    where 
+        --get the ind to add the new param to
+        --TODO: things could be so much easier if I count param from left.....
+        getIndToAddTo:: Program ->  Int
+        getIndToAddTo (Program items0) = 
+            foldr
+                (\item acc -> case item of
+                                Decl d -> if declName d == relFuncParamsFuncName args then
+                                            let tys = piTypeToListWithDummy (declTy d) 
+                                                inds = map (\i -> (length tys) - i -1) (relFuncParamsIndsPos args)  
+                                                in maximum inds
+                                            else 
+                                                maximum [0,acc]
+                                _ -> maximum [0,acc]
+                )
+                0 
+                items0
+        relFuncParams_prog:: Int -> Program -> Program
+        relFuncParams_prog i (Program items1) = 
+            Program 
                     (map (\item -> case item of
-                                        Decl d | declName d == relFuncParamsFuncName args -> Decl (relFuncParams_func d)
+                                        Decl d -> if declName d == relFuncParamsFuncName args then
+                                                    Decl (relFuncParams_func i d)
+                                                  else 
+                                                    Decl d
                                         _ -> item
                         )
                         items
                     )
-        in return $ newP
-   --     usecaseUpdate = updateUsecase newP 
-   --     in return $ usecaseUpdate
-    where 
         --refactor function to add param
-        relFuncParams_func :: DeclItem -> DeclItem
-        relFuncParams_func d =
+        relFuncParams_func :: Int -> DeclItem -> DeclItem
+        relFuncParams_func i d =
             let tys = piTypeToListWithDummy (declTy d) 
                 inds = map (\i -> (length tys) - i -1) (relFuncParamsIndsPos args) 
                 varsToRelate = foldr (\x acc -> (fst (tys!!x):acc)) [] inds
                 newVarTy = makeRelationParam varsToRelate
-                indToInsert = maximum inds
-                inserted = insertAfter tys indToInsert newVarTy
+                inserted = insertAfter tys i newVarTy
                 in d { declTy = listWithDummyToPiType inserted,  --update signature
-                       declClauses = map (relFuncParams_cl indToInsert) (declClauses d)} --update clauses
+                       declClauses = map (relFuncParams_cl i) (declClauses d)} --update clauses
         --get var,type for the new relation param
         makeRelationParam:: [Var] -> (Var, Type)
         makeRelationParam vars = 
@@ -108,9 +129,9 @@ relFuncParams args (Program items) =
             Clause (insertAfter lhsPats i (genTerm (V (Var "relParam_patV" 0)))) (relFuncParams_clRhs i rhsTerm)
         relFuncParams_cl i (ImpossibleClause lhsPats) = 
             ImpossibleClause (insertAfter lhsPats i (genTerm (V (Var "relParam_patV" 0))))
-        --add holes in all recursive calls
+        --add holes in all function calls
         relFuncParams_clRhs :: Int -> Term -> Term
-        relFuncParams_clRhs i  (Term (Case caseTerm patTermList) _) = 
+        relFuncParams_clRhs i (Term (Case caseTerm patTermList) _) = 
             genTerm ((Case caseTerm (map (\pt -> ((fst pt), relFuncParams_clRhs i (snd pt)) ) patTermList)) )
         relFuncParams_clRhs i (Term (App term1 term2) termDat) = 
             let (outerTerm, argList) = appToList (Term (App term1 term2) termDat) in 
@@ -119,11 +140,25 @@ relFuncParams args (Program items) =
                         in (listToApp (outerTerm, holeInserted)) 
                 else 
                     (Term (App (relFuncParams_clRhs i term1) (relFuncParams_clRhs i term2)) termDat)
-        relFuncParams_clRhs i term = term
         --todo: recurse down other patterns
+        relFuncParams_clRhs i term = term
+        --update usecase of f in other places
+        updateUsecase:: Int -> Program -> Program 
+        updateUsecase i (Program items2) = 
+            Program 
+            (map (\item -> case item of
+                                Decl d -> Decl d {declClauses = map (\cl -> case cl of 
+                                                                               ImpossibleClause pat -> ImpossibleClause pat
+                                                                               Clause pat term -> Clause pat (relFuncParams_clRhs i term)                
+                                                                    ) 
+                                                                    (declClauses d)}
+                                _ -> item
+                )
+                items2
+            )
 
 
 
 --stack run -- -r examples/testRelFuncParams.fluid -n rel-func-params -a 'func=f, inds=[1,2], reln =`Elem`'
 
---todo: Q: use fenTerm or pass around termData?
+--todo: Q: use genTerm or pass around termData?

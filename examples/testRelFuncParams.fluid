@@ -15,6 +15,6 @@ g l n = case n of
             | (S n) => g l n
 
 
-
-
+h: Nat -> Nat 
+h n = f [] n
 
