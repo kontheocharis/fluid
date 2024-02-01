@@ -22,6 +22,5 @@ g Z l = C1 l Z
 g (S n) l = C2 l
 
 
-h: Nat -> Nat 
-h n = n
+
 

@@ -35,6 +35,7 @@ library
       Refactoring.Clauses
       Refactoring.Ornamenting
       Refactoring.RelCtorParams
+      Refactoring.RelFuncParams
       Refactoring.SpecCtor
       Refactoring.Utils
   other-modules:

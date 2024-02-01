@@ -19,19 +19,18 @@ import Lang
     genTerm
   )
 import Refactoring.Utils (FromRefactorArgs (..), Refact, RefactState, lookupExprArg, lookupIdxListArg, lookupNameArg, freshVar)
-import Control.Monad.State (MonadState (get), State, put, evalState, runState)
 
 
 
 -- Arguments to the refactoring.
 data RelCtorArgs = RelCtorArgs
-  { -- | The name of the data type to specialise.
+  { -- | The name of the data type of the ctor
     relCtorParamsDataName :: String,
-    -- | The name of the constructor to specialise.
+    -- | The name of the constructor whose params are to be related
     relCtorParamsCtorName :: String,
-    -- | The position of the index to specialise.
+    -- | The indices of the params to relate
     relCtorParamsIndsPos :: [Int],
-    -- | The term to specialise the index to.
+    -- | The term to to relate them
     relCtorParamsNewTerm :: Term
   }
 
@@ -119,7 +118,7 @@ relCtorParams args (Program items) =
                 in (Var "relParamV" 0, listToApp (relCtorParamsNewTerm args, termList)) -- todo: get fresh var
         --update usecase (for now, as params of functions only)
         updateUsecase :: Program -> Program 
-        updateUsecase (Program items) =
+        updateUsecase (Program items2) =
             Program (map (\item -> case item of
                                         Decl d -> if (funcHasTyAsParam d (relCtorParamsDataName args)) then
                                                     Decl d {declClauses = map updateUsecase_cl (declClauses d)} 
@@ -127,7 +126,7 @@ relCtorParams args (Program items) =
                                                     Decl d
                                         _ -> item
                         )
-                        items
+                        items2
                     )
         --update usecase in a clause
         updateUsecase_cl :: Clause -> Clause
@@ -156,3 +155,7 @@ relCtorParams args (Program items) =
                     (Term (App (updateUsecase_rhs term1) (updateUsecase_rhs term2)) termDat)
         updateUsecase_rhs term = term
         
+--stack run -- -r examples/testRelCtorParams.fluid -n rel-ctor-params -a 'data=Data1, ctor=C1, inds=[1,2], reln =`Elem`'
+
+
+--todo: check that the param types for term matches the types of given indices
