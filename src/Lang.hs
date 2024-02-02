@@ -40,7 +40,8 @@ module Lang
     endPos,
     getLinePos,
     getColPos,
-    isCompound
+    isCompound,
+    emptyTermData
   )
 where
 
@@ -234,14 +235,15 @@ data Item
 
 -- | Get the name of an item.
 itemName :: Item -> String
-itemName (Decl (DeclItem name _ _)) = name
+itemName (Decl (DeclItem name _ _ _)) = name
 itemName (Data (DataItem name _ _)) = name
 
 -- | A declaration is a sequence of clauses, defining the equations for a function.
 data DeclItem = DeclItem
   { declName :: String,
     declTy :: Type,
-    declClauses :: [Clause]
+    declClauses :: [Clause],
+    pos :: Loc 
   }
   deriving (Eq, Generic, Data, Typeable, Show)
 
@@ -351,7 +353,7 @@ mapCtorItemM f (CtorItem name ty d) = CtorItem name <$> mapTermM f ty <*> pure d
 
 -- | Apply a term function to a declaration item.
 mapItemM :: (Monad m) => (Term -> m (MapResult Term)) -> Item -> m Item
-mapItemM f (Decl (DeclItem name ty clauses)) = Decl <$> (DeclItem name <$> mapTermM f ty <*> mapM (mapClauseM f) clauses)
+mapItemM f (Decl (DeclItem name ty clauses pos)) = Decl <$> (DeclItem name <$> mapTermM f ty <*> mapM (mapClauseM f) clauses <*> pure pos)
 mapItemM f (Data (DataItem name ty ctors)) = Data <$> (DataItem name <$> mapTermM f ty <*> mapM (mapCtorItemM f) ctors)
 
 -- | Apply a term function to a program.

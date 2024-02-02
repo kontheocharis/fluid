@@ -7,7 +7,7 @@ import Lang (Loc (..), Clause (..), DeclItem (..), MapResult (Continue, Replace)
 
 -- | Ornament a declaration.
 ornamentDeclItem :: DeclItem -> (DeclItem, DeclItem)
-ornamentDeclItem (DeclItem name ty clauses) = (ornItem, indexPropItem)
+ornamentDeclItem (DeclItem name ty clauses l) = (ornItem, indexPropItem)
   where
     (tyOrn, i) = ornamentType ty
     indexPropItemName = name ++ "Indices"
@@ -24,7 +24,7 @@ ornamentDeclItem (DeclItem name ty clauses) = (ornItem, indexPropItem)
 
     (_, ornRetType) = piTypeToList tyOrn
     ornClauses = map (ornamentClause indicesAndPropLength name ornRetType) clauses
-    ornItem = DeclItem name tyOrnWithIndices ornClauses
+    ornItem = DeclItem name tyOrnWithIndices ornClauses l
 
 -- | Ornament a clause.
 --
@@ -85,7 +85,7 @@ listToVect t = t
 --
 -- The proof of the proposition is left as a hole.
 generateIndicesPropItem :: String -> Int -> DeclItem
-generateIndicesPropItem name i = DeclItem name piType [holeClause]
+generateIndicesPropItem name i = DeclItem name piType [holeClause] NoLoc
   where
     vars = map (\n -> Var ("n" ++ show n) n) [0 .. i - 1]
     piType = foldr (\v ty -> genTerm (PiT v (genTerm NatT) ty)) (genTerm TyT) vars

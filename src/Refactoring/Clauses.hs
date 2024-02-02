@@ -6,7 +6,7 @@ import Lang (Loc (..), Clause (..), DeclItem (..), Pat, Term (termValue), TermVa
 expandDeclItemFully :: DeclItem -> DeclItem
 expandDeclItemFully decl = foldr expandDeclItemPat decl allPatIndices
   where
-    (DeclItem _ _ clauses) = decl
+    (DeclItem _ _ clauses _) = decl
     allPatIndices = case clauses of
       [] -> []
       (Clause ps _ _ : _) -> [0 .. length ps - 1]
@@ -14,7 +14,7 @@ expandDeclItemFully decl = foldr expandDeclItemPat decl allPatIndices
 
 -- | Expand a pattern in a declaration at the given index, one level deep.
 expandDeclItemPat :: Int -> DeclItem -> DeclItem
-expandDeclItemPat idx (DeclItem n ty clauses) = DeclItem n ty (concatMap (expandClausePat ty idx) clauses)
+expandDeclItemPat idx (DeclItem n ty clauses l) = DeclItem n ty (concatMap (expandClausePat ty idx) clauses) l
 
 -- | Expand a pattern in a clause at the given index, one level deep.
 expandClausePat :: Type -> Int -> Clause -> [Clause]

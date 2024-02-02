@@ -11,17 +11,17 @@ indented str
 
 printVar (Var s _) = s
 
--- | Print a term value, with parentheses if it is compound.
-printSingle :: TermValue -> String
-printSingle v | (isCompound . getTermValue) v = "(" ++ printTermValue v ++ ")"
-printSingle v = printTermValue v
+-- | Show a term value, with parentheses if it is compound.
+showSingle :: Term -> String
+showSingle v | (isCompound . getTermValue) v = "(" ++ printTerm v ++ ")"
+showSingle v = printTerm v
 
 printTermValue :: TermValue -> String 
 printTermValue (PiT v t1 t2) = "(" ++ printVar v ++ " : " ++ printTerm t1 ++ ") -> " ++ printTerm t2
 printTermValue (Lam v t) = "\\" ++ printVar v ++ " => " ++ printTerm t
 printTermValue (SigmaT v t1 t2) = "(" ++ printVar v ++ " : " ++ printTerm t1 ++ ") ** " ++ printTerm t2
 printTermValue (Pair t1 t2) = "(" ++ printTerm t1 ++ ", " ++ printTerm t2 ++ ")"
-printTermValue t@(App _ _) = intercalate " " $ map printTerm (let (x, xs) = appToList (genTerm t) in x : xs)
+printTermValue t@(App _ _) = intercalate " " $ map showSingle (let (x, xs) = appToList (genTerm t) in x : xs)
 printTermValue (Case t cs) =
     "case "
       ++ printTerm t
@@ -65,7 +65,7 @@ printTermData (TermData l Nothing) = "loc=" ++ printLoc l ++ ", type=" ++ "Nothi
 printTermData (TermData l (Just t)) = "loc=" ++ printLoc l ++ ", type=" ++ "Just " ++ printTerm t
 
 
-printTerm (Term t d) = printTermValue t ++ " " ++ printTermData d
+printTerm (Term t d) = printTermValue t --  ++ " " ++ printTermData d
 
 printItem (Decl d) = printDeclItem d
 printItem (Data d) = printDataItem d
@@ -78,7 +78,7 @@ printDataItem (DataItem name ty ctors) =
       ++ " where\n"
       ++ intercalate "\n" (map (\(CtorItem s t _) -> "  | " ++ s ++ " : " ++ printTerm t) ctors)
 
-printDeclItem (DeclItem v ty clauses) = intercalate "\n" ((v ++ " : " ++ printTerm ty) : map (\c -> v ++ " " ++ printClause c) clauses)
+printDeclItem (DeclItem v ty clauses l) = intercalate "\n" ((v ++ " : " ++ printTerm ty) : map (\c -> v ++ " " ++ printClause c) clauses)
 
 printClause (Clause p t l ) = intercalate " " (map printTerm p) ++ " = " ++ printTerm t 
 printClause (ImpossibleClause p l) = intercalate " " (map printTerm p) ++ " impossible"

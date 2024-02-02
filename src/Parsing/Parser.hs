@@ -234,10 +234,12 @@ dataItem = whiteWrap $ do
 -- | Parse a declaration.
 declItem :: Parser DeclItem
 declItem = whiteWrap $ do
+  start <- getPos 
   (name, ty) <- declSignature
   enter
   clauses <- many (declClause name)
-  return $ DeclItem name ty clauses
+  end <- getPos
+  return $ DeclItem name ty clauses (Loc start end) 
 
 -- | Parse the type signature of a declaration.
 declSignature :: Parser (String, Type)
