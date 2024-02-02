@@ -20,7 +20,7 @@ import Lang
     termDataAt
   )
 import Data.List (partition)
-import Refactoring.Utils (FromRefactorArgs (..), Refact, lookupExprArg, lookupIdxArg, lookupNameArg)
+import Refactoring.Utils (FromRefactorArgs (..), Refact, lookupIdxArg, lookupNameArg,lookupIdxListArg)
 
 
 
@@ -326,7 +326,7 @@ data UnifyIndsArgs = UnifyIndsArgs
     -- | The position of the index to be retained
     unifyIndsUnifyToIndex  :: Int,
     -- | The position of the index to be unified to the index above
-    unifyIndsIndexToUnify :: Int
+    unifyIndsIndexToUnify :: [Int]
   }
 
 instance FromRefactorArgs UnifyIndsArgs where
@@ -335,11 +335,11 @@ instance FromRefactorArgs UnifyIndsArgs where
       <$> lookupNameArg "data" args
       <*> lookupNameArg "ctor" args
       <*> lookupIdxArg "unifyToIndex" args
-      <*> lookupIdxArg "indexToUnify" args
+      <*> lookupIdxListArg "indsToUnify" args
 
 -- | Specialise a constructor at a given index to a given term.
 unifyInds :: UnifyIndsArgs -> Program -> Refact Program
 unifyInds args ast = 
-    return (unifyInds_ast (unifyIndsDataName args) (unifyIndsCtorName args) [unifyIndsUnifyToIndex args,unifyIndsIndexToUnify args]  ast )
+    return (unifyInds_ast (unifyIndsDataName args) (unifyIndsCtorName args) (unifyIndsUnifyToIndex args:unifyIndsIndexToUnify args)  ast )
 
--- stack run -- -r examples/testUnifyInds.fluid -n unify-inds -a 'data=Data2, ctor=C21, unifyToIndex=4, indexToUnify=3'
+-- stack run -- -r examples/testUnifyInds.fluid -n unify-inds -a 'data=Data2, ctor=C21, unifyToIndex=4, indsToUnify=[3]'
