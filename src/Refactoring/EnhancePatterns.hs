@@ -55,7 +55,7 @@ getNamesAndParams ((CtorItem n (Term ty d1) d2):ctrs)
      in (n, count):getNamesAndParams ctrs 
 
 
-replaceTerms term [] c = return [c]
+replaceTerms term [] c = return []
 replaceTerms term (t:ts) c =
     do cs  <- replaceTerms term ts c
        c   <- replaceTerm term t c 
