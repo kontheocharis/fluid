@@ -11,6 +11,7 @@ module Refactoring.Utils
     FromRefactorArgs (..),
     lookupNameArg,
     lookupIdxArg,
+    lookupIdxListArg,
     lookupPositionArg,
     lookupExprArg,
   )
@@ -46,7 +47,7 @@ freshVar prefix = do
   return $ Var (prefix ++ show h) h
 
 -- | The kind of an argument that might be given to a refactoring.
-data RefactorArgKind = Name String | Idx Int | Position Pos | Expr Term deriving (Show)
+data RefactorArgKind = Name String | Idx Int | Position Pos | Expr Term | IdxList [Int] deriving (Show)
 
 -- | Opaque arguments given to a refactoring as key-value pairs.
 --
@@ -60,6 +61,10 @@ lookupNameArg name (RefactorArgs args) = lookup name args >>= \case Name n -> Ju
 -- | Look up an index argument.
 lookupIdxArg :: String -> RefactorArgs -> Maybe Int
 lookupIdxArg name (RefactorArgs args) = lookup name args >>= \case Idx i -> Just i; _ -> Nothing
+
+-- | Look up a list of indices argument.
+lookupIdxListArg :: String -> RefactorArgs -> Maybe [Int]
+lookupIdxListArg name (RefactorArgs args) = lookup name args >>= \case IdxList is -> Just is; _ -> Nothing
 
 -- | Look up a position argument.
 lookupPositionArg :: String -> RefactorArgs -> Maybe Pos

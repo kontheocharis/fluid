@@ -1,5 +1,8 @@
+{-# LANGUAGE LambdaCase #-}
+
 module Checking.Vars (var, Sub (..), Subst, sub, subVar, alphaRename, noSub) where
 
+import Checking.Context (Ctx (..), Judgement (..))
 import Data.List (intercalate)
 import Lang
 
@@ -49,6 +52,17 @@ instance Subst Term where
 instance Subst Sub where
   subVar v' t' (Sub ((v, t) : s)) = Sub ((v, subVar v' t' t) : let Sub rs = subVar v' t' (Sub s) in rs)
   subVar _ _ (Sub []) = Sub []
+
+instance Subst Ctx where
+  subVar v' t' (Ctx js) =
+    Ctx
+      ( map
+          ( \case
+              (Typing v t) -> Typing v (subVar v' t' t)
+              (Subst v t) -> Subst v (subVar v' t' t)
+          )
+          js
+      )
 
 -- | Alpha rename a variable in a term.
 alphaRename :: Var -> (Var, TermData) -> Term -> Term
