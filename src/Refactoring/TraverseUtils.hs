@@ -12,6 +12,9 @@ import Debug.Trace
 
 type SimpPos = (Int, Int)
 
+within :: Pos -> Loc -> Bool
+within l (Loc s e) = l >= s && l <= e
+
 locToTerm :: (Data t)
             => Pos 
             -> t
@@ -20,7 +23,8 @@ locToTerm p t =
    Generics.SYB.something (Nothing `Generics.SYB.mkQ` termBind) t
   where
      termBind term@((Term (V (Var name id)) d)) 
-       | Just p == startPos (getLoc d)    = Just term 
+       | Just p >= startPos (getLoc d) && Just p <= endPos (getLoc d) =
+        Just term 
        | otherwise = Nothing
      termBind _ = Nothing 
 
@@ -38,6 +42,17 @@ termToClause (Term t d) prog =
         getLinePos (endPos (getLoc d)) <= getLinePos (Just end) &&
         getColPos (endPos (getLoc d)) <= getColPos (Just end) = Just $ Clause pats te (Loc start end)
     inClause _ = Nothing
+
+termToCase :: Pos -> Term -> Program -> Maybe Term
+termToCase l t p =
+  do
+    (Clause _ t' _) <- termToClause t p
+    Generics.SYB.something (Nothing `Generics.SYB.mkQ` inCase) t'
+  where
+    inCase :: Term -> Maybe Term
+    inCase x@(Term (Case c cs) td)
+      | within l (loc td) = Just x
+    inCase _ = Nothing
 
 
 -- Find the declaring clause for a term
