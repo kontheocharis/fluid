@@ -55,6 +55,8 @@ import Text.Parsec.Char (alphaNum, digit, letter)
 import Text.Parsec.Prim (try)
 import Text.Parsec.Text ()
 
+import Debug.Trace
+
 -- | Parser state, used for generating fresh variables.
 data ParserState = ParserState
   { varCount :: Int,

@@ -66,7 +66,12 @@ printTermData p (TermData l Nothing) = "loc=" ++ printLoc l ++ ", type=" ++ "Not
 printTermData p (TermData l (Just t)) = "loc=" ++ printLoc l ++ ", type=" ++ "Just " ++ printTerm p t
 
 
+printTerm :: Int -> Term -> String
 printTerm p (Term t d) = printTermValue p  t --  ++ " " ++ printTermData d
+
+printTerm' :: Int -> Term -> String
+printTerm' p (Term t d) =
+  "(" ++ printTermValue p  t ++ ", " ++ printTermData p d ++ ")"
 
 printItem p (Decl d) = printDeclItem p d
 printItem p (Data d) = printDataItem p d
