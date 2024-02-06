@@ -13,18 +13,16 @@ isEqual (S x) Z = False
 isEqual (S x) (S y) = isEqual x y
 
 
+data Expr : Type  where
+    | Num : Nat -> Expr
+    | Var : Nat -> Expr 
+    | Add : Expr -> Expr -> Expr 
 
 lookUpVar: (x:Nat) -> (env: List (Nat ** Nat)) -> Maybe Nat
 lookUpVar x [] = Nothing 
 lookUpVar x ((y,val)::ys) = case (isEqual x y) of 
                                 | True => Just val 
                                 | False => lookUpVar x ys
-
-data Expr : Type  where
-    | Num : Nat -> Expr
-    | Var : Nat -> Expr 
-    | Add : Expr -> Expr -> Expr 
-
         
         
 eval: (env: List (Nat ** Nat)) -> Expr -> Maybe Nat 
@@ -35,7 +33,7 @@ eval env (Add e1 e2) = case (eval env e1) of
                             | (Just e1') => case (eval env e2) of 
                                 | Nothing => Nothing 
                                 | (Just e2') => Just (plus e1' e2')
-             
+         
 
 
 

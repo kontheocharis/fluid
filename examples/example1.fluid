@@ -12,26 +12,24 @@ isEqual Z (S y) = False
 isEqual (S x) Z = False
 isEqual (S x) (S y) = isEqual x y
 
-lookUpVar : (x : Nat) -> (env : List ((n20 : Nat) ** Nat)) -> Maybe Nat
+data Expr : (newInd0 : List Nat) -> Type where
+  | Num : (n17 : Nat) -> (numparam_1 : List Nat) -> Expr numparam_1
+  | Var : (n19 : Nat) -> (varparam_1 : List Nat) -> Expr varparam_1
+  | Add : (addparam_0 : List Nat) -> (n20 : Expr addparam_0) -> (addparam_2 : List Nat) -> (n21 : Expr addparam_2) -> (addparam_4 : List Nat) -> Expr addparam_4
+
+lookUpVar : (x : Nat) -> (env : List ((n25 : Nat) ** Nat)) -> Maybe Nat
 lookUpVar x [] = Nothing
 lookUpVar x ((y, val)::ys) = case isEqual x y of
   | True => Just val
   | False => lookUpVar x ys
 
-data Expr : (index__0_0 : List Nat) -> Type where
-  | Num : (n27 : Nat) -> (ind_for_Expr_Num : List Nat) -> Expr ind_for_Expr_Num
-  | Var : (n29 : Nat) -> (ind_for_Expr_Var : List Nat) -> Expr ind_for_Expr_Var
-  | Add : (varForDataUse_Add_0 : List Nat) -> (n30 : Expr varForDataUse_Add_0) -> (varForDataUse_Add_1 : List Nat) -> (n31 : Expr varForDataUse_Add_1) -> (ind_for_Expr_Add : List Nat) -> Expr ind_for_Expr_Add
-
-eval : (env : List ((n33 : Nat) ** Nat)) -> (paramForInd_1 : List Nat) -> (n34 : Expr paramForInd_1) -> Maybe Nat
-eval env patVar_1 (Num n patVar_1) = Just n
-eval env patVar_1 (Var x patVar_1) = lookUpVar x env
-eval env patVar_1 (Add vForUpdatedCtor_1 e1 vForUpdatedCtor_0 e2 patVar_1) = case eval env ?holeForNewParam_1 e1 of
+eval : (env : List ((n33 : Nat) ** Nat)) -> (evalparam_1 : List Nat) -> (n34 : Expr evalparam_1) -> Maybe Nat
+eval env patvar_1 (Num n patvar_1) = Just n
+eval env patvar_1 (Var x patvar_1) = lookUpVar x env
+eval env patvar_1 (Add paramforpatvar_Add_0 e1 paramforpatvar_Add_2 e2 patvar_1) = case eval env ?hole_e11 e1 of
   | Nothing => Nothing
-  | (Just e1') => case eval env ?holeForNewParam_1 e2 of
+  | (Just e1') => case eval env ?hole_e21 e2 of
     | Nothing => Nothing
     | (Just e2') => Just (plus e1' e2')
-             
 
-
-
+    

@@ -16,6 +16,7 @@ import Options.Applicative.Common (Parser)
 import Options.Applicative.Extra (helper)
 import Parsing.Parser (parseProgram, parseRefactorArgs, parseTerm)
 import Refactoring.AddIndex (addIndex)
+import Refactoring.AddIndex2 (addIndex2)
 import Refactoring.SpecCtor (specCtor)
 import Refactoring.Utils (FromRefactorArgs (..), Refact, RefactorArgs (..), evalRefact)
 import System.Console.Haskeline (InputT, defaultSettings, getInputLine, outputStrLn, runInputT)
@@ -141,6 +142,7 @@ runCompiler (Args Repl _) = runRepl
 runCompiler (Args (Refactor f) fl@(Flags {refactorArgs = a, refactorName = Just n})) = case n of
   "spec-ctor" -> applyRefactoring f a fl specCtor
   "add-index" -> applyRefactoring f a fl addIndex
+  "add-index2" -> applyRefactoring f a fl addIndex2
   _ -> err $ "Unknown refactoring: " ++ show n
 runCompiler (Args (Refactor _) Flags {refactorName = Nothing}) = err "No refactoring name provided"
 

@@ -489,7 +489,6 @@ addIndex args ast =
                     (addIndIndexType args)
                     (addIndIndexPos args)
                     updatedData
-                    --[("useInFunc")] -- todo use arg list  --WIP
                     [("useInFunc"), ("useInCurrCtor")] -- todo use arg list
                 ))
 
