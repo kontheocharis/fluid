@@ -31,5 +31,5 @@ rmTautCase as p = do
           -- if so replace term w/ True branch of cs
   where
     pos = Pos (lx as) (ly as)
-    f tm = trace ("!! " ++ show (getLoc tm, printTerm tm))
+    f tm = trace ("!! " ++ show (getLoc tm, printTerm 1 tm))
          $ return Continue

@@ -13,74 +13,75 @@ printVar (Var s _) = s
 
 -- | Show a term value, with parentheses if it is compound.
 showSingle :: Term -> String
-showSingle v | (isCompound . getTermValue) v = "(" ++ printTerm v ++ ")"
-showSingle v = printTerm v
+showSingle v | (isCompound . getTermValue) v =  printTerm 0 v 
+showSingle v = printTerm 0 v
 
-printTermValue :: TermValue -> String 
-printTermValue (PiT v t1 t2) = "(" ++ printVar v ++ " : " ++ printTerm t1 ++ ") -> " ++ printTerm t2
-printTermValue (Lam v t) = "\\" ++ printVar v ++ " => " ++ printTerm t
-printTermValue (SigmaT v t1 t2) = "(" ++ printVar v ++ " : " ++ printTerm t1 ++ ") ** " ++ printTerm t2
-printTermValue (Pair t1 t2) = "(" ++ printTerm t1 ++ ", " ++ printTerm t2 ++ ")"
-printTermValue t@(App _ _) = intercalate " " $ map showSingle (let (x, xs) = appToList (genTerm t) in x : xs)
-printTermValue (Case t cs) =
+printTermValue :: Int -> TermValue -> String 
+printTermValue p (PiT v t1 t2) = "(" ++ printVar v ++ " : " ++ printTerm p t1 ++ ") -> " ++ printTerm p t2
+printTermValue p (Lam v t) = "\\" ++ printVar v ++ " => " ++ printTerm p t
+printTermValue p (SigmaT v t1 t2) = "(" ++ printVar v ++ " : " ++ printTerm p t1 ++ ") ** " ++ printTerm p t2
+printTermValue p (Pair t1 t2) = "(" ++ printTerm p t1 ++ ", " ++ printTerm p t2 ++ ")"
+printTermValue p t@(App _ _) = if p == 1 then "(" ++ (intercalate " " $ map showSingle (let (x, xs) = appToList (genTerm t) in x : xs)) ++ ")"
+                                         else intercalate " " $ map showSingle (let (x, xs) = appToList (genTerm t) in x : xs)
+printTermValue p1 (Case t cs) =
     "case "
-      ++ printTerm t
+      ++ printTerm p1 t
       ++ " of\n"
       ++ intercalate
         "\n"
-        (map (\(p, c) -> "  | " ++ printTerm p ++ " => " ++ indented (printTerm c)) cs)
-printTermValue TyT = "Type"
-printTermValue Wild = "_"
-printTermValue (V v) = printVar v
-printTermValue (Global s) = s
-printTermValue (Hole i) = "?" ++ printVar i
-printTermValue (Meta i) = "!" ++ printVar i
-printTermValue NatT = "Nat"
-printTermValue (ListT t) = "List " ++ printTerm t
-printTermValue (MaybeT t) = "Maybe " ++ printTerm t
-printTermValue (VectT t n) = "Vect " ++ printTerm t ++ " " ++ printTerm n
-printTermValue (FinT t) = "Fin " ++ printTerm t
-printTermValue (EqT t1 t2) = printTerm t1 ++ " = " ++ printTerm t2
-printTermValue (LteT t1 t2) = "LTE " ++ printTerm t1 ++ " " ++ printTerm t2
-printTermValue FZ = "FZ"
-printTermValue (FS t) = "FS " ++ printTerm t
-printTermValue Z = "Z"
-printTermValue (S t) = "S " ++ printTerm t
-printTermValue LNil = "[]"
-printTermValue (LCons t1 t2) = printTerm t1 ++ "::" ++ printTerm t2
-printTermValue VNil = "VNil"
-printTermValue (VCons t1 t2) = "VCons " ++ printTerm t1 ++ " " ++ printTerm t2
-printTermValue (MJust t) = "Just " ++ printTerm t
-printTermValue MNothing = "Nothing"
-printTermValue (Refl t) = "Refl " ++ printTerm t
-printTermValue LTEZero = "LTEZero"
-printTermValue (LTESucc t) = "LTESucc " ++ printTerm t
+        (map (\(p, c) -> "  | " ++ printTerm p1 p ++ " => " ++ indented (printTerm p1 c)) cs)
+printTermValue p TyT = "Type"
+printTermValue p Wild = "_"
+printTermValue p (V v) = printVar v
+printTermValue p (Global s) = s
+printTermValue p (Hole i) = "?" ++ printVar i
+printTermValue p (Meta i) = "!" ++ printVar i
+printTermValue p NatT = "Nat"
+printTermValue p (ListT t) = "List " ++ printTerm p t
+printTermValue p (MaybeT t) = "Maybe " ++ printTerm p t
+printTermValue p (VectT t n) = "Vect " ++ printTerm p t ++ " " ++ printTerm p n
+printTermValue p (FinT t) = "Fin " ++ printTerm p t
+printTermValue p (EqT t1 t2) = printTerm p t1 ++ " = " ++ printTerm p t2
+printTermValue p (LteT t1 t2) = "LTE " ++ printTerm p t1 ++ " " ++ printTerm p t2
+printTermValue p FZ = "FZ"
+printTermValue p (FS t) = "FS " ++ printTerm p t
+printTermValue p Z = "Z"
+printTermValue p (S t) = "S " ++ printTerm p t
+printTermValue p LNil = "[]"
+printTermValue p (LCons t1 t2) = printTerm p t1 ++ "::" ++ printTerm p t2
+printTermValue p VNil = "VNil"
+printTermValue p (VCons t1 t2) = "VCons " ++ printTerm p t1 ++ " " ++ printTerm p t2
+printTermValue p (MJust t) = "Just " ++ printTerm p t
+printTermValue p MNothing = "Nothing"
+printTermValue p (Refl t) = "Refl " ++ printTerm p t
+printTermValue p LTEZero = "LTEZero"
+printTermValue p (LTESucc t) = "LTESucc " ++ printTerm p t
 
 printLoc NoLoc = ""
 printLoc (Loc l c) = show l ++ "--" ++ show c
 
 printPos (Pos l c) = show l ++ ":" ++ show c
 
-printTermData (TermData l Nothing) = "loc=" ++ printLoc l ++ ", type=" ++ "Nothing"
-printTermData (TermData l (Just t)) = "loc=" ++ printLoc l ++ ", type=" ++ "Just " ++ printTerm t
+printTermData p (TermData l Nothing) = "loc=" ++ printLoc l ++ ", type=" ++ "Nothing"
+printTermData p (TermData l (Just t)) = "loc=" ++ printLoc l ++ ", type=" ++ "Just " ++ printTerm p t
 
 
-printTerm (Term t d) = printTermValue t --  ++ " " ++ printTermData d
+printTerm p (Term t d) = printTermValue p  t --  ++ " " ++ printTermData d
 
-printItem (Decl d) = printDeclItem d
-printItem (Data d) = printDataItem d
+printItem p (Decl d) = printDeclItem p d
+printItem p (Data d) = printDataItem p d
 
-printDataItem (DataItem name ty ctors) =
+printDataItem p (DataItem name ty ctors) =
     "data "
       ++ name
       ++ " : "
-      ++ printTerm ty
+      ++ printTerm p ty
       ++ " where\n"
-      ++ intercalate "\n" (map (\(CtorItem s t _) -> "  | " ++ s ++ " : " ++ printTerm t) ctors)
+      ++ intercalate "\n" (map (\(CtorItem s t _) -> "  | " ++ s ++ " : " ++ printTerm p t) ctors)
 
-printDeclItem (DeclItem v ty clauses l) = intercalate "\n" ((v ++ " : " ++ printTerm ty) : map (\c -> v ++ " " ++ printClause c) clauses)
+printDeclItem p (DeclItem v ty clauses l) = intercalate "\n" ((v ++ " : " ++ printTerm p ty) : map (\c -> v ++ " " ++ (printClause p) c) clauses)
 
-printClause (Clause p t l ) = intercalate " " (map printTerm p) ++ " = " ++ printTerm t 
-printClause (ImpossibleClause p l) = intercalate " " (map printTerm p) ++ " impossible"
+printClause p1 (Clause p t l ) = intercalate " " (map (printTerm p1) p) ++ " = " ++ printTerm p1 t 
+printClause p1 (ImpossibleClause p l) = intercalate " " (map (printTerm p1) p) ++ " impossible"
 
-printProgram (Program ds) = intercalate "\n\n" $ map printItem ds
+printProgram (Program ds) = intercalate "\n\n" $ map (printItem 1) ds

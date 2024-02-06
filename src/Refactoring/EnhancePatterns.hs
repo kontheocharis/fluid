@@ -73,7 +73,7 @@ enhancePatsRefac (EnhancePatsArgs p) prog@(Program items) =  -- error (show prog
         ctrs = typeToCtrs it
         ctrsInfo = getNamesAndParams ctrs
         newTerms = map buildPat ctrsInfo 
-    in trace (concat (map printTermValue newTerms)) $ 
+    in trace (concat (map (printTermValue 1) newTerms)) $ 
            do newCls <- replaceTerms t newTerms c (termToId t)
               let clauses' = insertClauses clauses c newCls
               prog' <- replaceDeclItem (DeclItem declName declTy clauses l) (DeclItem declName declTy clauses' l)  prog 
