@@ -1,0 +1,37 @@
+plus : (n0 : Nat) -> (n2 : Nat) -> Nat
+plus n Z = n
+plus n (S m) = S (plus n m)
+
+data Bool : Type where
+  | True : Bool
+  | False : Bool
+
+isEqual : (n10 : Nat) -> (n11 : Nat) -> Bool
+isEqual Z Z = True
+isEqual Z (S y) = False
+isEqual (S x) Z = False
+isEqual (S x) (S y) = isEqual x y
+
+lookUpVar : (x : Nat) -> (env : List ((n20 : Nat) ** Nat)) -> Maybe Nat
+lookUpVar x [] = Nothing
+lookUpVar x ((y, val)::ys) = case isEqual x y of
+  | True => Just val
+  | False => lookUpVar x ys
+
+data Expr : (index__0_0 : List Nat) -> Type where
+  | Num : (n27 : Nat) -> (ind_for_Expr_Num : List Nat) -> Expr ind_for_Expr_Num
+  | Var : (n29 : Nat) -> (ind_for_Expr_Var : List Nat) -> Expr ind_for_Expr_Var
+  | Add : (varForDataUse_Add_0 : List Nat) -> (n30 : Expr varForDataUse_Add_0) -> (varForDataUse_Add_1 : List Nat) -> (n31 : Expr varForDataUse_Add_1) -> (ind_for_Expr_Add : List Nat) -> Expr ind_for_Expr_Add
+
+eval : (env : List ((n33 : Nat) ** Nat)) -> (paramForInd_1 : List Nat) -> (n34 : Expr paramForInd_1) -> Maybe Nat
+eval env patVar_1 (Num n patVar_1) = Just n
+eval env patVar_1 (Var x patVar_1) = lookUpVar x env
+eval env patVar_1 (Add vForUpdatedCtor_1 e1 vForUpdatedCtor_0 e2 patVar_1) = case eval env ?holeForNewParam_1 e1 of
+  | Nothing => Nothing
+  | (Just e1') => case eval env ?holeForNewParam_1 e2 of
+    | Nothing => Nothing
+    | (Just e2') => Just (plus e1' e2')
+             
+
+
+

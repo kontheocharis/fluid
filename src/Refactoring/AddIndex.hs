@@ -387,7 +387,7 @@ addPatternVarsOfCtorUse_rhsterm datName indexTy indPosn changedCtors term = term
 -- TODO: recurse down case and ifs
 
 addVarToAppList :: [Term] -> [Int] -> [Term]
-addVarToAppList list inds = insertAt_terms list (map (\i -> (i - 1, genTerm (V (Var ("vForUpdatedCtor_" ++ (show i)) 0)))) inds) -- todo: index correct?
+addVarToAppList list inds = insertAt_terms list (map (\i -> (i +1, genTerm (V (Var ("vForUpdatedCtor_" ++ (show i)) 0)))) inds) -- todo: index correct?
 
 -- todo: for now, assume that data is a param, so do not need to recurse down App
 addPatternVarsOfCtorUse_term :: String -> Type -> Int -> [(String, [Int])] -> Pat -> Pat
@@ -489,11 +489,11 @@ addIndex args ast =
                     (addIndIndexType args)
                     (addIndIndexPos args)
                     updatedData
-                    [("useInFunc")] -- todo use arg list  --WIP
-                    --[("useInFunc"), ("useInCurrCtor")] -- todo use arg list
+                    --[("useInFunc")] -- todo use arg list  --WIP
+                    [("useInFunc"), ("useInCurrCtor")] -- todo use arg list
                 ))
 
 
 
--- stack run -- -r examples/testAddIndex.fluid -n add-index -a 'data=Data1, type =`ListT NatT`, index=1'
+-- stack run -- -r examples/testAddIndex.fluid -n add-index -a 'data=Data1, type =`List Nat`, index=1'
 

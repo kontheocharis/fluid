@@ -1,20 +1,33 @@
+plus: Nat -> Nat -> Nat 
+plus n Z = n 
+plus n (S m) = S (plus n m)
+
+data Bool: Type where 
+    | True : Bool
+    | False : Bool
+
+isEqual: Nat -> Nat -> Bool
+isEqual Z Z = True
+isEqual Z (S y) = False
+isEqual (S x) Z = False
+isEqual (S x) (S y) = isEqual x y
+
+
+
+lookUpVar: (x:Nat) -> (env: List (Nat ** Nat)) -> Maybe Nat
+lookUpVar x [] = Nothing 
+lookUpVar x ((y,val)::ys) = case (isEqual x y) of 
+                                | True => Just val 
+                                | False => lookUpVar x ys
+
 data Expr : Type  where
     | Num : Nat -> Expr
     | Var : Nat -> Expr 
     | Add : Expr -> Expr -> Expr 
 
-
-plus: Nat -> Nat -> Nat 
-plus n Z = n 
-plus n (S m) = S (plus n m)
-
-
-lookUpVar: (x:Nat) -> (env: List Nat) -> Maybe Nat
-lookUpVar x [] = Nothing 
-lookUpVar x (y::ys) = Just Z 
-                  
         
-eval: (env: List Nat) -> Expr -> Maybe Nat 
+        
+eval: (env: List (Nat ** Nat)) -> Expr -> Maybe Nat 
 eval env (Num n) = Just n
 eval env (Var x) = lookUpVar x env
 eval env (Add e1 e2) = case (eval env e1) of 
