@@ -1,0 +1,28 @@
+data Expr : Type  where
+    | Num : Nat -> Expr
+    | Var : Nat -> Expr 
+    | Add : Expr -> Expr -> Expr 
+
+
+plus: Nat -> Nat -> Nat 
+plus n Z = n 
+plus n (S m) = S (plus n m)
+
+
+lookUpVar: (x:Nat) -> (env: List Nat) -> Maybe Nat
+lookUpVar x [] = Nothing 
+lookUpVar x (y::ys) = Just Z 
+                  
+        
+eval: (env: List Nat) -> Expr -> Maybe Nat 
+eval env (Num n) = Just n
+eval env (Var x) = lookUpVar x env
+eval env (Add e1 e2) = case (eval env e1) of 
+                            | Nothing => Nothing
+                            | (Just e1') => case (eval env e2) of 
+                                | Nothing => Nothing 
+                                | (Just e2') => Just (plus e1' e2')
+             
+
+
+

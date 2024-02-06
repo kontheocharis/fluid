@@ -189,7 +189,7 @@ insertAt_terms list ((i, elt) : res) =
 -- adds new variable in appropriate sites
 updataUsecaseInFunc_clLHS :: Int -> [Int] -> [Pat] -> [Pat]
 updataUsecaseInFunc_clLHS indPosn dataPosns pats =
-  insertAtAndRelate_terms pats [(i, genTerm (V (Var ("patVar_" ++ (show i)) 0))) | i <- dataPosns]
+  insertAtAndRelate_terms pats [(i-1, genTerm (V (Var ("patVar_" ++ (show i)) 0))) | i <- dataPosns]
 
 ---insertAtAndRelate_terms but relate the correct term
 insertAtAndRelate_terms2 :: [Term] -> [(Int, Term)] -> [Term]
@@ -231,6 +231,9 @@ updataUsecaseInFunc_clRHS ctorNames funcName indPosn dataPosns (Term (App term1 
                    in listToAppTerm addedHoles
                 else defRes
         term -> defRes
+updataUsecaseInFunc_clRHS ctorNames funcName indPosn dataPosns (Term (Case cTerm ptList) termDat) 
+  = genTerm (Case (updataUsecaseInFunc_clRHS  ctorNames funcName indPosn dataPosns cTerm)
+                  (map (\pt -> ((updataUsecaseInFunc_clLHS indPosn dataPosns [(fst pt)])!!0 ,  updataUsecaseInFunc_clRHS ctorNames funcName indPosn dataPosns (snd pt)) ) ptList))
 updataUsecaseInFunc_clRHS ctorNames funcName indPosn dataPosns term = term
 
 -- TODO: recurse down other structures
@@ -486,8 +489,8 @@ addIndex args ast =
                     (addIndIndexType args)
                     (addIndIndexPos args)
                     updatedData
-                    [("useInFunc"), ("useInCurrCtor")] -- todo use arg list
-                    -- ["useAsIndex","useInOtherCtor"])
+                    [("useInFunc")] -- todo use arg list  --WIP
+                    --[("useInFunc"), ("useInCurrCtor")] -- todo use arg list
                 ))
 
 
