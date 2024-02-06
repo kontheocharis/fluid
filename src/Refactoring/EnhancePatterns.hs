@@ -55,11 +55,12 @@ getNamesAndParams ((CtorItem n (Term ty d1) d2):ctrs)
      in (n, count):getNamesAndParams ctrs 
 
 
-replaceTerms term [] c = return []
-replaceTerms term (t:ts) c =
-    do cs  <- replaceTerms term ts c
+replaceTerms term [] c id = return []
+replaceTerms term (t:ts) c id =
+    do cs  <- replaceTerms term ts c id 
        c   <- replaceTerm term t c 
-       return (c:cs)
+       c' <- replaceVar term t id c 
+       return (c':cs)
 
 
 enhancePatsRefac :: EnhancePatsArgs -> Program -> Refact Program
@@ -73,7 +74,7 @@ enhancePatsRefac (EnhancePatsArgs p) prog@(Program items) =  -- error (show prog
         ctrsInfo = getNamesAndParams ctrs
         newTerms = map buildPat ctrsInfo 
     in trace (concat (map printTermValue newTerms)) $ 
-           do newCls <- replaceTerms t newTerms c 
+           do newCls <- replaceTerms t newTerms c (termToId t)
               let clauses' = insertClauses clauses c newCls
               prog' <- replaceDeclItem (DeclItem declName declTy clauses l) (DeclItem declName declTy clauses' l)  prog 
               error $ printProgram prog'

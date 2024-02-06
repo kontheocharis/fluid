@@ -23,7 +23,7 @@ locToTerm p t =
    Generics.SYB.something (Nothing `Generics.SYB.mkQ` termBind) t
   where
      termBind term@((Term (V (Var name id)) d)) 
-       | Just p >= startPos (getLoc d) && Just p <= endPos (getLoc d) =
+       | Just p == startPos (getLoc d) = -- && Just p <= endPos (getLoc d) =
         Just term 
        | otherwise = Nothing
      termBind _ = Nothing 
@@ -103,6 +103,9 @@ ctrToName (CtorItem n _ _ ) = n
 ctrToType :: CtorItem -> Type 
 ctrToType (CtorItem _ t _ ) = t
 
+termToId :: TermValue -> Int 
+termToId (V (Var name id)) = id
+termToId _ = error "can't find ID for term"
 
 insertClauses :: [Clause]  -- the original clauses 
               -> Clause    -- the clause to replace with the insertion
@@ -128,6 +131,22 @@ replaceTerm term t1 prog =
      transformTerm term2
       | term2 == term = return t1
       | otherwise     = return term2
+
+replaceVar :: (Data t, Monad m) =>
+              TermValue -- TermValue to replace Variable with
+           -> TermValue -- what to replace with 
+           -> Int       -- index of variable to replace 
+           -> t 
+           -> m t 
+replaceVar term t1 var prog = 
+  do
+    everywhereM (mkM transformVar) prog 
+  where 
+    transformVar t@(V (Var n id))
+      | id == var = return t1 
+      | otherwise = return t
+    transformVar t = return t
+
 
 replaceDeclItem :: (Data t, Monad m) => 
               DeclItem -- TermValue to replace
