@@ -55,7 +55,7 @@ library
   default-language: Haskell2010
 
 executable fluid-exe
-  main-is: test.hs
+  main-is: Main.hs
   other-modules:
       Paths_fluid
   autogen-modules:

@@ -45,7 +45,7 @@ library:
 
 executables:
   fluid-exe:
-    main: test.hs
+    main: Main.hs
     source-dirs: app
     ghc-options:
       - -threaded

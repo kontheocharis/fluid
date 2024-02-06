@@ -1,4 +1,4 @@
-module Refactoring.AddIndex (updataUsecaseInFunc_ast, updateUsecaseInCtor_ast, addIndex_ast) where
+module Refactoring.AddIndex (addIndex) where
 
 import Data.List (findIndices)
 import Lang
@@ -11,24 +11,26 @@ import Lang
     Pat,
     Program (..),
     Term (..),
+    TermValue (..),
     Type,
     Var (..),
     listToPiType,
-    piTypeToList,
+    piTypeToList, genTerm
   )
+import Refactoring.Utils (FromRefactorArgs (..), Refact, lookupExprArg, lookupIdxArg, lookupNameArg)
 
 --------------------------
 
 -- TODO: factor these functions out
 -- change nested App term to (reversed) list
 appTermToList :: Term -> [Term]
-appTermToList (App t1 t2) = t2 : (appTermToList t1)
+appTermToList (Term (App t1 t2) _) = t2 : (appTermToList t1)
 appTermToList term = [term]
 
 -- change list to App term
 listToAppTerm :: [Term] -> Term
 listToAppTerm [term] = term
-listToAppTerm (term : terms) = App (listToAppTerm terms) term
+listToAppTerm (term : terms) = genTerm (App (listToAppTerm terms) term)
 
 --------------------------
 
@@ -37,13 +39,13 @@ addIndex_ty :: Var -> Int -> (Var, Type) -> (Var, Type)
 addIndex_ty indVar indPosn (var, ty) =
   let appList = appTermToList ty
       (splitL, splitR) = splitAt ((length appList) - indPosn - 1) appList
-   in (var, listToAppTerm (splitL ++ [V indVar] ++ splitR))
+   in (var, listToAppTerm (splitL ++ [genTerm (V indVar)] ++ splitR))
 
 -- see if data is used as param for constructor, if so, add another param and use it as index
 addIndex_ctorParam :: String -> Type -> Int -> [(Var, Type)] -> [(Var, Type)]
 addIndex_ctorParam datName indexTy indPosn [] = []
 addIndex_ctorParam datName indexTy indPosn (param : params) =
-  case snd param of
+  case termValue (snd param) of
     Global str ->
       if str == datName
         then
@@ -59,7 +61,7 @@ addIndex_tyUse :: String -> Var -> Int -> Type -> Type
 addIndex_tyUse datName newVar indPosn term =
   let appList = appTermToList term
       (splitL, splitR) = splitAt ((length appList) - indPosn - 1) appList
-   in listToAppTerm (splitL ++ [V newVar] ++ splitR)
+   in listToAppTerm (splitL ++ (genTerm (V newVar)):splitR)
 
 addIndex_ctor :: String -> Type -> Int -> CtorItem -> CtorItem
 addIndex_ctor datName indexTy indPosn (CtorItem cname cty dname) =
@@ -128,7 +130,7 @@ insertAt_appterm indPosn newTerm appTerm =
 
 useVarAsInd :: Int -> Var -> (Var, Type) -> (Var, Type)
 useVarAsInd indPosn var (v, ty) =
-  (v, insertAt_appterm indPosn (V var) ty)
+  (v, insertAt_appterm indPosn (genTerm (V var)) ty)
 
 --
 insertAtAndRelate_sig :: Int -> [(Var, Type)] -> [(Int, (Var, Type))] -> [(Var, Type)] -- todo: factor out insertAt operation
@@ -143,7 +145,7 @@ insertAtAndRelate_sig indPosn list ((i, elt) : res) =
    in insertAtAndRelate_sig indPosn addedOne [(j + 1, e) | (j, e) <- res]
 
 isMyData :: Type -> String -> Bool
-isMyData ty name = case ty of
+isMyData ty name = case termValue ty of
   Global str ->
     if str == name
       then True
@@ -152,13 +154,13 @@ isMyData ty name = case ty of
 
 -- todo: factor this out
 sigListToPiTy :: [(Var, Type)] -> Type
-sigListToPiTy [] = listToPiType ([], TyT) -- should not happen
+sigListToPiTy [] = listToPiType ([], genTerm TyT) -- should not happen
 sigListToPiTy ((v, t) : l) = listToPiType ((reverse l), t)
 
 tryInsert_appTerm :: Term -> Term -> Term
 tryInsert_appTerm newTerm appTerm =
   let appList = appTermToList appTerm
-   in case last appList of
+   in case termValue (last appList) of
         Global str -> (listToAppTerm (newTerm : appList)) -- if pattern is a constructor, add to the end
         term -> appTerm -- otherwise (is a variable or Wild),  do not need to add anything
         -- note: assume that the new index is added as the last param of each constructor
@@ -187,7 +189,7 @@ insertAt_terms list ((i, elt) : res) =
 -- adds new variable in appropriate sites
 updataUsecaseInFunc_clLHS :: Int -> [Int] -> [Pat] -> [Pat]
 updataUsecaseInFunc_clLHS indPosn dataPosns pats =
-  insertAtAndRelate_terms pats [(i, V (Var ("patVar_" ++ (show i)) 0)) | i <- dataPosns]
+  insertAtAndRelate_terms pats [(i, genTerm (V (Var ("patVar_" ++ (show i)) 0))) | i <- dataPosns]
 
 ---insertAtAndRelate_terms but relate the correct term
 insertAtAndRelate_terms2 :: [Term] -> [(Int, Term)] -> [Term]
@@ -206,22 +208,22 @@ insertAtAndRelate_terms2 list ((i, elt) : res) =
 -- Q: can we just leave as differently named holes and run unifier to relate them? (not an issue for paper)
 
 addHolestoAppList :: [Term] -> [Int] -> [Term]
-addHolestoAppList appList dataPosns = insertAtAndRelate_terms2 appList [(i - 1, (Hole (Var ("holeForNewParam_" ++ (show i)) 0))) | i <- dataPosns]
+addHolestoAppList appList dataPosns = insertAtAndRelate_terms2 appList [(i - 1, genTerm  (Hole (Var ("holeForNewParam_" ++ (show i)) 0))) | i <- dataPosns]
 
 -- update recursive calls only
 -- note: use of constructors in rhs not updated here (will do later)
 updataUsecaseInFunc_clRHS :: [String] -> String -> Int -> [Int] -> Term -> Term
-updataUsecaseInFunc_clRHS ctorNames funcName indPosn dataPosns (App term1 term2) =
-  let appList = appTermToList (App term1 term2)
+updataUsecaseInFunc_clRHS ctorNames funcName indPosn dataPosns (Term (App term1 term2) termDat) =
+  let appList = appTermToList (Term (App term1 term2) termDat)
       defRes =
-        ( App
+        genTerm ( App
             (updataUsecaseInFunc_clRHS ctorNames funcName indPosn dataPosns term1)
             (updataUsecaseInFunc_clRHS ctorNames funcName indPosn dataPosns term2)
         )
-   in case last appList of
+   in case termValue (last appList) of
         Global str ->
           if (elem str ctorNames)
-            then listToAppTerm ((Hole (Var ("holeForConstUse_" ++ str) 0)) : appList)
+            then listToAppTerm (genTerm (Hole (Var ("holeForConstUse_" ++ str) 0)) : appList)
             else
               if str == funcName -- if recursive call, add holes for args, and relate
                 then
@@ -363,38 +365,38 @@ updateUsecaseInCtor_items datName indexTy indPosn (((Data dat) : items), list) =
 ----------------
 
 addHolesToAppList :: [Term] -> [Int] -> [Term]
-addHolesToAppList list inds = insertAt_terms list (map (\i -> (i - 1, (Hole (Var ("holeForUpdatedCtor_" ++ (show i)) 0)))) inds)
+addHolesToAppList list inds = insertAt_terms list (map (\i -> (i - 1, genTerm (Hole (Var ("holeForUpdatedCtor_" ++ (show i)) 0)))) inds)
 
 -- todo: assumed constructor params are all present
 
 addPatternVarsOfCtorUse_rhsterm :: String -> Type -> Int -> [(String, [Int])] -> Term -> Term
-addPatternVarsOfCtorUse_rhsterm datName indexTy indPosn changedCtors (App term1 term2) =
-  let appList = appTermToList (App term1 term2)
-   in case last appList of
+addPatternVarsOfCtorUse_rhsterm datName indexTy indPosn changedCtors (Term (App term1 term2) termD) =
+  let appList = appTermToList (Term (App term1 term2) termD)
+   in case termValue (last appList) of
         Global str ->
           let changedCtorPosns = findIndices (\pair -> fst pair == str) changedCtors
            in if length changedCtorPosns > 0
                 then listToAppTerm (addHolesToAppList appList (snd (changedCtors !! (changedCtorPosns !! 0))))
-                else (App (addPatternVarsOfCtorUse_rhsterm datName indexTy indPosn changedCtors term1) (addPatternVarsOfCtorUse_rhsterm datName indexTy indPosn changedCtors term2))
-        term -> (App (addPatternVarsOfCtorUse_rhsterm datName indexTy indPosn changedCtors term1) (addPatternVarsOfCtorUse_rhsterm datName indexTy indPosn changedCtors term2))
+                else genTerm (App (addPatternVarsOfCtorUse_rhsterm datName indexTy indPosn changedCtors term1) (addPatternVarsOfCtorUse_rhsterm datName indexTy indPosn changedCtors term2))
+        term -> genTerm (App (addPatternVarsOfCtorUse_rhsterm datName indexTy indPosn changedCtors term1) (addPatternVarsOfCtorUse_rhsterm datName indexTy indPosn changedCtors term2))
 addPatternVarsOfCtorUse_rhsterm datName indexTy indPosn changedCtors term = term
 
 -- TODO: recurse down case and ifs
 
 addVarToAppList :: [Term] -> [Int] -> [Term]
-addVarToAppList list inds = insertAt_terms list (map (\i -> (i - 1, (V (Var ("vForUpdatedCtor_" ++ (show i)) 0)))) inds) -- todo: index correct?
+addVarToAppList list inds = insertAt_terms list (map (\i -> (i - 1, genTerm (V (Var ("vForUpdatedCtor_" ++ (show i)) 0)))) inds) -- todo: index correct?
 
 -- todo: for now, assume that data is a param, so do not need to recurse down App
 addPatternVarsOfCtorUse_term :: String -> Type -> Int -> [(String, [Int])] -> Pat -> Pat
-addPatternVarsOfCtorUse_term datName indexTy indPosn changedCtors (App term1 term2) =
-  let appList = appTermToList (App term1 term2)
-   in case last appList of
+addPatternVarsOfCtorUse_term datName indexTy indPosn changedCtors (Term (App term1 term2) termD) =
+  let appList = appTermToList (Term (App term1 term2) termD)
+   in case termValue (last appList) of
         Global str ->
           let changedCtorPosns = findIndices (\pair -> fst pair == str) changedCtors
            in if length changedCtorPosns > 0
                 then listToAppTerm (addVarToAppList appList (snd (changedCtors !! (changedCtorPosns !! 0))))
-                else (App term1 term2) -- no change needed
-        term -> (App term1 term2) -- otherwise (is a variable or Wild),  do not need to add anything
+                else Term (App term1 term2) termD -- no change needed
+        term -> Term (App term1 term2) termD -- otherwise (is a variable or Wild),  do not need to add anything
 addPatternVarsOfCtorUse_term datName indexTy indPosn changedCtors pat = pat
 
 -- TODO: recurse down case and ifs
@@ -427,3 +429,68 @@ updateUsecaseInCtor_ast :: String -> Type -> Int -> Program -> Program
 updateUsecaseInCtor_ast datName indexTy indPosn (Program items) =
   let (newItems, changedCtors) = updateUsecaseInCtor_items datName indexTy indPosn (items, []) -- update use of data in ctors
    in Program (updateCtorUsecase_items datName indexTy indPosn changedCtors newItems) -- update use of Ctor in other functions
+
+
+--------------------------
+
+
+
+
+updateQueuedUsecase_ast :: String -> Type -> Int -> Program -> [(String)] -> (Program, [(String)])
+updateQueuedUsecase_ast datName indexTy indPosn ast [] = (ast, [])
+updateQueuedUsecase_ast datName indexTy indPosn ast (refact : queue) =
+  if (refact) == "useInFunc"
+    then
+      let (refacted, newQ) = updataUsecaseInFunc_ast datName indexTy indPosn ast -- todo: use argument list
+       in updateQueuedUsecase_ast datName indexTy indPosn refacted (newQ ++ queue)
+    else
+      if (refact) == "useInCurrCtor"
+        then
+          let refacted = updateUsecaseInCtor_ast datName indexTy indPosn ast -- todo: use argument list
+           in updateQueuedUsecase_ast datName indexTy indPosn refacted queue
+        else -- TODO: implement other refactoring   --other triggered refactoring should take in String that represents the arguments
+          updateQueuedUsecase_ast datName indexTy indPosn ast queue
+
+-- e.g. if f is a function that uses Data1, then we would have added params to f, then any call of f elsewhere would need to be updated (not implemented)
+
+--------------------------
+
+
+
+data AddIndexArgs = AddIndexArgs
+  { -- | The name of the data type to specialise.
+    addIndDataName :: String,
+    -- | The type of the new index
+    addIndIndexType :: Term,
+    -- | The position  of the new index
+    addIndIndexPos :: Int
+
+  }
+
+instance FromRefactorArgs AddIndexArgs where
+  fromRefactorArgs args =
+    AddIndexArgs
+      <$> lookupNameArg "data" args
+      <*> lookupExprArg "type" args
+      <*> lookupIdxArg "index" args
+     
+
+
+
+addIndex :: AddIndexArgs -> Program -> Refact Program
+addIndex args ast =
+  let updatedData = addIndex_ast (addIndDataName args) (addIndIndexType args) (addIndIndexPos args) ast 
+    in return (fst
+                ( updateQueuedUsecase_ast
+                    (addIndDataName args)
+                    (addIndIndexType args)
+                    (addIndIndexPos args)
+                    updatedData
+                    [("useInFunc"), ("useInCurrCtor")] -- todo use arg list
+                    -- ["useAsIndex","useInOtherCtor"])
+                ))
+
+
+
+-- stack run -- -r examples/testAddIndex.fluid -n add-index -a 'data=Data1, type =`ListT NatT`, index=1'
+
