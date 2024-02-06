@@ -21,11 +21,12 @@ description: Please see the README on GitHub at <https://github.com/githubuser/f
 
 dependencies:
   - base >= 4.7 && < 5
-  - mtl
-  - parsec
-  - text
-  - haskeline
-  - optparse-applicative
+  - mtl >= 2.2 && < 2.3
+  - parsec >= 3.1 && < 3.2
+  - text >= 2.0 && < 2.1
+  - haskeline >= 0.8 && < 0.9
+  - optparse-applicative >= 0.17 && < 0.18
+  - containers >= 0.6 && < 0.7
 
 ghc-options:
   - -Wall
