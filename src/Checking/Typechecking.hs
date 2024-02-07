@@ -1,3 +1,5 @@
+{-# LANGUAGE LambdaCase #-}
+
 module Checking.Typechecking (checkTerm, unifyTerms, inferTerm, normaliseTermFully, checkProgram) where
 
 import Checking.Context
@@ -33,7 +35,6 @@ import Checking.Vars (Sub (..), Subst (sub), alphaRename, subVar)
 import Control.Monad (replicateM)
 import Control.Monad.Except (catchError, throwError)
 import Control.Monad.State (get)
-import Data.Bifunctor (second)
 import Data.Map (Map, lookup, (!?))
 import Lang
   ( Clause (..),
@@ -181,26 +182,38 @@ checkDeclItem decl = do
 
 -- | Check a clause against a list of types which are its signature.
 checkClause :: ([(Var, Type)], Type) -> Clause -> Tc Clause
-checkClause ([], t) (Clause [] r l) = do
-  (r', _) <- checkTerm r t
-  return (Clause [] r' l)
-checkClause ((v, a) : as, t) (Clause (p : ps) r l) = do
-  pt <- patToTerm p
-  (pt', _) <- enterPat $ checkTerm pt a
-  let s' = Sub [(v, pt')]
-  c <- checkClause (map (second (sub s')) as, sub s' t) (Clause ps r l)
-  return $ prependPatToClause pt' c
-checkClause ([], _) (ImpossibleClause [] l) = return (ImpossibleClause [] l) -- @@Todo: check
-checkClause ((v, a) : as, t) (ImpossibleClause (p : ps) l) = do
-  pt <- patToTerm p
-  (pt', _) <- enterPat $ checkTerm pt a
-  let s' = Sub [(v, pt')]
-  c <- checkClause (map (second (sub s')) as, sub s' t) (ImpossibleClause ps l)
-  return $ prependPatToClause pt' c
-checkClause ([], _) cl@(Clause (p : _) _ _) = throwError $ TooManyPatterns cl p
-checkClause ([], _) cl@(ImpossibleClause (p : _) _) = throwError $ TooManyPatterns cl p
-checkClause ((_, t) : _, _) cl@(Clause [] _ _) = throwError $ TooFewPatterns cl t
-checkClause ((_, t) : _, _) cl@(ImpossibleClause [] _) = throwError $ TooFewPatterns cl t
+checkClause sig cl = checkClause' sig cl (Sub [])
+  where
+    checkClause' :: ([(Var, Type)], Type) -> Clause -> Sub -> Tc Clause
+    checkClause' ([], t) (Clause [] r d) s = do
+      (r', _) <- checkTerm r (sub s t)
+      return (Clause [] r' d)
+    checkClause' ((v, a) : as, t) (Clause (p : ps) r d) s = do
+      pt <- patToTerm p
+      (pt', _) <- enterPat $ checkTerm pt (sub s a)
+      c <- checkClause' (as, t) (Clause ps r d) (s <> Sub [(v, pt')])
+      return $ prependPatToClause pt' c
+    checkClause' ([], _) (ImpossibleClause [] _) _ = throwError $ CaseIsNotImpossible cl
+    checkClause' ((v, a) : as, t) c@(ImpossibleClause (p : ps) d) s = do
+      pt <- patToTerm p
+      -- Expect a unification error
+      ptOrFail <-
+        ( do
+            (pt', _) <- enterPat $ checkTerm pt (sub s a)
+            return $ Just pt'
+          )
+          `catchError` \case
+            Mismatch _ _ -> return Nothing
+            e -> throwError e
+      case ptOrFail of
+        Just pt' -> do
+          c' <- checkClause' (as, t) (ImpossibleClause ps d) (s <> Sub [(v, pt')])
+          return $ prependPatToClause pt' c'
+        Nothing -> return $ prependPatToClause pt c
+    checkClause' ([], _) (Clause (p : _) _ _) _ = throwError $ TooManyPatterns cl p
+    checkClause' ([], _) (ImpossibleClause (p : _) _) _ = throwError $ TooManyPatterns cl p
+    checkClause' ((_, t) : _, _) (Clause [] _ _) _ = throwError $ TooFewPatterns cl t
+    checkClause' ((_, t) : _, _) (ImpossibleClause [] _) _ = throwError $ TooFewPatterns cl t
 
 -- | Check the type of a term, and set the type in the context.
 checkTerm :: Term -> Type -> Tc (Term, Type)

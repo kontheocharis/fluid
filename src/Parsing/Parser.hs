@@ -138,7 +138,7 @@ enter = do
 
 -- | Reserved identifiers.
 reservedIdents :: [String]
-reservedIdents = ["data", "where", "impossible", "case", "of"]
+reservedIdents = ["data", "where", "case", "of"]
 
 anyIdentifier :: Parser String
 anyIdentifier = try $ do
