@@ -59,7 +59,6 @@ import Lang
     locatedAt,
     mapTermM,
     piTypeToList,
-    prependPatToClause,
     typedAs,
   )
 
@@ -180,40 +179,67 @@ checkDeclItem decl = do
   modifyGlobalCtx (addItem (Decl decl''))
   return decl''
 
+-- | Whether a clause is impossible or not.
+--
+-- If it is impossible, then it contains a type error to justify it.
+data ClauseOutcome = Possible | Impossible TcError
+
+-- | Check the patterns of a clause.
+--
+-- Returns the checked patterns and the outcome of whether the clause is impossible or not.
+checkClausePats :: [(Var, Type, Pat)] -> Sub -> Tc ([(Var, Type, Pat)], ClauseOutcome, Sub)
+checkClausePats ((v, a, p) : as) s = do
+  pt <- patToTerm p
+  ptOrFail <-
+    ( do
+        (pt', _) <- enterPat $ checkTerm pt (sub s a)
+        return $ Right pt'
+      )
+      `catchError` \case
+        e@(Mismatch _ _) -> return $ Left e
+        e -> throwError e
+  case ptOrFail of
+    Right p' -> do
+      (as', o, s') <- checkClausePats as (s <> Sub [(v, p')])
+      return ((v, a, p') : as', o, s')
+    Left e -> return ((v, a, p) : as, Impossible e, s)
+checkClausePats [] s = return ([], Possible, s)
+
 -- | Check a clause against a list of types which are its signature.
 checkClause :: ([(Var, Type)], Type) -> Clause -> Tc Clause
 checkClause sig cl = checkClause' sig cl (Sub [])
   where
-    checkClause' :: ([(Var, Type)], Type) -> Clause -> Sub -> Tc Clause
-    checkClause' ([], t) (Clause [] r d) s = do
+    zipPats :: [(Var, Type)] -> [Pat] -> Tc [(Var, Type, Pat)]
+    zipPats [] [] = return []
+    zipPats ((v, t) : ts) (p : ps) = ((v, t, p) :) <$> zipPats ts ps
+    zipPats [] (p : _) = throwError $ TooManyPatterns cl p
+    zipPats ((_, t) : _) [] = throwError $ TooFewPatterns cl t
+
+    extractPats :: [(Var, Type, Pat)] -> [Pat]
+    extractPats = map (\(_, _, p) -> p)
+
+    checkClauseRet :: Type -> Term -> Sub -> Tc Term
+    checkClauseRet t r s = do
       (r', _) <- checkTerm r (sub s t)
-      return (Clause [] r' d)
-    checkClause' ((v, a) : as, t) (Clause (p : ps) r d) s = do
-      pt <- patToTerm p
-      (pt', _) <- enterPat $ checkTerm pt (sub s a)
-      c <- checkClause' (as, t) (Clause ps r d) (s <> Sub [(v, pt')])
-      return $ prependPatToClause pt' c
-    checkClause' ([], _) (ImpossibleClause [] _) _ = throwError $ CaseIsNotImpossible cl
-    checkClause' ((v, a) : as, t) c@(ImpossibleClause (p : ps) d) s = do
-      pt <- patToTerm p
-      -- Expect a unification error
-      ptOrFail <-
-        ( do
-            (pt', _) <- enterPat $ checkTerm pt (sub s a)
-            return $ Just pt'
-          )
-          `catchError` \case
-            Mismatch _ _ -> return Nothing
-            e -> throwError e
-      case ptOrFail of
-        Just pt' -> do
-          c' <- checkClause' (as, t) (ImpossibleClause ps d) (s <> Sub [(v, pt')])
-          return $ prependPatToClause pt' c'
-        Nothing -> return $ prependPatToClause pt c
-    checkClause' ([], _) (Clause (p : _) _ _) _ = throwError $ TooManyPatterns cl p
-    checkClause' ([], _) (ImpossibleClause (p : _) _) _ = throwError $ TooManyPatterns cl p
-    checkClause' ((_, t) : _, _) (Clause [] _ _) _ = throwError $ TooFewPatterns cl t
-    checkClause' ((_, t) : _, _) (ImpossibleClause [] _) _ = throwError $ TooFewPatterns cl t
+      return r'
+
+    checkClause' :: ([(Var, Type)], Type) -> Clause -> Sub -> Tc Clause
+    checkClause' (ts, t) (Clause ps r d) s = do
+      as <- zipPats ts ps
+      (as', outcome, s') <- checkClausePats as s
+      case outcome of
+        Possible -> do
+          r' <- checkClauseRet t r s'
+          return (Clause (extractPats as') r' d)
+        Impossible e -> throwError e
+    checkClause' (ts, _) (ImpossibleClause ps d) s = do
+      as <- zipPats ts ps
+      (_, outcome, _) <- checkClausePats as s
+      case outcome of
+        Possible -> do
+          throwError $ CaseIsNotImpossible cl
+        Impossible _ -> do
+          return (ImpossibleClause ps d)
 
 -- | Check the type of a term, and set the type in the context.
 checkTerm :: Term -> Type -> Tc (Term, Type)
