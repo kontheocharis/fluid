@@ -17,6 +17,7 @@ import Options.Applicative.Common (Parser)
 import Options.Applicative.Extra (helper)
 import Parsing.Parser (parseProgram, parseRefactorArgs, parseTerm)
 import Refactoring.AddIndex (addIndex)
+import Refactoring.AddParam (addParam)
 import Refactoring.EnhancePatterns (enhancePatsRefac)
 import Refactoring.RelCtorParams (relCtorParams)
 import Refactoring.RelFuncParams (relFuncParams)
@@ -147,6 +148,7 @@ runCompiler (Args (CheckFile file) flags) = void (parseAndCheckFile file flags)
 runCompiler (Args Repl _) = runRepl
 runCompiler (Args (Refactor f) fl@(Flags {refactorArgs = a, refactorName = Just n})) = case n of
   "spec-ctor" -> applyRefactoring f a fl specCtor
+  "add-param" -> applyRefactoring f a fl addParam
   "enhance-pats" -> applyRefactoring f a fl enhancePatsRefac
   "rm-taut" -> applyRefactoring f a fl rmTautCase
   "add-index" -> applyRefactoring f a fl addIndex

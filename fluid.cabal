@@ -34,6 +34,7 @@ library
       Parsing.Parser
       Parsing.Resolution
       Refactoring.AddIndex
+      Refactoring.AddParam
       Refactoring.Clauses
       Refactoring.EnhancePatterns
       Refactoring.Ornamenting
