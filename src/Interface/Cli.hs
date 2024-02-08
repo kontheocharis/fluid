@@ -9,18 +9,18 @@ import Control.Monad.Cont (MonadIO (liftIO))
 import Data.Char (isSpace)
 import Data.String
 import Data.Text.IO (hPutStrLn)
+import Interface.Pretty
 import Lang (Program)
 import Options.Applicative (execParser, value, (<**>), (<|>))
 import Options.Applicative.Builder (fullDesc, header, help, info, long, maybeReader, option, progDesc, short, strOption, switch)
 import Options.Applicative.Common (Parser)
 import Options.Applicative.Extra (helper)
 import Parsing.Parser (parseProgram, parseRefactorArgs, parseTerm)
-import Refactoring.SpecCtor (specCtor)
 import Refactoring.EnhancePatterns (enhancePatsRefac)
+import Refactoring.RemoveMaybe (removeMaybe)
 import Refactoring.RmTautCase (rmTautCase)
+import Refactoring.SpecCtor (specCtor)
 import Refactoring.Utils (FromRefactorArgs (..), Refact, RefactorArgKind (..), RefactorArgs (..), evalRefact)
-import Interface.Pretty
-
 import System.Console.Haskeline (InputT, defaultSettings, getInputLine, outputStrLn, runInputT)
 import System.Exit (exitFailure)
 import System.IO (stderr)
@@ -145,6 +145,7 @@ runCompiler (Args (Refactor f) fl@(Flags {refactorArgs = a, refactorName = Just 
   "spec-ctor" -> applyRefactoring f a fl specCtor
   "enhance-pats" -> applyRefactoring f a fl enhancePatsRefac
   "rm-taut" -> applyRefactoring f a fl rmTautCase
+  "remove-maybe" -> applyRefactoring f a fl removeMaybe
   _ -> err $ "Unknown refactoring: " ++ show n
 runCompiler (Args (Refactor _) Flags {refactorName = Nothing}) = err "No refactoring name provided"
 

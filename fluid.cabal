@@ -36,6 +36,7 @@ library
       Refactoring.Clauses
       Refactoring.EnhancePatterns
       Refactoring.Ornamenting
+      Refactoring.RemoveMaybe
       Refactoring.RmTautCase
       Refactoring.SpecCtor
       Refactoring.TraverseUtils

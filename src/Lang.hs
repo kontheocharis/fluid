@@ -41,15 +41,15 @@ module Lang
     getLinePos,
     getColPos,
     isCompound,
-    emptyTermData
+    emptyTermData,
   )
 where
 
-import GHC.Generics (Generic)
-import Data.Generics (Data)
-import Data.Typeable (Typeable)
 import Control.Monad.Identity (runIdentity)
+import Data.Generics (Data)
 import Data.List (intercalate)
+import Data.Typeable (Typeable)
+import GHC.Generics (Generic)
 
 -- | Type alias for terms that are expected to be types (just for documentation purposes).
 type Type = Term
@@ -149,10 +149,10 @@ startPos :: Loc -> Maybe Pos
 startPos NoLoc = Nothing
 startPos (Loc start _) = Just start
 
-getLinePos :: Maybe Pos -> Int 
-getLinePos (Just (Pos l c)) = l 
+getLinePos :: Maybe Pos -> Int
+getLinePos (Just (Pos l c)) = l
 
-getColPos :: Maybe Pos -> Int 
+getColPos :: Maybe Pos -> Int
 getColPos (Just (Pos l c)) = c
 
 -- | Get the ending position of a location.
@@ -243,7 +243,7 @@ data DeclItem = DeclItem
   { declName :: String,
     declTy :: Type,
     declClauses :: [Clause],
-    pos :: Loc 
+    declLoc :: Loc
   }
   deriving (Eq, Generic, Data, Typeable, Show)
 
@@ -380,7 +380,6 @@ instance TermMappable () where
 
 -- Show instances for pretty printing:
 
-
 class HasTermValue a where
   getTermValue :: a -> TermValue
 
@@ -389,8 +388,6 @@ instance HasTermValue Term where
 
 instance HasTermValue TermValue where
   getTermValue = id
-
-
 
 -- | Check if a term is compound (i.e. contains spaces), for formatting purposes.
 isCompound :: (HasTermValue a) => a -> Bool
@@ -420,7 +417,6 @@ indented :: String -> String
 indented str
   | (l : ls) <- lines str = intercalate "\n" $ l : map ("  " ++) ls
   | [] <- lines str = ""
-
 
 -- | Check if a given term is a valid pattern (no typechecking).
 isValidPat :: Term -> Bool
