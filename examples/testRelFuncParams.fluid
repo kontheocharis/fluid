@@ -1,0 +1,20 @@
+
+data Elem: Nat -> List Nat -> Type where 
+    | Here : (x: Nat) -> (xs: List Nat) -> Elem x (x::xs) 
+    | There : (x: Nat) -> (xs: List Nat) -> Elem x xs -> (y:Nat) -> Elem x (y::xs)
+
+
+
+f: (l:List Nat) -> Nat -> Nat 
+f l Z = Z
+f l (S n) = f l n
+
+g: (l:List Nat) -> Nat -> Nat 
+g l n = case n of 
+            | Z => Z
+            | (S n) => g l n
+
+
+h: Nat -> Nat 
+h n = f [] n
+
