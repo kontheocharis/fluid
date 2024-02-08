@@ -32,4 +32,3 @@ eval env patvar_1 (Add paramforpatvar_Add_0 e1 paramforpatvar_Add_2 e2 patvar_1)
     | Nothing => Nothing
     | (Just e2') => Just (plus e1' e2')
 
-    

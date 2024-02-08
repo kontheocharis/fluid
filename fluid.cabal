@@ -33,7 +33,6 @@ library
       Parsing.Parser
       Parsing.Resolution
       Refactoring.AddIndex
-      Refactoring.AddIndex2
       Refactoring.Clauses
       Refactoring.Ornamenting
       Refactoring.SpecCtor
