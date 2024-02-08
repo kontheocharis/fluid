@@ -3,11 +3,11 @@
 module Refactoring.Ornamenting (ornamentDeclItem, ornamentType) where
 
 import Checking.Vars (var)
-import Lang (Clause (..), DeclItem (..), MapResult (Continue, Replace), Pat, Term (..), TermValue (..), Type, Var (..), genTerm, mapTerm, piTypeToList)
+import Lang (Loc (..), Clause (..), DeclItem (..), MapResult (Continue, Replace), Pat, Term (..), TermValue (..), Type, Var (..), genTerm, mapTerm, piTypeToList)
 
 -- | Ornament a declaration.
 ornamentDeclItem :: DeclItem -> (DeclItem, DeclItem)
-ornamentDeclItem (DeclItem name ty clauses) = (ornItem, indexPropItem)
+ornamentDeclItem (DeclItem name ty clauses l) = (ornItem, indexPropItem)
   where
     (tyOrn, i) = ornamentType ty
     indexPropItemName = name ++ "Indices"
@@ -24,7 +24,7 @@ ornamentDeclItem (DeclItem name ty clauses) = (ornItem, indexPropItem)
 
     (_, ornRetType) = piTypeToList tyOrn
     ornClauses = map (ornamentClause indicesAndPropLength name ornRetType) clauses
-    ornItem = DeclItem name tyOrnWithIndices ornClauses
+    ornItem = DeclItem name tyOrnWithIndices ornClauses l
 
 -- | Ornament a clause.
 --
@@ -33,8 +33,8 @@ ornamentDeclItem (DeclItem name ty clauses) = (ornItem, indexPropItem)
 -- patterns and recursive calls.
 ornamentClause :: Int -> String -> Type -> Clause -> Clause
 ornamentClause newIndices decl newRetType clause = case clause of
-  Clause pats term -> Clause (replicate newIndices (genTerm Wild) ++ map ornamentPat pats) (ornamentClauseTerm newIndices decl newRetType term)
-  ImpossibleClause pats -> ImpossibleClause (replicate newIndices (genTerm Wild) ++ map ornamentPat pats)
+  Clause pats term l -> Clause (replicate newIndices (genTerm Wild) ++ map ornamentPat pats) (ornamentClauseTerm newIndices decl newRetType term) l
+  ImpossibleClause pats l -> ImpossibleClause (replicate newIndices (genTerm Wild) ++ map ornamentPat pats) l
 
 -- | Ornament a term that appears as part of a clause of an ornamented declaration of the given name.
 --
@@ -85,11 +85,11 @@ listToVect t = t
 --
 -- The proof of the proposition is left as a hole.
 generateIndicesPropItem :: String -> Int -> DeclItem
-generateIndicesPropItem name i = DeclItem name piType [holeClause]
+generateIndicesPropItem name i = DeclItem name piType [holeClause] NoLoc
   where
     vars = map (\n -> Var ("n" ++ show n) n) [0 .. i - 1]
     piType = foldr (\v ty -> genTerm (PiT v (genTerm NatT) ty)) (genTerm TyT) vars
-    holeClause = Clause (map (genTerm . V) vars) (genTerm (Hole (var "proof")))
+    holeClause = Clause (map (genTerm . V) vars) (genTerm (Hole (var "proof"))) NoLoc
 
 -- | Ornament a type signature.
 --

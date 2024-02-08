@@ -125,10 +125,10 @@ relFuncParams args (Program items) =
        in (Var "relParamV_func" 0, listToApp (relFuncParamsNewTerm args, termList)) -- todo: get fresh var
       -- update clauses to add new pattern variables or holes in recursive calls
     relFuncParams_cl :: Int -> Clause -> Clause
-    relFuncParams_cl i (Clause lhsPats rhsTerm) =
-      Clause (insertAfter lhsPats i (genTerm (V (Var "relParam_patV" 0)))) (relFuncParams_clRhs i rhsTerm)
-    relFuncParams_cl i (ImpossibleClause lhsPats) =
-      ImpossibleClause (insertAfter lhsPats i (genTerm (V (Var "relParam_patV" 0))))
+    relFuncParams_cl i (Clause lhsPats rhsTerm l) =
+      Clause (insertAfter lhsPats i (genTerm (V (Var "relParam_patV" 0)))) (relFuncParams_clRhs i rhsTerm) l
+    relFuncParams_cl i (ImpossibleClause lhsPats l) =
+      ImpossibleClause (insertAfter lhsPats i (genTerm (V (Var "relParam_patV" 0)))) l
     -- add holes in all function calls
     relFuncParams_clRhs :: Int -> Term -> Term
     relFuncParams_clRhs i (Term (Case caseTerm patTermList) _) =
@@ -154,8 +154,8 @@ relFuncParams args (Program items) =
                       { declClauses =
                           map
                             ( \cl -> case cl of
-                                ImpossibleClause pat -> ImpossibleClause pat
-                                Clause pat term -> Clause pat (relFuncParams_clRhs i term)
+                                ImpossibleClause pat l -> ImpossibleClause pat l
+                                Clause pat term l -> Clause pat (relFuncParams_clRhs i term) l
                             )
                             (declClauses d)
                       }
@@ -165,4 +165,3 @@ relFuncParams args (Program items) =
         )
 
 -- stack run -- -r examples/testRelFuncParams.fluid -n rel-func-params -a 'func=f, inds=[1,2], reln =`Elem`'
-

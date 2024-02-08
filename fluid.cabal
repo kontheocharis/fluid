@@ -29,16 +29,20 @@ library
       Checking.Typechecking
       Checking.Vars
       Interface.Cli
+      Interface.Pretty
       Lang
       Parsing.Parser
       Parsing.Resolution
       Refactoring.AddIndex
       Refactoring.Clauses
+      Refactoring.EnhancePatterns
       Refactoring.Ornamenting
       Refactoring.RelCtorParams
       Refactoring.RelFuncParams
       Refactoring.RemoveMaybe
+      Refactoring.RmTautCase
       Refactoring.SpecCtor
+      Refactoring.TraverseUtils
       Refactoring.UnifyInds
       Refactoring.Utils
   other-modules:
@@ -47,6 +51,8 @@ library
       Paths_fluid
   hs-source-dirs:
       src
+  default-extensions:
+      DeriveDataTypeable DeriveGeneric
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -Wno-unused-top-binds
   build-depends:
       base >=4.7 && <5
@@ -55,6 +61,7 @@ library
     , mtl ==2.2.*
     , optparse-applicative ==0.17.*
     , parsec ==3.1.*
+    , syb
     , text ==2.0.*
   default-language: Haskell2010
 
@@ -66,6 +73,8 @@ executable fluid-exe
       Paths_fluid
   hs-source-dirs:
       app
+  default-extensions:
+      DeriveDataTypeable DeriveGeneric
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -Wno-unused-top-binds -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
@@ -75,6 +84,7 @@ executable fluid-exe
     , mtl ==2.2.*
     , optparse-applicative ==0.17.*
     , parsec ==3.1.*
+    , syb
     , text ==2.0.*
   default-language: Haskell2010
 
@@ -87,6 +97,8 @@ test-suite fluid-test
       Paths_fluid
   hs-source-dirs:
       test
+  default-extensions:
+      DeriveDataTypeable DeriveGeneric
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -Wno-unused-top-binds -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
@@ -96,5 +108,6 @@ test-suite fluid-test
     , mtl ==2.2.*
     , optparse-applicative ==0.17.*
     , parsec ==3.1.*
+    , syb
     , text ==2.0.*
   default-language: Haskell2010

@@ -36,11 +36,20 @@ module Lang
     typedAs,
     appToList,
     lams,
+    startPos,
+    endPos,
+    getLinePos,
+    getColPos,
+    isCompound,
+    emptyTermData,
   )
 where
 
 import Control.Monad.Identity (runIdentity)
+import Data.Generics (Data)
 import Data.List (intercalate)
+import Data.Typeable (Typeable)
+import GHC.Generics (Generic)
 
 -- | Type alias for terms that are expected to be types (just for documentation purposes).
 type Type = Term
@@ -53,7 +62,7 @@ type GlobalName = String
 
 -- | A variable
 -- Represented by a string name and a unique integer identifier (no shadowing).
-data Var = Var String Int deriving (Eq, Ord)
+data Var = Var String Int deriving (Eq, Ord, Generic, Data, Typeable, Show)
 
 -- | A term
 data TermValue
@@ -98,10 +107,10 @@ data TermValue
   | Refl Term
   | LTEZero
   | LTESucc Term
-  deriving (Eq)
+  deriving (Eq, Generic, Data, Typeable, Show)
 
 -- | A term with associated data.
-data Term = Term {termValue :: TermValue, termData :: TermData} deriving (Eq)
+data Term = Term {termValue :: TermValue, termData :: TermData} deriving (Eq, Generic, Data, Typeable, Show)
 
 -- | Alias for type values (just for documentation purposes)
 type TypeValue = TermValue
@@ -111,7 +120,7 @@ type PatValue = TermValue
 
 -- | An optional location in the source code, represented by a start (inclusive) and
 -- end (exclusive) position.
-data Loc = NoLoc | Loc Pos Pos deriving (Eq)
+data Loc = NoLoc | Loc Pos Pos deriving (Eq, Generic, Data, Typeable, Show)
 
 -- | A monoid instance for locations, that gets the maximum span.
 instance Monoid Loc where
@@ -129,7 +138,7 @@ instance Ord Loc where
   Loc s1 e1 <= Loc s2 e2 = s1 <= s2 && e1 <= e2
 
 -- | A position in the source code, represented by a line and column number.
-data Pos = Pos Int Int deriving (Eq)
+data Pos = Pos Int Int deriving (Eq, Generic, Data, Typeable, Show)
 
 -- | An ordering for positions, that gets the minimum position.
 instance Ord Pos where
@@ -140,6 +149,12 @@ startPos :: Loc -> Maybe Pos
 startPos NoLoc = Nothing
 startPos (Loc start _) = Just start
 
+getLinePos :: Maybe Pos -> Int
+getLinePos (Just (Pos l c)) = l
+
+getColPos :: Maybe Pos -> Int
+getColPos (Just (Pos l c)) = c
+
 -- | Get the ending position of a location.
 endPos :: Loc -> Maybe Pos
 endPos NoLoc = Nothing
@@ -149,7 +164,7 @@ endPos (Loc _ end) = Just end
 --
 -- For now stores only the location in the source code, but will
 -- be extended to store type information too.
-data TermData = TermData {loc :: Loc, annotTy :: Maybe Type} deriving (Eq)
+data TermData = TermData {loc :: Loc, annotTy :: Maybe Type} deriving (Eq, Generic, Data, Typeable, Show)
 
 -- | Empty term data.
 emptyTermData :: TermData
@@ -216,20 +231,21 @@ lams (v : vs) t = Term (Lam v (lams vs t)) (termDataAt t)
 data Item
   = Decl DeclItem
   | Data DataItem
-  deriving (Eq)
+  deriving (Eq, Generic, Data, Typeable, Show)
 
 -- | Get the name of an item.
 itemName :: Item -> String
-itemName (Decl (DeclItem name _ _)) = name
+itemName (Decl (DeclItem name _ _ _)) = name
 itemName (Data (DataItem name _ _)) = name
 
 -- | A declaration is a sequence of clauses, defining the equations for a function.
 data DeclItem = DeclItem
   { declName :: String,
     declTy :: Type,
-    declClauses :: [Clause]
+    declClauses :: [Clause],
+    declLoc :: Loc
   }
-  deriving (Eq)
+  deriving (Eq, Generic, Data, Typeable, Show)
 
 -- | A data item is an indexed inductive data type declaration, with a sequence
 -- of constructors.
@@ -238,7 +254,7 @@ data DataItem = DataItem
     dataTy :: Type,
     dataCtors :: [CtorItem]
   }
-  deriving (Eq)
+  deriving (Eq, Generic, Data, Typeable, Show)
 
 -- | A constructor item is a constructor name and type.
 data CtorItem = CtorItem
@@ -246,24 +262,24 @@ data CtorItem = CtorItem
     ctorItemTy :: Type,
     ctorItemDataName :: String
   }
-  deriving (Eq)
+  deriving (Eq, Generic, Data, Typeable, Show)
 
 -- | A clause is a sequence of patterns followed by a term.
-data Clause = Clause [Pat] Term | ImpossibleClause [Pat]
-  deriving (Eq)
+data Clause = Clause [Pat] Term Loc | ImpossibleClause [Pat] Loc
+  deriving (Eq, Generic, Data, Typeable, Show)
 
 -- | Get the patterns from a clause.
 clausePats :: Clause -> [Pat]
-clausePats (Clause pats _) = pats
-clausePats (ImpossibleClause pats) = pats
+clausePats (Clause pats _ _) = pats
+clausePats (ImpossibleClause pats _) = pats
 
 prependPatToClause :: Pat -> Clause -> Clause
-prependPatToClause p (Clause ps t) = Clause (p : ps) t
-prependPatToClause p (ImpossibleClause ps) = ImpossibleClause (p : ps)
+prependPatToClause p (Clause ps t l) = Clause (p : ps) t l
+prependPatToClause p (ImpossibleClause ps l) = ImpossibleClause (p : ps) l
 
 -- | A program is a sequence of items.
 newtype Program = Program [Item]
-  deriving (Eq)
+  deriving (Eq, Generic, Data, Typeable, Show)
 
 -- | Result of a term map.
 data MapResult a = Continue | Replace a | ReplaceAndContinue a
@@ -328,8 +344,8 @@ class TermMappable t where
   mapTermMappable f = runIdentity . mapTermMappableM (return . f)
 
 mapClauseM :: (Monad m) => (Term -> m (MapResult Term)) -> Clause -> m Clause
-mapClauseM f (Clause p t) = Clause <$> mapM (mapTermM f) p <*> mapTermM f t
-mapClauseM f (ImpossibleClause p) = ImpossibleClause <$> mapM (mapTermM f) p
+mapClauseM f (Clause p t l) = Clause <$> mapM (mapTermM f) p <*> mapTermM f t <*> pure l
+mapClauseM f (ImpossibleClause p l) = ImpossibleClause <$> mapM (mapTermM f) p <*> pure l
 
 -- | Apply a term function to a constructor item.
 mapCtorItemM :: (Monad m) => (Term -> m (MapResult Term)) -> CtorItem -> m CtorItem
@@ -337,7 +353,7 @@ mapCtorItemM f (CtorItem name ty d) = CtorItem name <$> mapTermM f ty <*> pure d
 
 -- | Apply a term function to a declaration item.
 mapItemM :: (Monad m) => (Term -> m (MapResult Term)) -> Item -> m Item
-mapItemM f (Decl (DeclItem name ty clauses)) = Decl <$> (DeclItem name <$> mapTermM f ty <*> mapM (mapClauseM f) clauses)
+mapItemM f (Decl (DeclItem name ty clauses pos)) = Decl <$> (DeclItem name <$> mapTermM f ty <*> mapM (mapClauseM f) clauses <*> pure pos)
 mapItemM f (Data (DataItem name ty ctors)) = Data <$> (DataItem name <$> mapTermM f ty <*> mapM (mapCtorItemM f) ctors)
 
 -- | Apply a term function to a program.
@@ -363,8 +379,6 @@ instance TermMappable () where
   mapTermMappableM _ = return
 
 -- Show instances for pretty printing:
-instance Show Var where
-  show (Var s _) = s
 
 class HasTermValue a where
   getTermValue :: a -> TermValue
@@ -374,11 +388,6 @@ instance HasTermValue Term where
 
 instance HasTermValue TermValue where
   getTermValue = id
-
--- | Show a term value, with parentheses if it is compound.
-showSingle :: (HasTermValue a, Show a) => a -> String
-showSingle v | (isCompound . getTermValue) v = "(" ++ show v ++ ")"
-showSingle v = show v
 
 -- | Check if a term is compound (i.e. contains spaces), for formatting purposes.
 isCompound :: (HasTermValue a) => a -> Bool
@@ -408,82 +417,6 @@ indented :: String -> String
 indented str
   | (l : ls) <- lines str = intercalate "\n" $ l : map ("  " ++) ls
   | [] <- lines str = ""
-
-instance Show TermValue where
-  show (PiT v t1 t2) = "(" ++ show v ++ " : " ++ show t1 ++ ") -> " ++ show t2
-  show (Lam v t) = "\\" ++ show v ++ " => " ++ show t
-  show (SigmaT v t1 t2) = "(" ++ show v ++ " : " ++ show t1 ++ ") ** " ++ show t2
-  show (Pair t1 t2) = "(" ++ show t1 ++ ", " ++ show t2 ++ ")"
-  show t@(App _ _) = intercalate " " $ map showSingle (let (x, xs) = appToList (genTerm t) in x : xs)
-  show (Case t cs) =
-    "case "
-      ++ show t
-      ++ " of\n"
-      ++ intercalate
-        "\n"
-        (map (\(p, c) -> "  | " ++ showSingle p ++ " => " ++ indented (show c)) cs)
-  show TyT = "Type"
-  show Wild = "_"
-  show (V v) = show v
-  show (Global s) = s
-  show (Hole i) = "?" ++ show i
-  show (Meta i) = "!" ++ show i
-  show NatT = "Nat"
-  show (ListT t) = "List " ++ showSingle t
-  show (MaybeT t) = "Maybe " ++ showSingle t
-  show (VectT t n) = "Vect " ++ showSingle t ++ " " ++ showSingle n
-  show (FinT t) = "Fin " ++ showSingle t
-  show (EqT t1 t2) = showSingle t1 ++ " = " ++ showSingle t2
-  show (LteT t1 t2) = "LTE " ++ showSingle t1 ++ " " ++ showSingle t2
-  show FZ = "FZ"
-  show (FS t) = "FS " ++ showSingle t
-  show Z = "Z"
-  show (S t) = "S " ++ showSingle t
-  show LNil = "[]"
-  show (LCons t1 t2) = showSingle t1 ++ "::" ++ showSingle t2
-  show VNil = "VNil"
-  show (VCons t1 t2) = "VCons " ++ showSingle t1 ++ " " ++ showSingle t2
-  show (MJust t) = "Just " ++ showSingle t
-  show MNothing = "Nothing"
-  show (Refl t) = "Refl " ++ showSingle t
-  show LTEZero = "LTEZero"
-  show (LTESucc t) = "LTESucc " ++ showSingle t
-
-instance Show Loc where
-  show NoLoc = ""
-  show (Loc l c) = show l ++ "--" ++ show c
-
-instance Show Pos where
-  show (Pos l c) = show l ++ ":" ++ show c
-
-instance Show TermData where
-  show (TermData l t) = "loc=" ++ show l ++ ", type=" ++ show t
-
-instance Show Term where
-  show (Term t _) = show t
-
-instance Show Item where
-  show (Decl d) = show d
-  show (Data d) = show d
-
-instance Show DataItem where
-  show (DataItem name ty ctors) =
-    "data "
-      ++ name
-      ++ " : "
-      ++ show ty
-      ++ " where\n"
-      ++ intercalate "\n" (map (\(CtorItem s t _) -> "  | " ++ s ++ " : " ++ show t) ctors)
-
-instance Show DeclItem where
-  show (DeclItem v ty clauses) = intercalate "\n" ((v ++ " : " ++ show ty) : map (\c -> v ++ " " ++ show c) clauses)
-
-instance Show Clause where
-  show (Clause p t) = intercalate " " (map showSingle p) ++ " = " ++ show t
-  show (ImpossibleClause p) = intercalate " " (map showSingle p) ++ " impossible"
-
-instance Show Program where
-  show (Program ds) = intercalate "\n\n" $ map show ds
 
 -- | Check if a given term is a valid pattern (no typechecking).
 isValidPat :: Term -> Bool

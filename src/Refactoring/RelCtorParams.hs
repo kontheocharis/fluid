@@ -40,8 +40,8 @@ instance FromRefactorArgs RelCtorArgs where
       <*> lookupIdxListArg "inds" args
       <*> lookupExprArg "reln" args
 
--- like piTypeToList, but as a (var,type) list, so it's easier to work with 
-  -- probably don't need this, but leaving it for now
+-- like piTypeToList, but as a (var,type) list, so it's easier to work with
+-- probably don't need this, but leaving it for now
 piTypeToListWithDummy :: Type -> [(Var, Type)]
 piTypeToListWithDummy ty =
   let (tys, rTy) = piTypeToList ty
@@ -128,8 +128,8 @@ relCtorParams args (Program items) =
         )
     -- update usecase in a clause
     updateUsecase_cl :: Clause -> Clause
-    updateUsecase_cl (Clause lhsPats rhsTerm) = Clause (map updateUsecase_pat lhsPats) (updateUsecase_rhs rhsTerm)
-    updateUsecase_cl (ImpossibleClause lhsPats) = ImpossibleClause (map updateUsecase_pat lhsPats)
+    updateUsecase_cl (Clause lhsPats rhsTerm l) = Clause (map updateUsecase_pat lhsPats) (updateUsecase_rhs rhsTerm) l
+    updateUsecase_cl (ImpossibleClause lhsPats l) = ImpossibleClause (map updateUsecase_pat lhsPats) l
     -- update use of ctor in pattern (lhs of equations) -> add additional variable
     updateUsecase_pat :: Pat -> Pat
     updateUsecase_pat pat =
@@ -156,4 +156,3 @@ relCtorParams args (Program items) =
 
 -- stack run -- -r examples/testRelCtorParams.fluid -n rel-ctor-params -a 'data=Data1, ctor=C1, inds=[1,2], reln =`Elem`'
 -- stack run -- -r examples/example2.fluid -n rel-ctor-params -a 'data=Expr, ctor=Var, inds=[2,1], reln =`Elem`'
-

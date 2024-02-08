@@ -15,14 +15,13 @@ import Lang
     TermValue (..),
     Type,
     Var (..),
+    genTerm,
     listToPiType,
     piTypeToList,
     termDataAt,
     termLoc,
-    genTerm
   )
 import Refactoring.Utils (FromRefactorArgs (..), Refact, lookupIdxListArg, lookupNameArg)
-
 
 ---------------------------------------------------
 
@@ -119,9 +118,9 @@ unifyInds args ast =
     changeConstr_argsList argList (i : indPosns) =
       case argList !! i of
         (var, ty) ->
-              let oldVars = [fst (argList !! j) | j <- indPosns]
-                  reducedArgs = [argList !! j | j <- [0 .. (length argList) - 1], not (elem j indPosns)] -- remove redundant vars
-               in map (\vt -> (fst vt, replaceOldVar_type oldVars var (snd vt))) reducedArgs
+          let oldVars = [fst (argList !! j) | j <- indPosns]
+              reducedArgs = [argList !! j | j <- [0 .. (length argList) - 1], not (elem j indPosns)] -- remove redundant vars
+           in map (\vt -> (fst vt, replaceOldVar_type oldVars var (snd vt))) reducedArgs
     -- rename the use of deleted vars in a type
     replaceOldVar_type :: [Var] -> Var -> Type -> Type
     replaceOldVar_type oldVars newVar (Term (App t1 t2) termDat) =
@@ -157,13 +156,13 @@ unifyInds args ast =
     -- update use cases in function equation
     -- update constructor arguments and rename use of deleted variables
     updateUsecase_cl :: Clause -> Clause
-    updateUsecase_cl (Clause pats term) =
+    updateUsecase_cl (Clause pats term l) =
       let (patRes, varsToRename) = updateUsecase_pats pats
-          newClause = Clause (patRes) (updateUsecase_eqnrhs (unifyIndsPositions args) term) -- constructor updated to remove indices
+          newClause = Clause (patRes) (updateUsecase_eqnrhs (unifyIndsPositions args) term) l -- constructor updated to remove indices
        in renameVars varsToRename newClause -- rename uses of removed vars
-    updateUsecase_cl (ImpossibleClause pats) =
+    updateUsecase_cl (ImpossibleClause pats l) =
       let patRes = updateUsecase_pats pats
-       in ImpossibleClause (fst patRes)
+       in ImpossibleClause (fst patRes) l
     -- refactor use of constructor in lhs of a equation
     updateUsecase_pats :: [Pat] -> ([Pat], [Term])
     updateUsecase_pats [] = ([], [])
@@ -234,11 +233,11 @@ unifyInds args ast =
     -- rename vars in term\term[0] in clause to var name in term[0]
     renameVars :: [Term] -> Clause -> Clause
     renameVars [] clause = clause
-    renameVars (newVar : varsToRename) (Clause pats term) =
+    renameVars (newVar : varsToRename) (Clause pats term l) =
       let varsToRenameTV = (map (\term -> case term of (Term tv _) -> tv) varsToRename)
-       in Clause (renameVars_pats newVar varsToRename pats) (renameVars_term newVar varsToRenameTV term)
-    renameVars (newVar : varsToRename) (ImpossibleClause pats) =
-      ImpossibleClause (renameVars_pats newVar varsToRename pats)
+       in Clause (renameVars_pats newVar varsToRename pats) (renameVars_term newVar varsToRenameTV term) l
+    renameVars (newVar : varsToRename) (ImpossibleClause pats l) =
+      ImpossibleClause (renameVars_pats newVar varsToRename pats) l
     -- rename vars in lhs of equations
     renameVars_pats :: Term -> [Term] -> [Pat] -> [Pat]
     renameVars_pats newVar varsToRename = map (renameVars_pat newVar varsToRename)

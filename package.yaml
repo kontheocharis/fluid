@@ -27,7 +27,7 @@ dependencies:
   - haskeline >= 0.8 && < 0.9
   - optparse-applicative >= 0.17 && < 0.18
   - containers >= 0.6 && < 0.7
-
+  - syb
 ghc-options:
   - -Wall
   - -Wcompat
@@ -39,6 +39,9 @@ ghc-options:
   - -Wpartial-fields
   - -Wredundant-constraints
   - -Wno-unused-top-binds
+default-extensions:
+    DeriveDataTypeable
+    DeriveGeneric
 
 library:
   source-dirs: src

@@ -164,8 +164,8 @@ addIndex args (Program items) =
        in (newTy, [changedFuncInfo])
     -- update function body
     updateUseSites_eqn :: [ChangedCtorInfo] -> ChangedFuncInfo -> Clause -> Clause
-    updateUseSites_eqn cinfo finfo (ImpossibleClause pats) = ImpossibleClause (updateUseSites_eqnLHS cinfo finfo pats)
-    updateUseSites_eqn cinfo finfo (Clause pats term) = Clause (updateUseSites_eqnLHS cinfo finfo pats) (updateUseSites_eqnRHS cinfo finfo term) -- todo update eqnrhs
+    updateUseSites_eqn cinfo finfo (ImpossibleClause pats l) = ImpossibleClause (updateUseSites_eqnLHS cinfo finfo pats) l
+    updateUseSites_eqn cinfo finfo (Clause pats term l) = Clause (updateUseSites_eqnLHS cinfo finfo pats) (updateUseSites_eqnRHS cinfo finfo term) l -- todo update eqnrhs
     -- update lhs of eqns
     updateUseSites_eqnLHS :: [ChangedCtorInfo] -> ChangedFuncInfo -> [Pat] -> [Pat]
     updateUseSites_eqnLHS cinfo finfo pats =

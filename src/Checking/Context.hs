@@ -38,6 +38,7 @@ import Control.Monad.Except (throwError)
 import Control.Monad.State (MonadState (..), StateT (runStateT))
 import Data.List (find, intercalate)
 import Data.Map (Map, empty, insert)
+import Interface.Pretty
 import Lang
   ( Clause,
     CtorItem (..),
@@ -59,8 +60,8 @@ import Lang
 data Judgement = Typing Var Type | Subst Var Term
 
 instance Show Judgement where
-  show (Typing v ty) = show v ++ " : " ++ show ty
-  show (Subst v t) = show v ++ " = " ++ show t
+  show (Typing v ty) = printVal v ++ " : " ++ printVal ty
+  show (Subst v t) = printVal v ++ " = " ++ printVal t
 
 -- | A context, represented as a list of typing judgements.
 newtype Ctx = Ctx [Judgement]
@@ -84,15 +85,15 @@ data TcError
   | NotAFunction Term
 
 instance Show TcError where
-  show (VariableNotFound v) = "Variable not found: " ++ show v
-  show (Mismatch t1 t2) = "Term mismatch: " ++ show t1 ++ " vs " ++ show t2
+  show (VariableNotFound v) = "Variable not found: " ++ printVal v
+  show (Mismatch t1 t2) = "Term mismatch: " ++ printVal t1 ++ " vs " ++ printVal t2
   show (ItemNotFound s) = "Item not found: " ++ s
-  show (CannotUnifyTwoHoles h1 h2) = "Cannot unify two holes: " ++ show h1 ++ " and " ++ show h2
-  show (CannotInferHoleType h) = "Cannot infer hole type: " ++ show h
-  show (NeedMoreTypeHints vs) = "Need more type hints to resolve the holes: " ++ show vs
-  show (TooManyPatterns c p) = "Too many patterns in '" ++ show c ++ "' . Unexpected: " ++ show p
-  show (TooFewPatterns c t) = "Too few patterns in '" ++ show c ++ "'. Expected pattern for: " ++ show t
-  show (NotAFunction t) = "Not a function: " ++ show t
+  show (CannotUnifyTwoHoles h1 h2) = "Cannot unify two holes: " ++ printVal h1 ++ " and " ++ printVal h2
+  show (CannotInferHoleType h) = "Cannot infer hole type: " ++ printVal h
+  show (NeedMoreTypeHints vs) = "Need more type hints to resolve the holes: " ++ concatMap printVal vs
+  show (TooManyPatterns c p) = "Too many patterns in '" ++ printVal c ++ "' . Unexpected: " ++ printVal p
+  show (TooFewPatterns c t) = "Too few patterns in '" ++ printVal c ++ "'. Expected pattern for: " ++ printVal t
+  show (NotAFunction t) = "Not a function: " ++ printVal t
 
 -- | The typechecking state.
 data TcState = TcState
