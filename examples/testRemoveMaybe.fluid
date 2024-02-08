@@ -1,0 +1,33 @@
+
+f: (n:Nat) -> Maybe Nat 
+f Z = Just Z 
+f (S n) = Just Z 
+
+add : (n : Nat) -> (m : Nat) -> Maybe Nat
+add n m = case n of
+  | Z => Just m
+  | (S a) => add a m 
+ 
+add2 : (n : Nat) -> (m : Nat) -> Maybe Nat
+add2 n m = case n of
+  | Z => Just m
+  | (S a) => case add2 a m of 
+                | Nothing => Nothing 
+                | (Just x) => Just (S x)
+
+add3 : (n : Nat) -> (m : Nat) -> Maybe Nat
+add3 Z m = Just m
+add3 (S a) m = case add3 a m of 
+                | Nothing => Nothing 
+                | (Just x) => Just (S x)
+
+g: (n:Nat) -> Maybe Nat 
+g n = f n
+
+h: (n:Nat) -> Nat 
+h n = case f n of 
+        | (Just x) =>  x
+        | Nothing => Z 
+
+
+
