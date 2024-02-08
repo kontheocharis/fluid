@@ -1,0 +1,5 @@
+f: Nat -> Nat 
+f Z = Z 
+f (S a) = S (f a)
+
+
