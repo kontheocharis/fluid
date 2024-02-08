@@ -38,6 +38,7 @@ import Control.Monad.Except (throwError)
 import Control.Monad.State (MonadState (..), StateT (runStateT))
 import Data.List (find, intercalate)
 import Data.Map (Map, empty, insert)
+import Interface.Pretty
 import Lang
   ( Clause,
     CtorItem (..),
@@ -54,13 +55,13 @@ import Lang
     itemName,
     listToApp,
   )
-import Interface.Pretty 
+
 -- | A typing judgement.
 data Judgement = Typing Var Type | Subst Var Term
 
 instance Show Judgement where
-  show (Typing v ty) = printVar v ++ " : " ++ printTerm 1 ty
-  show (Subst v t) = printVar v ++ " = " ++ printTerm 1 t
+  show (Typing v ty) = printVal v ++ " : " ++ printVal ty
+  show (Subst v t) = printVal v ++ " = " ++ printVal t
 
 -- | A context, represented as a list of typing judgements.
 newtype Ctx = Ctx [Judgement]
@@ -84,15 +85,15 @@ data TcError
   | NotAFunction Term
 
 instance Show TcError where
-  show (VariableNotFound v) = "Variable not found: " ++ printVar v
-  show (Mismatch t1 t2) = "Term mismatch: " ++ printTerm 1 t1 ++ " vs " ++ printTerm 1 t2
+  show (VariableNotFound v) = "Variable not found: " ++ printVal v
+  show (Mismatch t1 t2) = "Term mismatch: " ++ printVal t1 ++ " vs " ++ printVal t2
   show (ItemNotFound s) = "Item not found: " ++ s
-  show (CannotUnifyTwoHoles h1 h2) = "Cannot unify two holes: " ++ printVar h1 ++ " and " ++ printVar h2
-  show (CannotInferHoleType h) = "Cannot infer hole type: " ++ printVar h
-  show (NeedMoreTypeHints vs) = "Need more type hints to resolve the holes: " ++ (concat (map printVar vs))
-  show (TooManyPatterns c p) = "Too many patterns in '" ++ printClause 1 c ++ "' . Unexpected: " ++ printTerm 1  p
-  show (TooFewPatterns c t) = "Too few patterns in '" ++ printClause 1 c ++ "'. Expected pattern for: " ++ printTerm 1 t
-  show (NotAFunction t) = "Not a function: " ++ printTerm 1 t
+  show (CannotUnifyTwoHoles h1 h2) = "Cannot unify two holes: " ++ printVal h1 ++ " and " ++ printVal h2
+  show (CannotInferHoleType h) = "Cannot infer hole type: " ++ printVal h
+  show (NeedMoreTypeHints vs) = "Need more type hints to resolve the holes: " ++ concatMap printVal vs
+  show (TooManyPatterns c p) = "Too many patterns in '" ++ printVal c ++ "' . Unexpected: " ++ printVal p
+  show (TooFewPatterns c t) = "Too few patterns in '" ++ printVal c ++ "'. Expected pattern for: " ++ printVal t
+  show (NotAFunction t) = "Not a function: " ++ printVal t
 
 -- | The typechecking state.
 data TcState = TcState

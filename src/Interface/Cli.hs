@@ -163,10 +163,10 @@ parseAndCheckFile file flags = do
   when (verbose flags) $ msg $ "Parsing file " ++ file
   contents <- liftIO $ readFile file
   parsed <- handleParse err (parseProgram file contents)
-  when (dumpParsed flags) $ msg $ "Parsed program:\n" ++ show parsed
+  when (dumpParsed flags) $ msg $ "Parsed program:\n" ++ printVal parsed
   (checked, state) <- handleTc err (checkProgram parsed)
   when (verbose flags) $ msg "\nTypechecked program successfully"
-  when (dumpParsed flags) $ msg $ "Parsed + checked program:\n" ++ show checked
+  when (dumpParsed flags) $ msg $ "Parsed + checked program:\n" ++ printVal checked
   when (verbose flags) $ msg $ "\nEnding state:\n" ++ show state
   return checked
 
@@ -181,9 +181,9 @@ applyRefactoring f args flags r = do
   let refactored = evalRefact (r args' program)
   when (verbose flags) $ msg "Refactored program"
   case applyChanges flags of
-    InPlace -> liftIO $ writeFile f (printProgram refactored)
-    Print -> msg $ printProgram refactored
-    NewFile -> liftIO $ writeFile ("refactored_" ++ f) (printProgram refactored)
+    InPlace -> liftIO $ writeFile f (printVal refactored)
+    Print -> msg $ printVal refactored
+    NewFile -> liftIO $ writeFile ("refactored_" ++ f) (printVal refactored)
 
 -- | Run the REPL.
 runRepl :: InputT IO a
@@ -193,14 +193,14 @@ runRepl = do
     Nothing -> return ()
     Just ('@' : 't' : ' ' : inp) -> do
       t <- handleParse replErr (parseTerm inp)
-      ty <- handleTc replErr (inferTerm t)
-      outputStrLn $ show ty
+      ((ty, _), _) <- handleTc replErr (inferTerm t)
+      outputStrLn $ printVal ty
     Just inp | all isSpace inp -> return ()
     Just inp -> do
       t <- handleParse replErr (parseTerm inp)
       _ <- handleTc replErr (inferTerm t)
-      t' <- handleTc replErr (normaliseTermFully t)
-      outputStrLn $ show t'
+      (t', _) <- handleTc replErr (normaliseTermFully t)
+      outputStrLn $ printVal t'
   runRepl
 
 -- | Handle a parsing result.

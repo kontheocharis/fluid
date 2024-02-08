@@ -1,7 +1,14 @@
-module Interface.Pretty where
+module Interface.Pretty (Print (..)) where
 
-import Lang
 import Data.List (intercalate)
+import Lang
+
+-- | Typeclass like Show but for syntax.
+class Print a where
+  printVal :: a -> String
+
+  printSingleVal :: a -> String
+  printSingleVal = printVal
 
 -- | Replace each newline with a newline followed by 2 spaces.
 indented :: String -> String
@@ -9,84 +16,91 @@ indented str
   | (l : ls) <- lines str = intercalate "\n" $ l : map ("  " ++) ls
   | [] <- lines str = ""
 
-printVar (Var s _) = s
+instance Print Var where
+  printVal (Var s _) = s
 
--- | Show a term value, with parentheses if it is compound.
-showSingle :: Term -> String
-showSingle v | (isCompound . getTermValue) v =  printTerm 0 v 
-showSingle v = printTerm 0 v
+instance Print TermValue where
+  -- \| Show a term value, with parentheses if it is compound.
+  printSingleVal v | (isCompound . getTermValue) v = "(" ++ printVal v ++ ")"
+  printSingleVal v = printVal v
 
-printTermValue :: Int -> TermValue -> String 
-printTermValue p (PiT v t1 t2) = "(" ++ printVar v ++ " : " ++ printTerm p t1 ++ ") -> " ++ printTerm p t2
-printTermValue p (Lam v t) = "\\" ++ printVar v ++ " => " ++ printTerm p t
-printTermValue p (SigmaT v t1 t2) = "(" ++ printVar v ++ " : " ++ printTerm p t1 ++ ") ** " ++ printTerm p t2
-printTermValue p (Pair t1 t2) = "(" ++ printTerm p t1 ++ ", " ++ printTerm p t2 ++ ")"
-printTermValue p t@(App _ _) = if p == 1 then "(" ++ (intercalate " " $ map showSingle (let (x, xs) = appToList (genTerm t) in x : xs)) ++ ")"
-                                         else intercalate " " $ map showSingle (let (x, xs) = appToList (genTerm t) in x : xs)
-printTermValue p1 (Case t cs) =
+  printVal (PiT v t1 t2) = "(" ++ printVal v ++ " : " ++ printVal t1 ++ ") -> " ++ printVal t2
+  printVal (Lam v t) = "\\" ++ printVal v ++ " => " ++ printVal t
+  printVal (SigmaT v t1 t2) = "(" ++ printVal v ++ " : " ++ printVal t1 ++ ") ** " ++ printVal t2
+  printVal (Pair t1 t2) = "(" ++ printVal t1 ++ ", " ++ printVal t2 ++ ")"
+  printVal t@(App _ _) = intercalate " " $ map printSingleVal (let (x, xs) = appToList (genTerm t) in x : xs)
+  printVal (Case t cs) =
     "case "
-      ++ printTerm p1 t
+      ++ printVal t
       ++ " of\n"
       ++ intercalate
         "\n"
-        (map (\(p, c) -> "  | " ++ printTerm p1 p ++ " => " ++ indented (printTerm p1 c)) cs)
-printTermValue p TyT = "Type"
-printTermValue p Wild = "_"
-printTermValue p (V v) = printVar v
-printTermValue p (Global s) = s
-printTermValue p (Hole i) = "?" ++ printVar i
-printTermValue p (Meta i) = "!" ++ printVar i
-printTermValue p NatT = "Nat"
-printTermValue p (ListT t) = "List " ++ printTerm p t
-printTermValue p (MaybeT t) = "Maybe " ++ printTerm p t
-printTermValue p (VectT t n) = "Vect " ++ printTerm p t ++ " " ++ printTerm p n
-printTermValue p (FinT t) = "Fin " ++ printTerm p t
-printTermValue p (EqT t1 t2) = printTerm p t1 ++ " = " ++ printTerm p t2
-printTermValue p (LteT t1 t2) = "LTE " ++ printTerm p t1 ++ " " ++ printTerm p t2
-printTermValue p FZ = "FZ"
-printTermValue p (FS t) = "FS " ++ printTerm p t
-printTermValue p Z = "Z"
-printTermValue p (S t) = "S " ++ printTerm p t
-printTermValue p LNil = "[]"
-printTermValue p (LCons t1 t2) = printTerm p t1 ++ "::" ++ printTerm p t2
-printTermValue p VNil = "VNil"
-printTermValue p (VCons t1 t2) = "VCons " ++ printTerm p t1 ++ " " ++ printTerm p t2
-printTermValue p (MJust t) = "Just " ++ printTerm p t
-printTermValue p MNothing = "Nothing"
-printTermValue p (Refl t) = "Refl " ++ printTerm p t
-printTermValue p LTEZero = "LTEZero"
-printTermValue p (LTESucc t) = "LTESucc " ++ printTerm p t
+        (map (\(p, c) -> "  | " ++ printSingleVal p ++ " => " ++ indented (printVal c)) cs)
+  printVal TyT = "Type"
+  printVal Wild = "_"
+  printVal (V v) = printVal v
+  printVal (Global s) = s
+  printVal (Hole i) = "?" ++ printVal i
+  printVal (Meta i) = "!" ++ printVal i
+  printVal NatT = "Nat"
+  printVal (ListT t) = "List " ++ printSingleVal t
+  printVal (MaybeT t) = "Maybe " ++ printSingleVal t
+  printVal (VectT t n) = "Vect " ++ printSingleVal t ++ " " ++ printSingleVal n
+  printVal (FinT t) = "Fin " ++ printSingleVal t
+  printVal (EqT t1 t2) = printVal t1 ++ " = " ++ printVal t2
+  printVal (LteT t1 t2) = "LTE " ++ printSingleVal t1 ++ " " ++ printSingleVal t2
+  printVal FZ = "FZ"
+  printVal (FS t) = "FS " ++ printSingleVal t
+  printVal Z = "Z"
+  printVal (S t) = "S " ++ printSingleVal t
+  printVal LNil = "[]"
+  printVal (LCons t1 t2) = printVal t1 ++ "::" ++ printVal t2
+  printVal VNil = "VNil"
+  printVal (VCons t1 t2) = "VCons " ++ printSingleVal t1 ++ " " ++ printSingleVal t2
+  printVal (MJust t) = "Just " ++ printSingleVal t
+  printVal MNothing = "Nothing"
+  printVal (Refl t) = "Refl " ++ printSingleVal t
+  printVal LTEZero = "LTEZero"
+  printVal (LTESucc t) = "LTESucc " ++ printSingleVal t
 
-printLoc NoLoc = ""
-printLoc (Loc l c) = show l ++ "--" ++ show c
+instance Print Loc where
+  printVal NoLoc = ""
+  printVal (Loc l c) = show l ++ "--" ++ show c
 
-printPos (Pos l c) = show l ++ ":" ++ show c
+instance Print Pos where
+  printVal (Pos l c) = show l ++ ":" ++ show c
 
-printTermData p (TermData l Nothing) = "loc=" ++ printLoc l ++ ", type=" ++ "Nothing"
-printTermData p (TermData l (Just t)) = "loc=" ++ printLoc l ++ ", type=" ++ "Just " ++ printTerm p t
+instance Print TermData where
+  printVal (TermData l Nothing) = "loc=" ++ printVal l ++ ", type=" ++ "Nothing"
+  printVal (TermData l (Just t)) = "loc=" ++ printVal l ++ ", type=" ++ "Just " ++ printSingleVal t
 
+instance Print Term where
+  printVal (Term t _) = printVal t --  ++ " " ++ printTermData d
 
-printTerm :: Int -> Term -> String
-printTerm p (Term t d) = printTermValue p  t --  ++ " " ++ printTermData d
+  printSingleVal (Term t _) = printSingleVal t
 
-printTerm' :: Int -> Term -> String
-printTerm' p (Term t d) =
-  "(" ++ printTermValue p  t ++ ", " ++ printTermData p d ++ ")"
+instance Print Item where
+  printVal (Decl d) = printVal d
+  printVal (Data d) = printVal d
 
-printItem p (Decl d) = printDeclItem p d
-printItem p (Data d) = printDataItem p d
+instance Print DeclItem where
+  printVal (DeclItem v ty clauses _) = intercalate "\n" ((v ++ " : " ++ printVal ty) : map (\c -> v ++ " " ++ printVal c) clauses)
 
-printDataItem p (DataItem name ty ctors) =
+instance Print DataItem where
+  printVal (DataItem name ty ctors) =
     "data "
       ++ name
       ++ " : "
-      ++ printTerm p ty
+      ++ printVal ty
       ++ " where\n"
-      ++ intercalate "\n" (map (\(CtorItem s t _) -> "  | " ++ s ++ " : " ++ printTerm p t) ctors)
+      ++ intercalate "\n" (map (\(CtorItem s t _) -> "  | " ++ s ++ " : " ++ indented (printVal t)) ctors)
 
-printDeclItem p (DeclItem v ty clauses l) = intercalate "\n" ((v ++ " : " ++ printTerm p ty) : map (\c -> v ++ " " ++ (printClause p) c) clauses)
+instance Print CtorItem where
+  printVal (CtorItem name ty _) = name ++ " : " ++ printVal ty
 
-printClause p1 (Clause p t l ) = intercalate " " (map (printTerm p1) p) ++ " = " ++ printTerm p1 t 
-printClause p1 (ImpossibleClause p l) = intercalate " " (map (printTerm p1) p) ++ " impossible"
+instance Print Clause where
+  printVal (Clause p t _) = intercalate " " (map printSingleVal p) ++ " = " ++ printVal t
+  printVal (ImpossibleClause p _) = intercalate " " (map printSingleVal p) ++ " impossible"
 
-printProgram (Program ds) = intercalate "\n\n" $ map (printItem 1) ds
+instance Print Program where
+  printVal (Program ds) = intercalate "\n\n" $ map printVal ds
