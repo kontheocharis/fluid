@@ -155,5 +155,5 @@ relCtorParams args (Program items) =
     updateUsecase_rhs term = term
 
 -- stack run -- -r examples/testRelCtorParams.fluid -n rel-ctor-params -a 'data=Data1, ctor=C1, inds=[1,2], reln =`Elem`'
+-- stack run -- -r examples/example2.fluid -n rel-ctor-params -a 'data=Expr, ctor=Var, inds=[2,1], reln =`Elem`'
 
--- todo: check that the param types for term matches the types of given indices
