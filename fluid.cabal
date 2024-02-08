@@ -36,6 +36,7 @@ library
       Refactoring.Ornamenting
       Refactoring.RelCtorParams
       Refactoring.RelFuncParams
+      Refactoring.RemoveMaybe
       Refactoring.SpecCtor
       Refactoring.Utils
   other-modules:
