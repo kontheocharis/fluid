@@ -9,6 +9,7 @@ import Control.Monad.Cont (MonadIO (liftIO))
 import Data.Char (isSpace)
 import Data.String
 import Data.Text.IO (hPutStrLn)
+import Interface.Pretty
 import Lang (Program)
 import Options.Applicative (execParser, value, (<**>), (<|>))
 import Options.Applicative.Builder (fullDesc, header, help, info, long, maybeReader, option, progDesc, short, strOption, switch)
@@ -16,13 +17,15 @@ import Options.Applicative.Common (Parser)
 import Options.Applicative.Extra (helper)
 import Parsing.Parser (parseProgram, parseRefactorArgs, parseTerm)
 import Refactoring.AddIndex (addIndex)
-import Refactoring.SpecCtor (specCtor)
 import Refactoring.AddParam (addParam)
-import Refactoring.UnifyInds (unifyInds)
+import Refactoring.EnhancePatterns (enhancePatsRefac)
 import Refactoring.RelCtorParams (relCtorParams)
 import Refactoring.RelFuncParams (relFuncParams)
 import Refactoring.RemoveMaybe (removeMaybe)
-import Refactoring.Utils (FromRefactorArgs (..), Refact, RefactorArgs (..), evalRefact)
+import Refactoring.RmTautCase (rmTautCase)
+import Refactoring.SpecCtor (specCtor)
+import Refactoring.UnifyInds (unifyInds)
+import Refactoring.Utils (FromRefactorArgs (..), Refact, RefactorArgKind (..), RefactorArgs (..), evalRefact)
 import System.Console.Haskeline (InputT, defaultSettings, getInputLine, outputStrLn, runInputT)
 import System.Exit (exitFailure)
 import System.IO (stderr)
@@ -146,6 +149,8 @@ runCompiler (Args Repl _) = runRepl
 runCompiler (Args (Refactor f) fl@(Flags {refactorArgs = a, refactorName = Just n})) = case n of
   "spec-ctor" -> applyRefactoring f a fl specCtor
   "add-param" -> applyRefactoring f a fl addParam
+  "enhance-pats" -> applyRefactoring f a fl enhancePatsRefac
+  "rm-taut" -> applyRefactoring f a fl rmTautCase
   "add-index" -> applyRefactoring f a fl addIndex
   "unify-inds" -> applyRefactoring f a fl unifyInds
   "rel-ctor-params" -> applyRefactoring f a fl relCtorParams
@@ -160,10 +165,10 @@ parseAndCheckFile file flags = do
   when (verbose flags) $ msg $ "Parsing file " ++ file
   contents <- liftIO $ readFile file
   parsed <- handleParse err (parseProgram file contents)
-  when (dumpParsed flags) $ msg $ "Parsed program:\n" ++ show parsed
+  when (dumpParsed flags) $ msg $ "Parsed program:\n" ++ printVal parsed
   (checked, state) <- handleTc err (checkProgram parsed)
   when (verbose flags) $ msg "\nTypechecked program successfully"
-  when (dumpParsed flags) $ msg $ "Parsed + checked program:\n" ++ show checked
+  when (dumpParsed flags) $ msg $ "Parsed + checked program:\n" ++ printVal checked
   when (verbose flags) $ msg $ "\nEnding state:\n" ++ show state
   return checked
 
@@ -178,9 +183,9 @@ applyRefactoring f args flags r = do
   let refactored = evalRefact (r args' program)
   when (verbose flags) $ msg "Refactored program"
   case applyChanges flags of
-    InPlace -> liftIO $ writeFile f (show refactored)
-    Print -> msg $ show refactored
-    NewFile -> liftIO $ writeFile ("refactored_" ++ f) (show refactored)
+    InPlace -> liftIO $ writeFile f (printVal refactored)
+    Print -> msg $ printVal refactored
+    NewFile -> liftIO $ writeFile ("refactored_" ++ f) (printVal refactored)
 
 -- | Run the REPL.
 runRepl :: InputT IO a
@@ -190,14 +195,14 @@ runRepl = do
     Nothing -> return ()
     Just ('@' : 't' : ' ' : inp) -> do
       t <- handleParse replErr (parseTerm inp)
-      ty <- handleTc replErr (inferTerm t)
-      outputStrLn $ show ty
+      ((ty, _), _) <- handleTc replErr (inferTerm t)
+      outputStrLn $ printVal ty
     Just inp | all isSpace inp -> return ()
     Just inp -> do
       t <- handleParse replErr (parseTerm inp)
       _ <- handleTc replErr (inferTerm t)
-      t' <- handleTc replErr (normaliseTermFully t)
-      outputStrLn $ show t'
+      (t', _) <- handleTc replErr (normaliseTermFully t)
+      outputStrLn $ printVal t'
   runRepl
 
 -- | Handle a parsing result.

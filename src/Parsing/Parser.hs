@@ -55,6 +55,8 @@ import Text.Parsec.Char (alphaNum, digit, letter)
 import Text.Parsec.Prim (try)
 import Text.Parsec.Text ()
 
+import Debug.Trace
+
 -- | Parser state, used for generating fresh variables.
 data ParserState = ParserState
   { varCount :: Int,
@@ -234,10 +236,12 @@ dataItem = whiteWrap $ do
 -- | Parse a declaration.
 declItem :: Parser DeclItem
 declItem = whiteWrap $ do
+  start <- getPos 
   (name, ty) <- declSignature
   enter
   clauses <- many (declClause name)
-  return $ DeclItem name ty clauses
+  end <- getPos
+  return $ DeclItem name ty clauses (Loc start end) 
 
 -- | Parse the type signature of a declaration.
 declSignature :: Parser (String, Type)
@@ -250,6 +254,7 @@ declSignature = do
 -- | Parse a clause of a declaration.
 declClause :: String -> Parser Clause
 declClause name = do
+  start <- getPos
   _ <- symbol name
   ps' <- many pat
   -- Check if this is an impossible clause by looking at the last pattern.
@@ -261,10 +266,13 @@ declClause name = do
             _ -> (False, ps')
   clause <-
     if im
-      then return $ ImpossibleClause ps
+      then do end <- getPos
+              return $ ImpossibleClause ps (Loc start end)
       else do
         reservedOp "="
-        Clause ps <$> term
+        c <- Clause ps <$> term
+        end <- getPos 
+        return (c (Loc start end))
   enter
   return clause
 

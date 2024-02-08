@@ -1,26 +1,20 @@
 module Refactoring.RemoveMaybe (removeMaybe) where
 
-import Foreign (toBool)
 import Lang
   ( Clause (..),
-    CtorItem (..),
-    DataItem (..),
     DeclItem (..),
-    GlobalName,
     Item (..),
     Pat,
     Program (..),
     Term (..),
     TermValue (..),
     Type,
-    Var (..),
     appToList,
     genTerm,
     listToPiType,
     piTypeToList,
   )
-import Parsing.Parser (parseProgram)
-import Refactoring.Utils (FromRefactorArgs (..), Refact, lookupExprArg, lookupIdxArg, lookupNameArg)
+import Refactoring.Utils (FromRefactorArgs (..), Refact, lookupNameArg)
 
 data RemMaybeArgs = RemMaybeArgs
   { -- | The name of the function that has Maybe as return type
@@ -57,7 +51,7 @@ removeMaybe args (Program itemL) =
        in case resTy of -- check return type is a Maybe
             Term (MaybeT ty) termDat ->
               if onlyJust decl
-                then DeclItem (declName decl) (removeMaybe_sig (declTy decl)) (removeJust_cls (declClauses decl))
+                then DeclItem (declName decl) (removeMaybe_sig (declTy decl)) (removeJust_cls (declClauses decl)) (declLoc decl)
                 else decl
             otherTy -> decl
     -- check if the rhs of equations do not have Nothing
@@ -66,8 +60,8 @@ removeMaybe args (Program itemL) =
     onlyJust decl =
       all
         ( \cl -> case cl of
-            (ImpossibleClause pats) -> True
-            (Clause pats term) -> onlyJust_term term
+            (ImpossibleClause pats _) -> True
+            (Clause pats term _) -> onlyJust_term term
         )
         (declClauses decl)
     -- check if term do not have Nothing
@@ -116,8 +110,8 @@ removeMaybe args (Program itemL) =
     removeJust_cls cls =
       map
         ( \cl -> case cl of
-            (ImpossibleClause pats) -> ImpossibleClause pats
-            (Clause pats term) -> Clause pats (removeJust_term term)
+            (ImpossibleClause pats l) -> ImpossibleClause pats l
+            (Clause pats term l) -> Clause pats (removeJust_term term) l
         )
         cls
     -- remove Just in a term
@@ -148,8 +142,8 @@ removeMaybe args (Program itemL) =
           )
       )
     updateUsecase_cl :: Clause -> Clause
-    updateUsecase_cl (ImpossibleClause pats) = ImpossibleClause pats
-    updateUsecase_cl (Clause pats term) = (Clause pats (updateUsecase_term term))
+    updateUsecase_cl (ImpossibleClause pats l) = ImpossibleClause pats l
+    updateUsecase_cl (Clause pats term l) = Clause pats (updateUsecase_term term) l
     -- on rhs of equations, recurse down until we find f, then wrap in Just
     updateUsecase_term :: Term -> Term
     updateUsecase_term (Term (Lam var term2) termDat) =
