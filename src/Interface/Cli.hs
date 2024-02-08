@@ -15,6 +15,7 @@ import Options.Applicative.Builder (fullDesc, header, help, info, long, maybeRea
 import Options.Applicative.Common (Parser)
 import Options.Applicative.Extra (helper)
 import Parsing.Parser (parseProgram, parseRefactorArgs, parseTerm)
+import Refactoring.AddIndex (addIndex)
 import Refactoring.SpecCtor (specCtor)
 import Refactoring.UnifyInds (unifyInds)
 import Refactoring.RelCtorParams (relCtorParams)
@@ -143,6 +144,7 @@ runCompiler (Args (CheckFile file) flags) = void (parseAndCheckFile file flags)
 runCompiler (Args Repl _) = runRepl
 runCompiler (Args (Refactor f) fl@(Flags {refactorArgs = a, refactorName = Just n})) = case n of
   "spec-ctor" -> applyRefactoring f a fl specCtor
+  "add-index" -> applyRefactoring f a fl addIndex
   "unify-inds" -> applyRefactoring f a fl unifyInds
   "rel-ctor-params" -> applyRefactoring f a fl relCtorParams
   "rel-func-params" -> applyRefactoring f a fl relFuncParams
