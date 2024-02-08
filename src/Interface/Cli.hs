@@ -16,6 +16,7 @@ import Options.Applicative.Common (Parser)
 import Options.Applicative.Extra (helper)
 import Parsing.Parser (parseProgram, parseRefactorArgs, parseTerm)
 import Refactoring.SpecCtor (specCtor)
+import Refactoring.RemoveMaybe (removeMaybe)
 import Refactoring.Utils (FromRefactorArgs (..), Refact, RefactorArgs (..), evalRefact)
 import System.Console.Haskeline (InputT, defaultSettings, getInputLine, outputStrLn, runInputT)
 import System.Exit (exitFailure)
@@ -139,6 +140,7 @@ runCompiler (Args (CheckFile file) flags) = void (parseAndCheckFile file flags)
 runCompiler (Args Repl _) = runRepl
 runCompiler (Args (Refactor f) fl@(Flags {refactorArgs = a, refactorName = Just n})) = case n of
   "spec-ctor" -> applyRefactoring f a fl specCtor
+  "remove-maybe" -> applyRefactoring f a fl removeMaybe
   _ -> err $ "Unknown refactoring: " ++ show n
 runCompiler (Args (Refactor _) Flags {refactorName = Nothing}) = err "No refactoring name provided"
 
