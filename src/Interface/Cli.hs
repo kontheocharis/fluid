@@ -16,6 +16,7 @@ import Options.Applicative.Common (Parser)
 import Options.Applicative.Extra (helper)
 import Parsing.Parser (parseProgram, parseRefactorArgs, parseTerm)
 import Refactoring.SpecCtor (specCtor)
+import Refactoring.UnifyInds (unifyInds)
 import Refactoring.RelCtorParams (relCtorParams)
 import Refactoring.RelFuncParams (relFuncParams)
 import Refactoring.RemoveMaybe (removeMaybe)
@@ -142,6 +143,7 @@ runCompiler (Args (CheckFile file) flags) = void (parseAndCheckFile file flags)
 runCompiler (Args Repl _) = runRepl
 runCompiler (Args (Refactor f) fl@(Flags {refactorArgs = a, refactorName = Just n})) = case n of
   "spec-ctor" -> applyRefactoring f a fl specCtor
+  "unify-inds" -> applyRefactoring f a fl unifyInds
   "rel-ctor-params" -> applyRefactoring f a fl relCtorParams
   "rel-func-params" -> applyRefactoring f a fl relFuncParams
   "remove-maybe" -> applyRefactoring f a fl removeMaybe

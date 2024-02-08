@@ -12,15 +12,10 @@ isEqual Z (S y) = False
 isEqual (S x) Z = False
 isEqual (S x) (S y) = isEqual x y
 
-
-data Elem: Nat -> List Nat -> Type where 
-    | Here : (x: Nat) -> (xs: List Nat) -> Elem x (x::xs) 
-    | There : (x: Nat) -> (xs: List Nat) -> Elem x xs -> (y:Nat) -> Elem x (y::xs)
-
 data Expr : (newInd0 : List Nat) -> Type where
   | Num : (n17 : Nat) -> (numparam_1 : List Nat) -> Expr numparam_1
   | Var : (n19 : Nat) -> (varparam_1 : List Nat) -> Expr varparam_1
-  | Add : (addparam_0 : List Nat) -> (n20 : Expr addparam_0) -> (n21 : Expr addparam_0) -> Expr addparam_0
+  | Add : (addparam_0 : List Nat) -> (n20 : Expr addparam_0) -> (addparam_2 : List Nat) -> (n21 : Expr addparam_2) -> (addparam_4 : List Nat) -> Expr addparam_4
 
 lookUpVar : (x : Nat) -> (env : List ((n25 : Nat) ** Nat)) -> Maybe Nat
 lookUpVar x [] = Nothing
@@ -31,11 +26,9 @@ lookUpVar x ((y, val)::ys) = case isEqual x y of
 eval : (env : List ((n33 : Nat) ** Nat)) -> (evalparam_1 : List Nat) -> (n34 : Expr evalparam_1) -> Maybe Nat
 eval env patvar_1 (Num n patvar_1) = Just n
 eval env patvar_1 (Var x patvar_1) = lookUpVar x env
-eval env paramforpatvar_Add_0 (Add paramforpatvar_Add_0 e1 e2) = case eval env paramforpatvar_Add_0 e1 of
+eval env patvar_1 (Add paramforpatvar_Add_0 e1 paramforpatvar_Add_2 e2 patvar_1) = case eval env paramforpatvar_Add_0 e1 of
   | Nothing => Nothing
-  | (Just e1') => case eval env paramforpatvar_Add_0 e2 of
+  | (Just e1') => case eval env paramforpatvar_Add_2 e2 of
     | Nothing => Nothing
     | (Just e2') => Just (plus e1' e2')
 
-
-    

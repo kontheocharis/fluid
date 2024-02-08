@@ -38,6 +38,7 @@ library
       Refactoring.RelFuncParams
       Refactoring.RemoveMaybe
       Refactoring.SpecCtor
+      Refactoring.UnifyInds
       Refactoring.Utils
   other-modules:
       Paths_fluid
