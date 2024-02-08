@@ -33,13 +33,17 @@ library
       Lang
       Parsing.Parser
       Parsing.Resolution
+      Refactoring.AddIndex
       Refactoring.Clauses
       Refactoring.EnhancePatterns
       Refactoring.Ornamenting
+      Refactoring.RelCtorParams
+      Refactoring.RelFuncParams
       Refactoring.RemoveMaybe
       Refactoring.RmTautCase
       Refactoring.SpecCtor
       Refactoring.TraverseUtils
+      Refactoring.UnifyInds
       Refactoring.Utils
   other-modules:
       Paths_fluid
