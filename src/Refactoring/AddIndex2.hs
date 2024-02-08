@@ -189,6 +189,7 @@ addIndex2 args (Program items) =
               (rhead:rres) -> let relatedTerm =  relateTerm_eqnLHS cinfo newVarTerm rhead 
                                   addedOne = l ++ (genTerm (V newVarTerm)):(relatedTerm:rres)
                                   in insertPatVarAndRelate cinfo varNamePrefix addedOne [ j+1 | j <- is]
+    --add new pattern vars to constructors, add new pat var for new param and relate to constructor
     relateTerm_eqnLHS:: [ChangedCtorInfo] -> Var -> Pat -> Pat
     relateTerm_eqnLHS cinfo newVar pat = 
       let (outerTerm, innerTerms) = appToList pat 
@@ -196,8 +197,9 @@ addIndex2 args (Program items) =
           Global str -> let ctorInd = findIndices (\x -> changedCtorInfoName x == str) cinfo
                             dataIndPosn = changedCtorInfoInds (cinfo !! (head ctorInd))
                             addedExtraInds = insertIndToPatVar ("paramforpatvar_" ++ str ++ "_") innerTerms (take (length dataIndPosn -1) dataIndPosn)
-                            in listToApp (outerTerm, addedExtraInds ++ [genTerm (V newVar)]) --todo add newVarTerm to the last position
+                            in listToApp (outerTerm, addedExtraInds ++ [genTerm (V newVar)]) 
           _ -> pat
+    -- add index vars 
     insertIndToPatVar :: String -> [Term] -> [Int] -> [Term]
     insertIndToPatVar varNamePrefix termList [] = termList
     insertIndToPatVar varNamePrefix termList (i:is) = 
@@ -205,37 +207,47 @@ addIndex2 args (Program items) =
             newVar = Var (varNamePrefix ++ show i) 0
             addedOne = l ++ (genTerm (V newVar)):r
             in insertIndToPatVar varNamePrefix addedOne [ j+1 | j <- is]
+    --update the use of function and constructors in rhs of eqns
     updateUseSites_eqnRHS:: [ChangedCtorInfo] -> ChangedFuncInfo -> Term -> Term
     updateUseSites_eqnRHS cinfo finfo term = 
       let funcCallUpdated = mapTerm (addHolesToFuncCalls finfo) term
         in mapTerm (addHolesToCtorCalls cinfo) funcCallUpdated
-      --todo: add holes to contructors
     --add holes to all occurrences of function calls in the rhs of eqns
     addHolesToFuncCalls:: ChangedFuncInfo -> Term -> MapResult Term
     addHolesToFuncCalls finfo (Term (App term1 term2) termDat) = 
         let (outerTerm, innerTerms) = appToList (Term (App term1 term2) termDat)
         in case termValue (outerTerm) of 
           Global str -> if str == changedFuncInfoName finfo then 
-                          let newInnerTerms = insertHoleToRecCalls ("hole_") innerTerms (changedFuncInfoInds finfo) 
+                          let newInnerTerms = addHolesToPosns ("hole_") innerTerms (changedFuncInfoInds finfo) 
                           in Replace (listToApp (outerTerm, newInnerTerms)) 
                         else 
                           Continue
           term -> Continue
     addHolesToFuncCalls finfo term = Continue   
-    --use of function: add holes
-    insertHoleToRecCalls :: String -> [Term] -> [Int] -> [Term]
-    insertHoleToRecCalls holeNamePrefix termList [] = termList
-    insertHoleToRecCalls holeNamePrefix termList (i:is) = 
+    --add holes to given position
+    addHolesToPosns :: String -> [Term] -> [Int] -> [Term]
+    addHolesToPosns holeNamePrefix termList [] = termList
+    addHolesToPosns holeNamePrefix termList (i:is) = 
        let  (l, r) = splitAt i termList 
             stringPrefix = if r==[] then removeSpaces (show (last l)) else removeSpaces (show (head r))
             newVar = Var (holeNamePrefix ++ stringPrefix ++ show i ) 0  
             addedOne = l ++ (genTerm (Hole newVar)):r
-            in insertHoleToRecCalls holeNamePrefix addedOne [ j+1 | j <- is]
+            in addHolesToPosns holeNamePrefix addedOne [ j+1 | j <- is]
     --use of constructor: add holes
     addHolesToCtorCalls:: [ChangedCtorInfo] -> Term -> MapResult Term
-    addHolesToCtorCalls cinfo (Term (App term1 term2) termDat) = Continue --todo wip
+    addHolesToCtorCalls cinfo (Term (App term1 term2) termDat) = 
+       let (outerTerm, innerTerms) = appToList (Term (App term1 term2) termDat)
+        in case termValue (outerTerm) of 
+          Global str -> let ctorInd = findIndices (\x -> changedCtorInfoName x == str) cinfo 
+                            in  if ctorInd /= [] then  
+                                     let newInnerTerms = addHolesToPosns ("ctorhole_") innerTerms (changedCtorInfoInds (cinfo !! (head ctorInd))) 
+                                      in Replace (listToApp (outerTerm, newInnerTerms)) 
+                                else 
+                                  Continue
+          term -> Continue
     addHolesToCtorCalls cinfo  term = Continue
 
+    
 -- stack run -- -r examples/testAddIndex.fluid -n add-index2 -a 'data=Data1, type =`List Nat`, index=1'
 
 
