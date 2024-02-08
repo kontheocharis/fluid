@@ -1,0 +1,15 @@
+data Data1 : Type  where
+    | C1 : (a:Type) -> (n: Nat) -> Data1 -> Data1 
+    | C2 : Nat -> Data1 
+    | C3 : Data1 
+
+
+f: Nat -> Data1 -> Data1
+f n (C2 n) = C2 n
+f n d = f n (C2 n)
+
+g: Nat -> Data1 -> Data1
+g n (C1 a n d) = C1 a n d
+g n d = g n (C1 Nat n d)
+
+

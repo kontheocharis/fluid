@@ -15,8 +15,13 @@ import Options.Applicative.Builder (fullDesc, header, help, info, long, maybeRea
 import Options.Applicative.Common (Parser)
 import Options.Applicative.Extra (helper)
 import Parsing.Parser (parseProgram, parseRefactorArgs, parseTerm)
+import Refactoring.AddIndex (addIndex)
 import Refactoring.SpecCtor (specCtor)
 import Refactoring.AddParam (addParam)
+import Refactoring.UnifyInds (unifyInds)
+import Refactoring.RelCtorParams (relCtorParams)
+import Refactoring.RelFuncParams (relFuncParams)
+import Refactoring.RemoveMaybe (removeMaybe)
 import Refactoring.Utils (FromRefactorArgs (..), Refact, RefactorArgs (..), evalRefact)
 import System.Console.Haskeline (InputT, defaultSettings, getInputLine, outputStrLn, runInputT)
 import System.Exit (exitFailure)
@@ -141,6 +146,11 @@ runCompiler (Args Repl _) = runRepl
 runCompiler (Args (Refactor f) fl@(Flags {refactorArgs = a, refactorName = Just n})) = case n of
   "spec-ctor" -> applyRefactoring f a fl specCtor
   "add-param" -> applyRefactoring f a fl addParam
+  "add-index" -> applyRefactoring f a fl addIndex
+  "unify-inds" -> applyRefactoring f a fl unifyInds
+  "rel-ctor-params" -> applyRefactoring f a fl relCtorParams
+  "rel-func-params" -> applyRefactoring f a fl relFuncParams
+  "remove-maybe" -> applyRefactoring f a fl removeMaybe
   _ -> err $ "Unknown refactoring: " ++ show n
 runCompiler (Args (Refactor _) Flags {refactorName = Nothing}) = err "No refactoring name provided"
 
