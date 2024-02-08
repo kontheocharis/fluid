@@ -19,12 +19,10 @@ import Lang
     piTypeToList,
     termDataAt,
     termLoc,
+    genTerm
   )
 import Refactoring.Utils (FromRefactorArgs (..), Refact, lookupIdxListArg, lookupNameArg)
 
--- check types in certain positions are the same
-checkType :: [(Var, Type)] -> [Int] -> Type -> Bool
-checkType argList indPosns ty = all (\i -> termValue (snd (argList !! i)) == termValue ty) indPosns
 
 ---------------------------------------------------
 
@@ -121,12 +119,9 @@ unifyInds args ast =
     changeConstr_argsList argList (i : indPosns) =
       case argList !! i of
         (var, ty) ->
-          if checkType argList indPosns ty -- check that the indices we want to unify are of the same type
-            then
               let oldVars = [fst (argList !! j) | j <- indPosns]
                   reducedArgs = [argList !! j | j <- [0 .. (length argList) - 1], not (elem j indPosns)] -- remove redundant vars
                in map (\vt -> (fst vt, replaceOldVar_type oldVars var (snd vt))) reducedArgs
-            else argList
     -- rename the use of deleted vars in a type
     replaceOldVar_type :: [Var] -> Var -> Type -> Type
     replaceOldVar_type oldVars newVar (Term (App t1 t2) termDat) =
@@ -201,7 +196,7 @@ unifyInds args ast =
     updateUsecase_eqnrhs (ind : inds) (Term (Lam lvar t2) termDat) =
       Term (Lam lvar (updateUsecase_eqnrhs (ind : inds) t2)) termDat
     updateUsecase_eqnrhs (ind : inds) (Term (Case caseTerm ptList) termDat) =
-      (Term (Case caseTerm (map (updateUsecase_patTerm (ind : inds)) ptList)) termDat)
+      (Term (Case (updateUsecase_eqnrhs (ind : inds) caseTerm) (map (updateUsecase_patTerm (ind : inds)) ptList)) termDat)
     updateUsecase_eqnrhs (ind : inds) (Term (App t1 t2) termDat) =
       let termList = appTermToList (Term (App t1 t2) termDat)
        in case last termList of
@@ -261,7 +256,7 @@ unifyInds args ast =
     renameVars_term newVar varsToRename (Term (Lam lvar term2) termDat) =
       Term (Lam lvar (renameVars_term newVar varsToRename term2)) termDat
     renameVars_term newVar varsToRename (Term (Case cTerm ptList) termDat) =
-      Term (Case cTerm (map (\pt -> (fst pt, (renameVars_term newVar varsToRename (snd pt)))) ptList)) termDat
+      Term (Case (renameVars_term newVar varsToRename cTerm) (map (\pt -> (fst pt, (renameVars_term newVar varsToRename (snd pt)))) ptList)) termDat
     renameVars_term newVar varsToRename (Term (V var) termDat) =
       if elem (V var) varsToRename
         then newVar
@@ -269,3 +264,4 @@ unifyInds args ast =
     renameVars_term _ _ term = term
 
 -- stack run -- -r examples/testUnifyInds.fluid -n unify-inds -a 'data=Data2, ctor=C21, indsToUnify=[4, 3]'
+-- stack run -- -r examples/example1filledHoles.fluid -n unify-inds -a 'data=Expr, ctor=Add, indsToUnify=[5,3,1]'
