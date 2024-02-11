@@ -1,13 +1,24 @@
-module Refactoring.TraverseUtils where
+module Refactoring.TraverseUtils
+  ( within,
+    locToTerm,
+    locToTerm',
+    termToCase,
+    termToClause,
+    termToDeclItem,
+    termToId,
+    getTypeName,
+    stringToDataItem,
+    insertClauses,
+    replaceDeclItem,
+    replaceTerm,
+    replaceVar,
+    typeToCtrs,
+  )
+where
 
-import Data.Generics (Data)
-import Data.Typeable (Typeable)
-import Debug.Trace
-import GHC.Generics (Generic)
 import Generics.SYB hiding (Generic, Refl)
 import Interface.Pretty
 import Lang
-import Refactoring.Utils
 
 type SimpPos = (Int, Int)
 

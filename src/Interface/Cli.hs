@@ -18,7 +18,7 @@ import Options.Applicative.Extra (helper)
 import Parsing.Parser (parseProgram, parseRefactorArgs, parseTerm)
 import Refactoring.AddIndex (addIndex)
 import Refactoring.AddParam (addParam)
-import Refactoring.EnhancePatterns (enhancePatsRefac)
+import Refactoring.ExpandPattern (expandPattern)
 import Refactoring.RelCtorParams (relCtorParams)
 import Refactoring.RelFuncParams (relFuncParams)
 import Refactoring.RemoveMaybe (removeMaybe)
@@ -149,7 +149,7 @@ runCompiler (Args Repl _) = runRepl
 runCompiler (Args (Refactor f) fl@(Flags {refactorArgs = a, refactorName = Just n})) = case n of
   "spec-ctor" -> applyRefactoring f a fl specCtor
   "add-param" -> applyRefactoring f a fl addParam
-  "enhance-pats" -> applyRefactoring f a fl enhancePatsRefac
+  "expand-pattern" -> applyRefactoring f a fl expandPattern
   "rm-taut" -> applyRefactoring f a fl rmTautCase
   "add-index" -> applyRefactoring f a fl addIndex
   "unify-inds" -> applyRefactoring f a fl unifyInds

@@ -36,7 +36,7 @@ library
       Refactoring.AddIndex
       Refactoring.AddParam
       Refactoring.Clauses
-      Refactoring.EnhancePatterns
+      Refactoring.ExpandPattern
       Refactoring.Ornamenting
       Refactoring.RelCtorParams
       Refactoring.RelFuncParams
