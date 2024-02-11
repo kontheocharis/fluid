@@ -19,6 +19,7 @@ import Parsing.Parser (parseProgram, parseRefactorArgs, parseTerm)
 import Refactoring.AddIndex (addIndex)
 import Refactoring.AddParam (addParam)
 import Refactoring.EnhancePatterns (enhancePatsRefac)
+import Refactoring.FillHoles (fillHoles)
 import Refactoring.RelCtorParams (relCtorParams)
 import Refactoring.RelFuncParams (relFuncParams)
 import Refactoring.RemoveMaybe (removeMaybe)
@@ -156,6 +157,7 @@ runCompiler (Args (Refactor f) fl@(Flags {refactorArgs = a, refactorName = Just 
   "rel-ctor-params" -> applyRefactoring f a fl relCtorParams
   "rel-func-params" -> applyRefactoring f a fl relFuncParams
   "remove-maybe" -> applyRefactoring f a fl removeMaybe
+  "fill-holes" -> applyRefactoring f a fl fillHoles
   _ -> err $ "Unknown refactoring: " ++ show n
 runCompiler (Args (Refactor _) Flags {refactorName = Nothing}) = err "No refactoring name provided"
 
