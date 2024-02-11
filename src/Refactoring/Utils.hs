@@ -17,6 +17,7 @@ module Refactoring.Utils
   )
 where
 
+import Control.Monad.Except (ExceptT, runExcept, runExceptT)
 import Control.Monad.State (MonadState (get), State, put, runState)
 import Lang (Pos, Term, Var (..))
 
@@ -28,14 +29,14 @@ emptyRefactState :: RefactState
 emptyRefactState = RefactState 0
 
 -- | The refactoring monad.
-type Refact a = State RefactState a
+type Refact a = ExceptT String (State RefactState) a
 
 -- | Run a refactoring.
-runRefact :: Refact a -> RefactState -> (a, RefactState)
-runRefact = runState
+runRefact :: Refact a -> RefactState -> (Either String a, RefactState)
+runRefact r = runState (runExceptT r)
 
 -- | Run a refactoring in a blank state, returning only the result.
-evalRefact :: Refact a -> a
+evalRefact :: Refact a -> Either String a
 evalRefact r = fst $ runRefact r (RefactState 0)
 
 -- | Get a fresh variable, given a prefix

@@ -116,13 +116,15 @@ data TcState = TcState
     -- | Meta values, indexed by variable.
     metaValues :: Map Var Term,
     -- | Hole/wild locations, to substitute in the end.
-    holeLocs :: Map Loc (Maybe Var)
+    holeLocs :: Map Loc (Maybe Var),
+    -- | Identify impossible cases in the given declarations
+    identifyImpossiblesIn :: [String]
   }
   deriving (Show)
 
 -- | The empty typechecking state.
 emptyTcState :: TcState
-emptyTcState = TcState (Ctx []) (GlobalCtx []) 0 False empty empty empty
+emptyTcState = TcState (Ctx []) (GlobalCtx []) 0 False empty empty empty []
 
 -- | The typechecking monad.
 type Tc a = StateT TcState (Either TcError) a

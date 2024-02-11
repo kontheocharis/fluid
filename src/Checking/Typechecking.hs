@@ -6,7 +6,7 @@ import Checking.Context
   ( FlexApp (..),
     Tc,
     TcError (..),
-    TcState (holeLocs, inPat, metaValues, termTypes),
+    TcState (holeLocs, identifyImpossiblesIn, inPat, metaValues, termTypes),
     addItem,
     addSubst,
     addTyping,
@@ -35,6 +35,7 @@ import Checking.Vars (Sub (..), Subst (sub), alphaRename, subVar)
 import Control.Monad (replicateM)
 import Control.Monad.Except (catchError, throwError)
 import Control.Monad.State (get)
+import Data.List (find)
 import Data.Map (Map, lookup, (!?))
 import Lang
   ( Clause (..),
@@ -172,7 +173,7 @@ checkDeclItem decl = do
   -- The, add the declaration to the context.
   clauses <- enterGlobalCtxMod (addItem (Decl decl')) $ do
     -- Then, check each clause.
-    mapM (enterCtx . checkClause tys) (declClauses decl')
+    mapM (enterCtx . checkClause (declName decl') tys) (declClauses decl')
 
   -- Substitute back into the type
   let decl'' = decl' {declClauses = clauses}
@@ -206,8 +207,14 @@ checkClausePats ((v, a, p) : as) s = do
 checkClausePats [] s = return ([], Possible, s)
 
 -- | Check a clause against a list of types which are its signature.
-checkClause :: ([(Var, Type)], Type) -> Clause -> Tc Clause
-checkClause sig cl = checkClause' sig cl (Sub [])
+checkClause :: String -> ([(Var, Type)], Type) -> Clause -> Tc Clause
+checkClause n sig cl = do
+  casesToIdentify <- inState identifyImpossiblesIn
+  -- If the clause is in the list of cases to identify,
+  -- then we try to check if it is impossible, and convert it to that.
+  case find (== n) casesToIdentify of
+    Just _ -> checkAndIdentify sig cl (Sub [])
+    Nothing -> checkClause' sig cl (Sub [])
   where
     zipPats :: [(Var, Type)] -> [Pat] -> Tc [(Var, Type, Pat)]
     zipPats [] [] = return []
@@ -223,6 +230,21 @@ checkClause sig cl = checkClause' sig cl (Sub [])
       (r', _) <- checkTerm r (sub s t)
       return r'
 
+    -- \| Check the clause and identify it as impossible if it is.
+    checkAndIdentify :: ([(Var, Type)], Type) -> Clause -> Sub -> Tc Clause
+    checkAndIdentify (ts, t) (Clause ps r d) s = do
+      as <- zipPats ts ps
+      (as', outcome, s') <- checkClausePats as s
+      case outcome of
+        Possible -> do
+          r' <- checkClauseRet t r s'
+          return (Clause (extractPats as') r' d)
+        Impossible _ -> do
+          -- Here we identify the clause as impossible.
+          return (ImpossibleClause ps d)
+    checkAndIdentify (ts, t) (ImpossibleClause ps d) s = checkClause' (ts, t) (ImpossibleClause ps d) s
+
+    -- \| Check the clause normally.
     checkClause' :: ([(Var, Type)], Type) -> Clause -> Sub -> Tc Clause
     checkClause' (ts, t) (Clause ps r d) s = do
       as <- zipPats ts ps
