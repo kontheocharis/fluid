@@ -1,6 +1,7 @@
 module Refactoring.AddParam (AddParamArgs (..), addParam) where
 
 import Data.Char (toLower)
+import Interface.Pretty (Print (printSingleVal, printVal))
 import Lang
   ( Clause (..),
     CtorItem (..),
@@ -92,7 +93,7 @@ addParam args (Program items) =
     addHolesToPosns holeNamePrefix termList [] = termList
     addHolesToPosns holeNamePrefix termList (i : is) =
       let (l, r) = splitAt i termList
-          stringPrefix = if r == [] then removeSpaces (show (last l)) else removeSpaces (show (head r))
+          stringPrefix = if r == [] then removeSpaces (printVal (last l)) else removeSpaces (printVal (head r))
           newVar = Var (holeNamePrefix ++ stringPrefix ++ show i) 0
           addedOne = l ++ (genTerm (Hole newVar)) : r
        in addHolesToPosns holeNamePrefix addedOne [j + 1 | j <- is]

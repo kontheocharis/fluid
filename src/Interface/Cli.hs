@@ -129,7 +129,7 @@ runCli = do
 -- | Log a message.
 msg :: String -> InputT IO ()
 msg m = do
-  outputStrLn m
+  liftIO $ putStrLn m
   return ()
 
 -- | Log a message to stderr and exit with an error code.

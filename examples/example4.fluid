@@ -26,7 +26,7 @@ data Zip : List Nat -> List Nat -> List (Nat ** Nat) -> Type where
   | UnzipCons : (x : Nat) -> (xs : List Nat) -> (y : Nat) -> (ys : List Nat) -> (zs : List (Nat ** Nat)) -> (n25 : Zip xs ys zs) -> Zip (x :: xs) (y :: ys) ((x, y) :: zs)
 
 
-lookUpVar : (newParamV : List Nat) ->  (x : Nat) -> (env : List ((n25 : Nat) ** Nat)) -> (Elem x newParamV) -> (Zip ) -> Nat
+lookUpVar : (newParamV : List Nat) ->  (x : Nat) -> (env : List ((n25 : Nat) ** Nat)) -> (Elem x newParamV) -> Nat
 lookUpVar (y::ys) x (z::zs) (Here x xs) = ?h1
 lookUpVar (y::ys) x (z::zs) (There x xs el y) = ?h2
 lookUpVar patV x ((y, val)::ys) _ = case isEqual x y of

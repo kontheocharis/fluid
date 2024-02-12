@@ -1,0 +1,46 @@
+-- Prelude
+data V : Type where
+  | MkV : Nat -> V
+
+data Elem : (n17 : V) -> (n18 : List V) -> Type where
+  | Here : (x : V) -> (xs : List V) -> Elem x (x::xs)
+  | There : (x : V) -> (xs : List V) -> (n25 : Elem x xs) -> (y : V) -> Elem x (y::xs)
+
+data Unzip : List (V ** Nat) -> List V -> List Nat -> Type where
+  | NilUZ : Unzip [] [] []
+  | ConsUZ : (x : V) -> (y : Nat) -> (xs : List (V ** Nat)) -> (vs : List V) -> (ws : List Nat) -> Unzip xs vs ws -> Unzip ((x,y) :: xs) (x :: vs) (y :: ws)
+
+data Bool : Type where
+  | True : Bool
+  | False : Bool
+
+isEqual : Nat -> Nat -> Bool
+isEqual Z Z = True
+isEqual (S n) (S m) = isEqual n m
+isEqual _ _ = False
+
+plus : Nat -> Nat -> Nat
+plus a Z = a
+plus a (S n) = S (plus a n)
+
+-- Example
+
+data Expr : Type where
+  | Num : Nat -> Expr
+  | Var : V -> Expr
+  | Add : Expr -> Expr -> Expr
+
+lookupVar : (x : V) -> (env : List (V ** Nat)) -> Maybe Nat
+lookupVar x [] = Nothing
+lookupVar (MkV x) ((MkV y, val)::ys) = case isEqual x y of
+  | True => Just val
+  | False => lookupVar (MkV x) ys
+
+eval : (env : List (V ** Nat)) -> Expr -> Maybe Nat
+eval env (Num n) = Just n
+eval env (Var x) = lookupVar x env
+eval env (Add e1 e2) = case eval env e1 of
+  | (Just e1') => case eval env e2 of
+    | (Just e2') => Just (plus e1' e2')
+    | Nothing => Nothing
+  | Nothing => Nothing
