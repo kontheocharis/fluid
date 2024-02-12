@@ -40,4 +40,6 @@ stack run -- -c ./step5b.fluid
 # Does not typecheck because of impossible cases (intended)
 stack run -- -c ./step5c.fluid
 
-
+# Temporary to check bool tautology removal:
+stack run -- -r ./boolean-tautology.fluid -n rm-taut -a 'lx=35, ly=64, op=isEqual' > boolean-tautology2.fluid
+stack run -- -c ./boolean-tautology2.fluid
