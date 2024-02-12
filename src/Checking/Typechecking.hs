@@ -1,10 +1,12 @@
+{-# LANGUAGE LambdaCase #-}
+
 module Checking.Typechecking (checkTerm, unifyTerms, inferTerm, normaliseTermFully, checkProgram) where
 
 import Checking.Context
   ( FlexApp (..),
     Tc,
     TcError (..),
-    TcState (holeLocs, inPat, metaValues, termTypes),
+    TcState (holeLocs, identifyImpossiblesIn, inPat, metaValues, termTypes),
     addItem,
     addSubst,
     addTyping,
@@ -33,7 +35,7 @@ import Checking.Vars (Sub (..), Subst (sub), alphaRename, subVar)
 import Control.Monad (replicateM)
 import Control.Monad.Except (catchError, throwError)
 import Control.Monad.State (get)
-import Data.Bifunctor (second)
+import Data.List (find)
 import Data.Map (Map, lookup, (!?))
 import Lang
   ( Clause (..),
@@ -58,7 +60,6 @@ import Lang
     locatedAt,
     mapTermM,
     piTypeToList,
-    prependPatToClause,
     typedAs,
   )
 
@@ -172,35 +173,95 @@ checkDeclItem decl = do
   -- The, add the declaration to the context.
   clauses <- enterGlobalCtxMod (addItem (Decl decl')) $ do
     -- Then, check each clause.
-    mapM (enterCtx . checkClause tys) (declClauses decl')
+    mapM (enterCtx . checkClause (declName decl') tys) (declClauses decl')
 
   -- Substitute back into the type
   let decl'' = decl' {declClauses = clauses}
   modifyGlobalCtx (addItem (Decl decl''))
   return decl''
 
+-- | Whether a clause is impossible or not.
+--
+-- If it is impossible, then it contains a type error to justify it.
+data ClauseOutcome = Possible | Impossible TcError
+
+-- | Check the patterns of a clause.
+--
+-- Returns the checked patterns and the outcome of whether the clause is impossible or not.
+checkClausePats :: [(Var, Type, Pat)] -> Sub -> Tc ([(Var, Type, Pat)], ClauseOutcome, Sub)
+checkClausePats ((v, a, p) : as) s = do
+  pt <- patToTerm p
+  ptOrFail <-
+    ( do
+        (pt', _) <- enterPat $ checkTerm pt (sub s a)
+        return $ Right pt'
+      )
+      `catchError` \case
+        e@(Mismatch _ _) -> return $ Left e
+        e -> throwError e
+  case ptOrFail of
+    Right p' -> do
+      (as', o, s') <- checkClausePats as (s <> Sub [(v, p')])
+      return ((v, a, p') : as', o, s')
+    Left e -> return ((v, a, p) : as, Impossible e, s)
+checkClausePats [] s = return ([], Possible, s)
+
 -- | Check a clause against a list of types which are its signature.
-checkClause :: ([(Var, Type)], Type) -> Clause -> Tc Clause
-checkClause ([], t) (Clause [] r l) = do
-  (r', _) <- checkTerm r t
-  return (Clause [] r' l)
-checkClause ((v, a) : as, t) (Clause (p : ps) r l) = do
-  pt <- patToTerm p
-  (pt', _) <- enterPat $ checkTerm pt a
-  let s' = Sub [(v, pt')]
-  c <- checkClause (map (second (sub s')) as, sub s' t) (Clause ps r l)
-  return $ prependPatToClause pt' c
-checkClause ([], _) (ImpossibleClause [] l) = return (ImpossibleClause [] l) -- @@Todo: check
-checkClause ((v, a) : as, t) (ImpossibleClause (p : ps) l) = do
-  pt <- patToTerm p
-  (pt', _) <- enterPat $ checkTerm pt a
-  let s' = Sub [(v, pt')]
-  c <- checkClause (map (second (sub s')) as, sub s' t) (ImpossibleClause ps l)
-  return $ prependPatToClause pt' c
-checkClause ([], _) cl@(Clause (p : _) _ _) = throwError $ TooManyPatterns cl p
-checkClause ([], _) cl@(ImpossibleClause (p : _) _) = throwError $ TooManyPatterns cl p
-checkClause ((_, t) : _, _) cl@(Clause [] _ _) = throwError $ TooFewPatterns cl t
-checkClause ((_, t) : _, _) cl@(ImpossibleClause [] _) = throwError $ TooFewPatterns cl t
+checkClause :: String -> ([(Var, Type)], Type) -> Clause -> Tc Clause
+checkClause n sig cl = do
+  casesToIdentify <- inState identifyImpossiblesIn
+  -- If the clause is in the list of cases to identify,
+  -- then we try to check if it is impossible, and convert it to that.
+  case find (== n) casesToIdentify of
+    Just _ -> checkAndIdentify sig cl (Sub [])
+    Nothing -> checkClause' sig cl (Sub [])
+  where
+    zipPats :: [(Var, Type)] -> [Pat] -> Tc [(Var, Type, Pat)]
+    zipPats [] [] = return []
+    zipPats ((v, t) : ts) (p : ps) = ((v, t, p) :) <$> zipPats ts ps
+    zipPats [] (p : _) = throwError $ TooManyPatterns cl p
+    zipPats ((_, t) : _) [] = throwError $ TooFewPatterns cl t
+
+    extractPats :: [(Var, Type, Pat)] -> [Pat]
+    extractPats = map (\(_, _, p) -> p)
+
+    checkClauseRet :: Type -> Term -> Sub -> Tc Term
+    checkClauseRet t r s = do
+      (r', _) <- checkTerm r (sub s t)
+      return r'
+
+    -- \| Check the clause and identify it as impossible if it is.
+    checkAndIdentify :: ([(Var, Type)], Type) -> Clause -> Sub -> Tc Clause
+    checkAndIdentify (ts, t) (Clause ps r d) s = do
+      as <- zipPats ts ps
+      (as', outcome, s') <- checkClausePats as s
+      case outcome of
+        Possible -> do
+          r' <- checkClauseRet t r s'
+          return (Clause (extractPats as') r' d)
+        Impossible _ -> do
+          -- Here we identify the clause as impossible.
+          return (ImpossibleClause ps d)
+    checkAndIdentify (ts, t) (ImpossibleClause ps d) s = checkClause' (ts, t) (ImpossibleClause ps d) s
+
+    -- \| Check the clause normally.
+    checkClause' :: ([(Var, Type)], Type) -> Clause -> Sub -> Tc Clause
+    checkClause' (ts, t) (Clause ps r d) s = do
+      as <- zipPats ts ps
+      (as', outcome, s') <- checkClausePats as s
+      case outcome of
+        Possible -> do
+          r' <- checkClauseRet t r s'
+          return (Clause (extractPats as') r' d)
+        Impossible e -> throwError e
+    checkClause' (ts, _) (ImpossibleClause ps d) s = do
+      as <- zipPats ts ps
+      (_, outcome, _) <- checkClausePats as s
+      case outcome of
+        Possible -> do
+          throwError $ CaseIsNotImpossible cl
+        Impossible _ -> do
+          return (ImpossibleClause ps d)
 
 -- | Check the type of a term, and set the type in the context.
 checkTerm :: Term -> Type -> Tc (Term, Type)

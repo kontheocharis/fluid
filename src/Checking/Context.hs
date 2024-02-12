@@ -83,21 +83,21 @@ data TcError
   | ItemNotFound String
   | CannotUnifyTwoHoles Var Var
   | CannotInferHoleType Var
-  | NeedMoreTypeHints [Var]
   | TooManyPatterns Clause Pat
   | TooFewPatterns Clause Type
   | NotAFunction Term
+  | CaseIsNotImpossible Clause
 
 instance Show TcError where
   show (VariableNotFound v) = "Variable not found: " ++ printVal v
-  show (Mismatch t1 t2) = "Term mismatch: " ++ printVal t1 ++ " vs " ++ printVal t2
+  show (Mismatch t1 t2) = "Term mismatch: " ++ printSingleVal t1 ++ " vs " ++ printSingleVal t2
   show (ItemNotFound s) = "Item not found: " ++ s
-  show (CannotUnifyTwoHoles h1 h2) = "Cannot unify two holes: " ++ printVal h1 ++ " and " ++ printVal h2
-  show (CannotInferHoleType h) = "Cannot infer hole type: " ++ printVal h
-  show (NeedMoreTypeHints vs) = "Need more type hints to resolve the holes: " ++ concatMap printVal vs
-  show (TooManyPatterns c p) = "Too many patterns in '" ++ printVal c ++ "' . Unexpected: " ++ printVal p
-  show (TooFewPatterns c t) = "Too few patterns in '" ++ printVal c ++ "'. Expected pattern for: " ++ printVal t
-  show (NotAFunction t) = "Not a function: " ++ printVal t
+  show (CannotUnifyTwoHoles h1 h2) = "Cannot unify two holes: " ++ printSingleVal h1 ++ " and " ++ printSingleVal h2
+  show (CannotInferHoleType h) = "Cannot infer hole type: " ++ printSingleVal h
+  show (TooManyPatterns c p) = "Too many patterns in '" ++ printSingleVal c ++ "' . Unexpected: " ++ printSingleVal p
+  show (TooFewPatterns c t) = "Too few patterns in '" ++ printSingleVal c ++ "'. Expected pattern for: " ++ printSingleVal t
+  show (NotAFunction t) = "Not a function: " ++ printSingleVal t
+  show (CaseIsNotImpossible c) = "Case is not impossible: " ++ printSingleVal c
 
 -- | The typechecking state.
 data TcState = TcState
@@ -114,13 +114,15 @@ data TcState = TcState
     -- | Meta values, indexed by variable.
     metaValues :: Map Var Term,
     -- | Hole/wild locations, to substitute in the end.
-    holeLocs :: Map Loc (Maybe Var)
+    holeLocs :: Map Loc (Maybe Var),
+    -- | Identify impossible cases in the given declarations
+    identifyImpossiblesIn :: [String]
   }
   deriving (Show)
 
 -- | The empty typechecking state.
 emptyTcState :: TcState
-emptyTcState = TcState (Ctx []) (GlobalCtx []) 0 False empty empty empty
+emptyTcState = TcState (Ctx []) (GlobalCtx []) 0 False empty empty empty []
 
 -- | The typechecking monad.
 type Tc a = StateT TcState (Either TcError) a

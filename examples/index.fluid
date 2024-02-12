@@ -1,33 +1,39 @@
-reflexivity : (a : Type) -> (n : a) -> (n = n)
-reflexivity _ n = Refl n
+-- reflexivity : (a : Type) -> (n : a) -> (n = n)
+-- reflexivity _ n = Refl n
 
-symmetry : (a : Type) -> (n : a) -> (m : a) -> (n = m) -> (m = n)
-symmetry _ _ _ (Refl x) = Refl x
+-- symmetry : (a : Type) -> (n : a) -> (m : a) -> (n = m) -> (m = n)
+-- symmetry _ _ _ (Refl x) = Refl x
 
-transitivity : (a : Type) -> (n : a) -> (m : a) -> (o : a) -> (n = m) -> (m = o) -> (n = o)
-transitivity _ _ _ _ (Refl x) (Refl y) = Refl y
+-- transitivity : (a : Type) -> (n : a) -> (m : a) -> (o : a) -> (n = m) -> (m = o) -> (n = o)
+-- transitivity _ _ _ _ (Refl x) (Refl y) = Refl y
 
-map : (a : Type) -> (b : Type) -> (n : Nat) -> (f : a -> b) -> (xs : Vect a n) -> Vect b n
-map _ _ Z _ VNil = VNil
-map a b (S n) f (VCons x xs) = VCons (f x) (map a b n f xs)
+-- map : (a : Type) -> (b : Type) -> (n : Nat) -> (f : a -> b) -> (xs : Vect a n) -> Vect b n
+-- map _ _ Z _ VNil = VNil
+-- map a b (S n) f (VCons x xs) = VCons (f x) (map a b n f xs)
 
-data Fix : (a : Type -> Type) -> Type where
-  | fix : (a : Type -> Type) -> (x : a (Fix a)) -> Fix a
+-- data Fix : (a : Type -> Type) -> Type where
+--   | fix : (a : Type -> Type) -> (x : a (Fix a)) -> Fix a
 
-data ListT : (x : Type) -> (a : Type) -> Type where
-  | Nil : (x : Type) -> (a : Type) -> ListT x a
-  | Cons : (x : Type) -> (a : Type) -> (e : x) -> (es : a) -> ListT x a
+-- data ListT : (x : Type) -> (a : Type) -> Type where
+--   | Nil : (x : Type) -> (a : Type) -> ListT x a
+--   | Cons : (x : Type) -> (a : Type) -> (e : x) -> (es : a) -> ListT x a
 
-Lst : (x : Type) -> Type
-Lst x = Fix (ListT x)
+-- Lst : (x : Type) -> Type
+-- Lst x = Fix (ListT x)
 
-nil : (x : Type) -> Fix (ListT x)
-nil x = fix (ListT _) (Nil x _)
+-- nil : (x : Type) -> Fix (ListT x)
+-- nil x = fix (ListT _) (Nil x _)
 
-cons : (x : Type) -> (e : x) -> (es : Fix (ListT x)) -> Fix (ListT x)
-cons x e es = fix (ListT _) (Cons x _ e es)
+-- cons : (x : Type) -> (e : x) -> (es : Fix (ListT x)) -> Fix (ListT x)
+-- cons x e es = fix (ListT _) (Cons x _ e es)
 
-zeros : (n : Nat) -> Vect Nat n
-zeros l = case l of
-  | Z => VNil
-  | (S m) => VCons Z (zeros m)
+-- zeros : (n : Nat) -> Vect Nat n
+-- zeros l = case l of
+--   | Z => VNil
+--   | (S m) => VCons Z (zeros m)
+
+
+index : (n : Nat) -> (t : Type) -> Fin n -> Vect t n -> t
+index Z _ FZ _ impossible
+index (S n) _ FZ (VCons x _) = x
+index (S n) t (FS i) (VCons _ xs) = index n t i xs
