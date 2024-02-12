@@ -4,7 +4,7 @@ import Checking.Context
   ( FlexApp (..),
     Tc,
     TcError (..),
-    TcState (inPat, metaValues, termTypes),
+    TcState (holeLocs, inPat, metaValues, termTypes),
     addItem,
     addSubst,
     addTyping,
@@ -14,6 +14,7 @@ import Checking.Context
     enterGlobalCtxMod,
     enterPat,
     freshMeta,
+    freshMetaAt,
     freshVar,
     inCtx,
     inGlobalCtx,
@@ -23,6 +24,8 @@ import Checking.Context
     lookupType,
     modifyCtx,
     modifyGlobalCtx,
+    registerHole,
+    registerWild,
     setType,
     solveMeta,
   )
@@ -31,7 +34,7 @@ import Control.Monad (replicateM)
 import Control.Monad.Except (catchError, throwError)
 import Control.Monad.State (get)
 import Data.Bifunctor (second)
-import Data.Map (Map, (!?))
+import Data.Map (Map, lookup, (!?))
 import Lang
   ( Clause (..),
     CtorItem (..),
@@ -76,7 +79,30 @@ checkProgram (Program decls) = do
 
 -- | Fill all the metavariables in a term.
 fillAllMetas :: Term -> Tc (MapResult Term)
-fillAllMetas t = ReplaceAndContinue <$> resolveShallow t
+fillAllMetas t = ReplaceAndContinue <$> resolveFinal t
+
+-- | Resolve a term by filling in metas if present, or turning them back into holes.
+resolveFinal :: Term -> Tc Term
+resolveFinal t = do
+  case classifyApp t of
+    Just (Flex h ts) -> do
+      s <- get
+      case metaValues s !? h of
+        Just t' -> do
+          -- If the meta is already solved, then we can resolve the term.
+          r <- resolveShallow (listToApp (t', ts))
+          normaliseTermFully r
+        Nothing -> do
+          -- If the meta is not resolved, then substitute the original hole
+          let tLoc = getLoc t
+          hole <- inState (Data.Map.lookup tLoc . holeLocs)
+          case hole of
+            Just (Just v) -> return $ locatedAt tLoc (Hole v)
+            Just Nothing -> return $ locatedAt tLoc Wild
+            Nothing -> do
+              -- If the hole is not registered, then it is a fresh hole.
+              locatedAt tLoc . Hole <$> freshVar
+    _ -> return t
 
 -- | Resolve a term by filling in metas if present.
 resolveShallow :: Term -> Tc Term
@@ -175,7 +201,6 @@ checkClause ([], _) cl@(Clause (p : _) _ _) = throwError $ TooManyPatterns cl p
 checkClause ([], _) cl@(ImpossibleClause (p : _) _) = throwError $ TooManyPatterns cl p
 checkClause ((_, t) : _, _) cl@(Clause [] _ _) = throwError $ TooFewPatterns cl t
 checkClause ((_, t) : _, _) cl@(ImpossibleClause [] _) = throwError $ TooFewPatterns cl t
-
 
 -- | Check the type of a term, and set the type in the context.
 checkTerm :: Term -> Type -> Tc (Term, Type)
@@ -386,12 +411,14 @@ checkTerm' (Term (VCons t1 t2) d1) typ = do
   return (locatedAt d1 (VCons t1' t2'), typ')
 
 -- Wild and hole are turned into metavars:
-checkTerm' (Term Wild _) typ = do
-  m <- freshMeta
+checkTerm' (Term Wild d1) typ = do
+  m <- freshMetaAt d1
+  registerWild (getLoc d1)
   return (m, typ)
-checkTerm' (Term (Hole _) _) typ = do
-  m <- freshMeta
-  return (m, typ) -- @@Enhancement: retain the hole name in the meta?
+checkTerm' (Term (Hole h) d1) typ = do
+  m <- freshMetaAt d1
+  registerHole (getLoc d1) h
+  return (m, typ)
 checkTerm' t@(Term (Meta _) _) typ = error $ "Found metavar during checking: " ++ show t ++ " : " ++ show typ
 
 -- @@Enhancement(kontheocharis):

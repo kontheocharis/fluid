@@ -29,7 +29,10 @@ module Checking.Context
     setType,
     solveMeta,
     freshMeta,
+    freshMetaAt,
     classifyApp,
+    registerHole,
+    registerWild,
   )
 where
 
@@ -45,7 +48,7 @@ import Lang
     DataItem (DataItem),
     HasLoc (..),
     Item (..),
-    Loc,
+    Loc (..),
     Pat,
     Term (..),
     TermValue (..),
@@ -54,6 +57,7 @@ import Lang
     genTerm,
     itemName,
     listToApp,
+    locatedAt,
   )
 
 -- | A typing judgement.
@@ -108,13 +112,15 @@ data TcState = TcState
     -- | Term types, indexed by location.
     termTypes :: Map Loc Type,
     -- | Meta values, indexed by variable.
-    metaValues :: Map Var Term
+    metaValues :: Map Var Term,
+    -- | Hole/wild locations, to substitute in the end.
+    holeLocs :: Map Loc (Maybe Var)
   }
   deriving (Show)
 
 -- | The empty typechecking state.
 emptyTcState :: TcState
-emptyTcState = TcState (Ctx []) (GlobalCtx []) 0 False empty empty
+emptyTcState = TcState (Ctx []) (GlobalCtx []) 0 False empty empty empty
 
 -- | The typechecking monad.
 type Tc a = StateT TcState (Either TcError) a
@@ -258,11 +264,29 @@ ctxVars (Ctx ((Typing v _) : c)) = v : ctxVars (Ctx c)
 ctxVars (Ctx (_ : c)) = ctxVars (Ctx c)
 
 -- | Get a fresh applied metavariable in the current context.
-freshMeta :: Tc Term
-freshMeta = do
+freshMetaAt :: (HasLoc a) => a -> Tc Term
+freshMetaAt h = do
   v <- freshVarPrefixed "m"
   vrs <- inCtx ctxVars
-  return $ listToApp (genTerm (Meta v), map (genTerm . V) vrs)
+  let (m, ms) = (genTerm (Meta v), map (genTerm . V) vrs)
+  let t = listToApp (m, ms)
+  return $ locatedAt h (termValue t)
+
+-- | Get a fresh applied metavariable in the current context.
+freshMeta :: Tc Term
+freshMeta = freshMetaAt NoLoc
+
+-- | Register a hole.
+registerHole :: Loc -> Var -> Tc ()
+registerHole l v = do
+  s <- get
+  put $ s {holeLocs = insert l (Just v) (holeLocs s)}
+
+-- | Register an underscore/wild.
+registerWild :: Loc -> Tc ()
+registerWild l = do
+  s <- get
+  put $ s {holeLocs = insert l Nothing (holeLocs s)}
 
 -- | Solve a meta.
 solveMeta :: Var -> Term -> Tc ()
@@ -271,7 +295,7 @@ solveMeta h t = do
   put $ s {metaValues = insert h t (metaValues s)}
 
 -- | A flexible (meta) application.
-data FlexApp = Flex Var [Term]
+data FlexApp = Flex Var [Term] deriving (Show)
 
 -- | Add a term to a `FlexApp`
 addTerm :: Term -> FlexApp -> FlexApp
