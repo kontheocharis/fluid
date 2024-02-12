@@ -19,13 +19,15 @@ import Parsing.Parser (parseProgram, parseRefactorArgs, parseTerm)
 import Refactoring.AddIndex (addIndex)
 import Refactoring.AddParam (addParam)
 import Refactoring.ExpandPattern (expandPattern)
+import Refactoring.FillHoles (fillHoles)
+import Refactoring.IdentifyImpossibles (identifyImpossibles)
 import Refactoring.RelCtorParams (relCtorParams)
 import Refactoring.RelFuncParams (relFuncParams)
 import Refactoring.RemoveMaybe (removeMaybe)
 import Refactoring.RmTautCase (rmTautCase)
 import Refactoring.SpecCtor (specCtor)
 import Refactoring.UnifyInds (unifyInds)
-import Refactoring.Utils (FromRefactorArgs (..), Refact, RefactorArgKind (..), RefactorArgs (..), evalRefact)
+import Refactoring.Utils (FromRefactorArgs (..), Refact, RefactorArgs (..), evalRefact)
 import System.Console.Haskeline (InputT, defaultSettings, getInputLine, outputStrLn, runInputT)
 import System.Exit (exitFailure)
 import System.IO (stderr)
@@ -127,7 +129,7 @@ runCli = do
 -- | Log a message.
 msg :: String -> InputT IO ()
 msg m = do
-  outputStrLn m
+  liftIO $ putStrLn m
   return ()
 
 -- | Log a message to stderr and exit with an error code.
@@ -147,45 +149,61 @@ runCompiler :: Args -> InputT IO ()
 runCompiler (Args (CheckFile file) flags) = void (parseAndCheckFile file flags)
 runCompiler (Args Repl _) = runRepl
 runCompiler (Args (Refactor f) fl@(Flags {refactorArgs = a, refactorName = Just n})) = case n of
-  "spec-ctor" -> applyRefactoring f a fl specCtor
-  "add-param" -> applyRefactoring f a fl addParam
-  "expand-pattern" -> applyRefactoring f a fl expandPattern
-  "rm-taut" -> applyRefactoring f a fl rmTautCase
-  "add-index" -> applyRefactoring f a fl addIndex
-  "unify-inds" -> applyRefactoring f a fl unifyInds
-  "rel-ctor-params" -> applyRefactoring f a fl relCtorParams
-  "rel-func-params" -> applyRefactoring f a fl relFuncParams
-  "remove-maybe" -> applyRefactoring f a fl removeMaybe
+  "spec-ctor" -> applyRefactoring f a fl PostTc specCtor
+  "add-param" -> applyRefactoring f a fl PostTc addParam
+  "expand-pattern" -> applyRefactoring f a fl PostTc expandPattern
+  "rm-taut" -> applyRefactoring f a fl PostTc rmTautCase
+  "add-index" -> applyRefactoring f a fl PostTc addIndex
+  "unify-inds" -> applyRefactoring f a fl PostTc unifyInds
+  "rel-ctor-params" -> applyRefactoring f a fl PostTc relCtorParams
+  "rel-func-params" -> applyRefactoring f a fl PostTc relFuncParams
+  "remove-maybe" -> applyRefactoring f a fl PostTc removeMaybe
+  "fill-holes" -> applyRefactoring f a fl PostTc fillHoles
+  "identify-impossibles" -> applyRefactoring f a fl NoTc identifyImpossibles
   _ -> err $ "Unknown refactoring: " ++ show n
 runCompiler (Args (Refactor _) Flags {refactorName = Nothing}) = err "No refactoring name provided"
 
--- | Parse and check a file.
-parseAndCheckFile :: String -> Flags -> InputT IO Program
-parseAndCheckFile file flags = do
+-- | Parse a file.
+parseFile :: String -> Flags -> InputT IO Program
+parseFile file flags = do
   when (verbose flags) $ msg $ "Parsing file " ++ file
   contents <- liftIO $ readFile file
   parsed <- handleParse err (parseProgram file contents)
   when (dumpParsed flags) $ msg $ "Parsed program:\n" ++ printVal parsed
+  return parsed
+
+-- | Parse and check a file.
+parseAndCheckFile :: String -> Flags -> InputT IO Program
+parseAndCheckFile file flags = do
+  parsed <- parseFile file flags
   (checked, state) <- handleTc err (checkProgram parsed)
   when (verbose flags) $ msg "\nTypechecked program successfully"
   when (dumpParsed flags) $ msg $ "Parsed + checked program:\n" ++ printVal checked
   when (verbose flags) $ msg $ "\nEnding state:\n" ++ show state
   return checked
 
+-- | Whether the refactoring should be applied after typechecking or without it.
+data RefactorStage = PostTc | NoTc
+
 -- | Apply a refactoring to a file.
-applyRefactoring :: (FromRefactorArgs a) => String -> RefactorArgs -> Flags -> (a -> Program -> Refact Program) -> InputT IO ()
-applyRefactoring f args flags r = do
-  program <- parseAndCheckFile f flags
+applyRefactoring :: (FromRefactorArgs a) => String -> RefactorArgs -> Flags -> RefactorStage -> (a -> Program -> Refact Program) -> InputT IO ()
+applyRefactoring f args flags stage r = do
+  program <- case stage of
+    NoTc -> parseFile f flags
+    PostTc -> parseAndCheckFile f flags
   when (verbose flags) $ msg $ "Applying refactoring to file " ++ f
   args' <- case fromRefactorArgs args of
     Nothing -> err "Failed to parse refactoring arguments"
     Just a -> return a
   let refactored = evalRefact (r args' program)
-  when (verbose flags) $ msg "Refactored program"
-  case applyChanges flags of
-    InPlace -> liftIO $ writeFile f (printVal refactored)
-    Print -> msg $ printVal refactored
-    NewFile -> liftIO $ writeFile ("refactored_" ++ f) (printVal refactored)
+  case refactored of
+    Left e -> err $ "Failed to apply refactoring: " ++ e
+    Right refactored' -> do
+      when (verbose flags) $ msg "Refactored program"
+      case applyChanges flags of
+        InPlace -> liftIO $ writeFile f (printVal refactored')
+        Print -> msg $ printVal refactored'
+        NewFile -> liftIO $ writeFile ("refactored_" ++ f) (printVal refactored')
 
 -- | Run the REPL.
 runRepl :: InputT IO a

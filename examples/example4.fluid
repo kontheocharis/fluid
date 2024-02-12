@@ -21,20 +21,25 @@ data Expr : (newInd0 : List Nat) -> Type where
   | Var : (n19 : Nat) -> (varparam_1 : List Nat) -> (relParamV : Elem n19 varparam_1) -> Expr varparam_1
   | Add : (addparam_0 : List Nat) -> (n20 : Expr addparam_0) -> (n21 : Expr addparam_0) -> Expr addparam_0
 
-lookUpVar : (newParamV : List Nat) -> (x : Nat) -> (env : List ((n25 : Nat) ** Nat)) -> Maybe Nat
-lookUpVar patV x [] = Nothing
-lookUpVar patV x ((y, val)::ys) = case isEqual x y of
-  | True => Just val
-  | False => lookUpVar ?addParamHole_x0 x ys
+data Zip : List Nat -> List Nat -> List (Nat ** Nat) -> Type where
+  | UnzipNil : Zip [] [] []
+  | UnzipCons : (x : Nat) -> (xs : List Nat) -> (y : Nat) -> (ys : List Nat) -> (zs : List (Nat ** Nat)) -> (n25 : Zip xs ys zs) -> Zip (x :: xs) (y :: ys) ((x, y) :: zs)
+
+
+lookUpVar : (newParamV : List Nat) ->  (x : Nat) -> (env : List ((n25 : Nat) ** Nat)) -> (Elem x newParamV) -> Nat
+lookUpVar (y::ys) x (z::zs) (Here x xs) = ?h1
+lookUpVar (y::ys) x (z::zs) (There x xs el y) = ?h2
+lookUpVar patV x ((y, val)::ys) _ = case isEqual x y of
+  | True => val
+  | False => lookUpVar ?addParamHole_x0 x ys ?secondHole
 
 eval : (env : List ((n33 : Nat) ** Nat)) -> (evalparam_1 : List Nat) -> (n34 : Expr evalparam_1) -> Maybe Nat
-eval env patvar_1 (Num n patvar_1) = Just n
-eval env patvar_1 (Var x patvar_1 vrel_1) = lookUpVar ?addParamHole_x0 x env
-eval env paramforpatvar_Add_0 (Add paramforpatvar_Add_0 e1 e2) = case eval env paramforpatvar_Add_0 e1 of
+eval env _ (Num n patvar_1) = Just n
+eval env _ (Var x patvar_1 vrel_1) = Just (lookUpVar ?addParamHole_x0 x env ?secondHole)
+eval env _ (Add paramforpatvar_Add_0 e1 e2) = case eval env paramforpatvar_Add_0 e1 of
   | Nothing => Nothing
   | (Just e1') => case eval env paramforpatvar_Add_0 e2 of
     | Nothing => Nothing
     | (Just e2') => Just (plus e1' e2')
 
 
-    

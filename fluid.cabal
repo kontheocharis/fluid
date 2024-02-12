@@ -37,6 +37,8 @@ library
       Refactoring.AddParam
       Refactoring.Clauses
       Refactoring.ExpandPattern
+      Refactoring.FillHoles
+      Refactoring.IdentifyImpossibles
       Refactoring.Ornamenting
       Refactoring.RelCtorParams
       Refactoring.RelFuncParams

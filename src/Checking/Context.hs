@@ -29,7 +29,10 @@ module Checking.Context
     setType,
     solveMeta,
     freshMeta,
+    freshMetaAt,
     classifyApp,
+    registerHole,
+    registerWild,
   )
 where
 
@@ -45,7 +48,7 @@ import Lang
     DataItem (DataItem),
     HasLoc (..),
     Item (..),
-    Loc,
+    Loc (..),
     Pat,
     Term (..),
     TermValue (..),
@@ -54,6 +57,7 @@ import Lang
     genTerm,
     itemName,
     listToApp,
+    locatedAt,
   )
 
 -- | A typing judgement.
@@ -79,21 +83,21 @@ data TcError
   | ItemNotFound String
   | CannotUnifyTwoHoles Var Var
   | CannotInferHoleType Var
-  | NeedMoreTypeHints [Var]
   | TooManyPatterns Clause Pat
   | TooFewPatterns Clause Type
   | NotAFunction Term
+  | CaseIsNotImpossible Clause
 
 instance Show TcError where
   show (VariableNotFound v) = "Variable not found: " ++ printVal v
-  show (Mismatch t1 t2) = "Term mismatch: " ++ printVal t1 ++ " vs " ++ printVal t2
+  show (Mismatch t1 t2) = "Term mismatch: " ++ printSingleVal t1 ++ " vs " ++ printSingleVal t2
   show (ItemNotFound s) = "Item not found: " ++ s
-  show (CannotUnifyTwoHoles h1 h2) = "Cannot unify two holes: " ++ printVal h1 ++ " and " ++ printVal h2
-  show (CannotInferHoleType h) = "Cannot infer hole type: " ++ printVal h
-  show (NeedMoreTypeHints vs) = "Need more type hints to resolve the holes: " ++ concatMap printVal vs
-  show (TooManyPatterns c p) = "Too many patterns in '" ++ printVal c ++ "' . Unexpected: " ++ printVal p
-  show (TooFewPatterns c t) = "Too few patterns in '" ++ printVal c ++ "'. Expected pattern for: " ++ printVal t
-  show (NotAFunction t) = "Not a function: " ++ printVal t
+  show (CannotUnifyTwoHoles h1 h2) = "Cannot unify two holes: " ++ printSingleVal h1 ++ " and " ++ printSingleVal h2
+  show (CannotInferHoleType h) = "Cannot infer hole type: " ++ printSingleVal h
+  show (TooManyPatterns c p) = "Too many patterns in '" ++ printSingleVal c ++ "' . Unexpected: " ++ printSingleVal p
+  show (TooFewPatterns c t) = "Too few patterns in '" ++ printSingleVal c ++ "'. Expected pattern for: " ++ printSingleVal t
+  show (NotAFunction t) = "Not a function: " ++ printSingleVal t
+  show (CaseIsNotImpossible c) = "Case is not impossible: " ++ printSingleVal c
 
 -- | The typechecking state.
 data TcState = TcState
@@ -108,13 +112,17 @@ data TcState = TcState
     -- | Term types, indexed by location.
     termTypes :: Map Loc Type,
     -- | Meta values, indexed by variable.
-    metaValues :: Map Var Term
+    metaValues :: Map Var Term,
+    -- | Hole/wild locations, to substitute in the end.
+    holeLocs :: Map Loc (Maybe Var),
+    -- | Identify impossible cases in the given declarations
+    identifyImpossiblesIn :: [String]
   }
   deriving (Show)
 
 -- | The empty typechecking state.
 emptyTcState :: TcState
-emptyTcState = TcState (Ctx []) (GlobalCtx []) 0 False empty empty
+emptyTcState = TcState (Ctx []) (GlobalCtx []) 0 False empty empty empty []
 
 -- | The typechecking monad.
 type Tc a = StateT TcState (Either TcError) a
@@ -258,11 +266,29 @@ ctxVars (Ctx ((Typing v _) : c)) = v : ctxVars (Ctx c)
 ctxVars (Ctx (_ : c)) = ctxVars (Ctx c)
 
 -- | Get a fresh applied metavariable in the current context.
-freshMeta :: Tc Term
-freshMeta = do
+freshMetaAt :: (HasLoc a) => a -> Tc Term
+freshMetaAt h = do
   v <- freshVarPrefixed "m"
   vrs <- inCtx ctxVars
-  return $ listToApp (genTerm (Meta v), map (genTerm . V) vrs)
+  let (m, ms) = (genTerm (Meta v), map (genTerm . V) vrs)
+  let t = listToApp (m, ms)
+  return $ locatedAt h (termValue t)
+
+-- | Get a fresh applied metavariable in the current context.
+freshMeta :: Tc Term
+freshMeta = freshMetaAt NoLoc
+
+-- | Register a hole.
+registerHole :: Loc -> Var -> Tc ()
+registerHole l v = do
+  s <- get
+  put $ s {holeLocs = insert l (Just v) (holeLocs s)}
+
+-- | Register an underscore/wild.
+registerWild :: Loc -> Tc ()
+registerWild l = do
+  s <- get
+  put $ s {holeLocs = insert l Nothing (holeLocs s)}
 
 -- | Solve a meta.
 solveMeta :: Var -> Term -> Tc ()
@@ -271,7 +297,7 @@ solveMeta h t = do
   put $ s {metaValues = insert h t (metaValues s)}
 
 -- | A flexible (meta) application.
-data FlexApp = Flex Var [Term]
+data FlexApp = Flex Var [Term] deriving (Show)
 
 -- | Add a term to a `FlexApp`
 addTerm :: Term -> FlexApp -> FlexApp
