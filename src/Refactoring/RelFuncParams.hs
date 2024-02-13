@@ -19,6 +19,8 @@ import Lang
     piTypeToList,
   )
 import Refactoring.Utils (FromRefactorArgs (..), Refact, RefactState, freshVar, lookupExprArg, lookupIdxListArg, lookupNameArg)
+import Interface.Pretty (Print (printVal))
+
 
 -- Arguments to the refactoring.
 data RelFuncArgs = RelFuncArgs
@@ -65,6 +67,9 @@ funcHasTyAsParam :: DeclItem -> String -> Bool
 funcHasTyAsParam decl dName =
   let (tyList, retTy) = piTypeToList (declTy decl)
    in any (isAppData dName) ((retTy) : (map (\t -> (snd t)) tyList))
+
+removeSpaces :: String -> String
+removeSpaces = filter (\c -> (c /= ' ' && c /= '?'))
 
 -- relating params of constructor refactoring
 relFuncParams :: RelFuncArgs -> Program -> Refact Program
@@ -132,12 +137,12 @@ relFuncParams args (Program items) =
     -- add holes in all function calls
     relFuncParams_clRhs :: Int -> Term -> Term
     relFuncParams_clRhs i (Term (Case caseTerm patTermList) _) =
-      genTerm (Case caseTerm (map (\pt -> ((fst pt), relFuncParams_clRhs i (snd pt))) patTermList))
+      genTerm (Case (relFuncParams_clRhs i caseTerm) (map (\pt -> ((fst pt), relFuncParams_clRhs i (snd pt))) patTermList))
     relFuncParams_clRhs i (Term (App term1 term2) termDat) =
       let (outerTerm, argList) = appToList (Term (App term1 term2) termDat)
        in if termValue outerTerm == Global (relFuncParamsFuncName args)
             then
-              let holeInserted = insertAfter argList i (genTerm (Hole (Var ("vrel_" ++ (show i)) 0))) -- todo: need fresh vars
+              let holeInserted = insertAfter argList i (genTerm (Hole (Var ("vrel_" ++ (removeSpaces (printVal (argList!!(i+1)))) ++(show i)) 0))) -- todo: need fresh vars
                in listToApp (outerTerm, holeInserted)
             else Term (App (relFuncParams_clRhs i term1) (relFuncParams_clRhs i term2)) termDat
     -- todo: recurse down other patterns
@@ -149,7 +154,9 @@ relFuncParams args (Program items) =
         ( map
             ( \item -> case item of
                 Decl d ->
-                  Decl
+                  if declName d == relFuncParamsFuncName args                
+                  then item
+                  else Decl
                     d
                       { declClauses =
                           map

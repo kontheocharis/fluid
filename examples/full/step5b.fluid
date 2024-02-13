@@ -39,8 +39,8 @@ lookupVar patV (MkV x) relParam_patV ((MkV y, val)::ys) = case isEqual x y of
 eval : (newParamV : List Nat) -> (env : List ((n45 : V) ** Nat)) -> (evalparam_1 : List V) -> (relParamV_func : Unzip env evalparam_1 newParamV) -> (n46 : Expr evalparam_1) -> Maybe Nat
 eval patV env patvar_1 relParam_patV (Num n patvar_1) = Just n
 eval patV env patvar_1 relParam_patV (Var x patvar_1 vrel_1) = lookupVar ?addParamHole_x0 x ?vrel_1 env
-eval patV env paramforpatvar_Add_0 relParam_patV (Add paramforpatvar_Add_0 e1 e2) = case eval ?addParamHole_env0 env paramforpatvar_Add_0 ?unzip1 e1 of
-  | (Just e1') => case eval ?addParamHole_env0 env paramforpatvar_Add_0 ?unzip2 e2 of
+eval patV env paramforpatvar_Add_0 relParam_patV (Add paramforpatvar_Add_0 e1 e2) = case eval ?addParamHole_env0 env paramforpatvar_Add_0 ?vrel_e12 e1 of
+  | (Just e1') => case eval ?addParamHole_env0 env paramforpatvar_Add_0 ?vrel_e22 e2 of
     | (Just e2') => Just (plus e1' e2')
     | Nothing => Nothing
     | Nothing => Nothing
