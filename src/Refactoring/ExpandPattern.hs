@@ -21,9 +21,13 @@ instance FromRefactorArgs ExpandPatternArgs where
 -- Given a constructor name and number of parameters it takes, return a pattern
 -- that matches the constructor, with fresh variables for each parameter.
 buildPat :: (String, Int) -> Refact TermValue
-buildPat (name, num) = do
-  args <- replicateM num (freshVar "x")
-  return . termValue $ listToApp (Term (Global name) emptyTermData, map (genTerm . V) args)
+buildPat (name, num) 
+ | name == "::" =  do 
+       args <- replicateM num (freshVar "x")
+       return . termValue $ listToApp ((genTerm . V) (head args), ((Term (Global name) emptyTermData) : (map (genTerm . V) (tail args))))
+ | otherwise =  do
+       args <- replicateM num (freshVar "x")
+       return . termValue $ listToApp (Term (Global name) emptyTermData, map (genTerm . V) args)
 
 -- for each constructor, return its name and number of parameters it takes
 getNamesAndParams :: [CtorItem] -> [(String, Int)]
@@ -37,19 +41,26 @@ replaceTerms term (t : ts) c id =
     c' <- replaceVar term t id c
     return (c' : cs)
 
+stringToCtrs ty prog
+ | ty == "List" = [("::", 2), ("[]", 0)]
+ | otherwise = case stringToDataItem ty prog of 
+                  Just it -> getNamesAndParams (typeToCtrs it )
+
 expandPattern :: ExpandPatternArgs -> Program -> Refact Program
 expandPattern (ExpandPatternArgs p) prog@(Program items) =
   -- error (show prog)
   let (Just (Term t d)) = locToTerm p prog
       (Just c) = termToClause (Term t d) prog
       (Just (DeclItem declName declTy clauses l)) = termToDeclItem (Term t d) prog
-      (Just ty) = getTypeName (Term t d) prog
-      (Just it) = stringToDataItem ty prog
-      ctrs = typeToCtrs it
-      ctrsInfo = getNamesAndParams ctrs
+      (Just ty) = getTypeName (Term t d)
+      ctrsInfo  = stringToCtrs ty prog
+      -- ctrs = typeToCtrs it
+      -- ctrsInfo = getNamesAndParams ctrs
    in do
         newTerms <- mapM buildPat ctrsInfo
         newCls <- replaceTerms t newTerms c (termToId t)
         let clauses' = insertClauses clauses c newCls
         prog' <- replaceDeclItem (DeclItem declName declTy clauses l) (DeclItem declName declTy clauses' l) prog
+        -- error (show d)
+
         return prog'

@@ -106,16 +106,19 @@ termToDeclItem (Term t d) prog =
     --      getColPos (endPos (getLoc d)) <= getColPos (Just end) = Just $ x -}
     inItem _ = Nothing
 
+-- returns the type of the given term
 getTypeName ::
-  (Data t) =>
   Term ->
-  t ->
   Maybe String
-getTypeName (Term t d) prog =
-  Generics.SYB.something (Nothing `Generics.SYB.mkQ` inGlobal) prog
+getTypeName (Term t d) =
+  Generics.SYB.something (Nothing `Generics.SYB.mkQ` inList) d
   where
-    inGlobal x@(Global s) = Just s
-    inGlobal _ = Nothing
+    inList :: TermValue -> Maybe String 
+    inList x@(ListT _) = Just "List"
+    inList x@(Global s) = Just s
+    inList _ = Nothing 
+
+    -- inGlobal _ = mempty
 
 -- returns a type declaration based on the type of a term
 stringToDataItem ::
