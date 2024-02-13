@@ -111,12 +111,13 @@ getTypeName ::
   Term ->
   Maybe String
 getTypeName (Term t d) =
-  Generics.SYB.something (Nothing `Generics.SYB.mkQ` inList) d
+  Generics.SYB.something (Nothing `Generics.SYB.mkQ` inTerm) d
   where
-    inList :: TermValue -> Maybe String 
-    inList x@(ListT _) = Just "List"
-    inList x@(Global s) = Just s
-    inList _ = Nothing 
+    inTerm :: TermValue -> Maybe String 
+    inTerm x@(ListT _) = Just "List"
+    inTerm x@(SigmaT _ _ _) = Just "Sigma" 
+    inTerm x@(Global s) = Just s
+    inTerm _ = Nothing 
 
     -- inGlobal _ = mempty
 

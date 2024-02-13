@@ -22,6 +22,9 @@ instance FromRefactorArgs ExpandPatternArgs where
 -- that matches the constructor, with fresh variables for each parameter.
 buildPat :: (String, Int) -> Refact TermValue
 buildPat (name, num) 
+ | name == "," =  do 
+       args <- replicateM num (freshVar "x")
+       return (Pair ((genTerm . V) (args!!0)) ((genTerm . V) (args!!1))) 
  | name == "::" =  do 
        args <- replicateM num (freshVar "x")
        return . termValue $ listToApp ((genTerm . V) (head args), ((Term (Global name) emptyTermData) : (map (genTerm . V) (tail args))))
@@ -43,6 +46,7 @@ replaceTerms term (t : ts) c id =
 
 stringToCtrs ty prog
  | ty == "List" = [("::", 2), ("[]", 0)]
+ | ty == "Sigma" = [(",", 2)]
  | otherwise = case stringToDataItem ty prog of 
                   Just it -> getNamesAndParams (typeToCtrs it )
 
