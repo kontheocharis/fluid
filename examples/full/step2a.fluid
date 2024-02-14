@@ -22,7 +22,7 @@ plus : (n37 : Nat) -> (n38 : Nat) -> Nat
 plus a Z = a
 plus a (S n) = S (plus a n)
 
-data Expr : (newInd0 : List V) -> Type where
+data Expr : (vars : List V) -> Type where
   | Num : (n41 : Nat) -> (numparam_1 : List V) -> Expr numparam_1
   | Var : (n43 : V) -> (varparam_1 : List V) -> Expr varparam_1
   | Add : (addparam_0 : List V) -> (n44 : Expr addparam_0) -> (n45 : Expr addparam_0) -> Expr addparam_0

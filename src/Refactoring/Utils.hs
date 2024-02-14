@@ -14,12 +14,15 @@ module Refactoring.Utils
     lookupIdxListArg,
     lookupPositionArg,
     lookupExprArg,
+    slugify,
+    isGlobal,
   )
 where
 
-import Control.Monad.Except (ExceptT, runExcept, runExceptT)
+import Control.Monad.Except (ExceptT, runExceptT)
 import Control.Monad.State (MonadState (get), State, put, runState)
-import Lang (Pos, Term, Var (..))
+import Interface.Pretty (Print (printVal))
+import Lang (HasTermValue (getTermValue), Pos, Term (..), TermValue (..), Var (..))
 
 -- | The state kept during a refactoring.
 newtype RefactState = RefactState {varCounter :: Int}
@@ -78,3 +81,11 @@ lookupExprArg name (RefactorArgs args) = lookup name args >>= \case Expr e -> Ju
 -- | Class for types that can be parsed from refactoring arguments.
 class FromRefactorArgs a where
   fromRefactorArgs :: RefactorArgs -> Maybe a
+
+-- Slugify a term into a string
+slugify :: Term -> String
+slugify = filter (`notElem` ":;(),/ |[]") . printVal
+
+-- Whether the given term is `Global s`
+isGlobal :: (HasTermValue t) => String -> t -> Bool
+isGlobal s t = getTermValue t == Global s

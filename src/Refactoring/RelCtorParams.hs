@@ -1,12 +1,13 @@
 module Refactoring.RelCtorParams (RelCtorArgs (..), relCtorParams) where
 
+import Data.Bifunctor (bimap)
 import Lang
   ( Clause (..),
     CtorItem (..),
     DataItem (..),
     DeclItem (..),
     Item (..),
-    Pat (..),
+    Pat,
     Program (..),
     Term (..),
     TermValue (..),
@@ -18,7 +19,7 @@ import Lang
     listToPiType,
     piTypeToList,
   )
-import Refactoring.Utils (FromRefactorArgs (..), Refact, RefactState, freshVar, lookupExprArg, lookupIdxListArg, lookupNameArg)
+import Refactoring.Utils (FromRefactorArgs (..), Refact, lookupExprArg, lookupIdxListArg, lookupNameArg)
 
 -- Arguments to the refactoring.
 data RelCtorArgs = RelCtorArgs
@@ -48,9 +49,9 @@ piTypeToListWithDummy ty =
    in tys ++ [(Var "DummyVar" 0, rTy)]
 
 -- like listToPiType, but as a (var,type) list, so it's easier to work with
-listWithDummyToPiType :: ([(Var, Type)]) -> Type
+listWithDummyToPiType :: [(Var, Type)] -> Type
 listWithDummyToPiType l =
-  listToPiType (take ((length l) - 1) l, snd (last l))
+  listToPiType (take (length l - 1) l, snd (last l))
 
 -- insert into a list after given index
 insertAfter :: [a] -> Int -> a -> [a]
@@ -68,7 +69,7 @@ isAppData dName ty =
 funcHasTyAsParam :: DeclItem -> String -> Bool
 funcHasTyAsParam decl dName =
   let (tyList, retTy) = piTypeToList (declTy decl)
-   in any (isAppData dName) ((retTy) : (map (\t -> (snd t)) tyList))
+   in any (isAppData dName) (retTy : map snd tyList)
 
 -- relating params of constructor refactoring
 relCtorParams :: RelCtorArgs -> Program -> Refact Program
@@ -83,7 +84,7 @@ relCtorParams args (Program items) =
               items
           )
       usecaseUpdate = updateUsecase newP
-   in return $ usecaseUpdate
+   in return usecaseUpdate
   where
     -- find ctor in data, refactor ctor
     relCtorParams_data :: DataItem -> DataItem
@@ -102,15 +103,15 @@ relCtorParams args (Program items) =
     relCtorParams_ctor :: CtorItem -> CtorItem
     relCtorParams_ctor c =
       let tys = piTypeToListWithDummy (ctorItemTy c)
-          inds = map (\i -> (length tys) - i - 1) (relCtorParamsIndsPos args)
-          varsToRelate = foldr (\x acc -> (fst (tys !! x) : acc)) [] inds
+          inds = map (\i -> length tys - i - 1) (relCtorParamsIndsPos args)
+          varsToRelate = map (\x -> fst (tys !! x)) inds
           newVarTy = makeRelationParam varsToRelate
           inserted = insertAfter tys (maximum inds) newVarTy
        in c {ctorItemTy = listWithDummyToPiType inserted}
     -- get var,type for the new relation param
     makeRelationParam :: [Var] -> (Var, Type)
     makeRelationParam vars =
-      let termList = map (\v -> genTerm (V v)) vars
+      let termList = map (genTerm . V) vars
        in (Var "relParamV" 0, listToApp (relCtorParamsNewTerm args, termList)) -- todo: get fresh var
       -- update usecase (for now, as params of functions only)
     updateUsecase :: Program -> Program
@@ -119,7 +120,7 @@ relCtorParams args (Program items) =
         ( map
             ( \item -> case item of
                 Decl d ->
-                  if (funcHasTyAsParam d (relCtorParamsDataName args))
+                  if funcHasTyAsParam d (relCtorParamsDataName args)
                     then Decl d {declClauses = map updateUsecase_cl (declClauses d)}
                     else Decl d
                 _ -> item
@@ -136,20 +137,20 @@ relCtorParams args (Program items) =
       if isAppData (relCtorParamsCtorName args) pat
         then
           let (outerTerm, argList) = appToList pat
-              posnToInsert = (length argList) - minimum (relCtorParamsIndsPos args)
+              posnToInsert = length argList - minimum (relCtorParamsIndsPos args)
               varInserted = insertAfter argList posnToInsert (genTerm (V (Var ("vrel_" ++ (show posnToInsert)) 0)))
-           in (listToApp (outerTerm, varInserted))
+           in listToApp (outerTerm, varInserted)
         else pat
     -- update use of ctor in rhs of equations -> add holes
     updateUsecase_rhs :: Term -> Term
     updateUsecase_rhs (Term (Case caseTerm patTermList) termDat) =
-      Term (Case caseTerm (map (\pt -> (updateUsecase_pat (fst pt), updateUsecase_rhs (snd pt))) patTermList)) termDat
+      Term (Case caseTerm (map (bimap updateUsecase_pat updateUsecase_rhs) patTermList)) termDat
     updateUsecase_rhs (Term (App term1 term2) termDat) =
       let (outerTerm, argList) = appToList (Term (App term1 term2) termDat)
        in if termValue outerTerm == Global (relCtorParamsCtorName args)
             then
-              let posnToInsert = (length argList) - minimum (relCtorParamsIndsPos args)
-                  holeInserted = insertAfter argList posnToInsert (genTerm (Hole (Var ("vrel_" ++ (show posnToInsert)) 0)))
+              let posnToInsert = length argList - minimum (relCtorParamsIndsPos args)
+                  holeInserted = insertAfter argList posnToInsert (genTerm (Hole (Var ("vrel_" ++ show posnToInsert) 0)))
                in listToApp (outerTerm, holeInserted)
             else Term (App (updateUsecase_rhs term1) (updateUsecase_rhs term2)) termDat
     updateUsecase_rhs term = term

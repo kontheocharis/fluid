@@ -2,11 +2,8 @@ module Refactoring.RelFuncParams (RelFuncArgs (..), relFuncParams) where
 
 import Lang
   ( Clause (..),
-    CtorItem (..),
-    DataItem (..),
     DeclItem (..),
     Item (..),
-    Pat (..),
     Program (..),
     Term (..),
     TermValue (..),
@@ -18,9 +15,7 @@ import Lang
     listToPiType,
     piTypeToList,
   )
-import Refactoring.Utils (FromRefactorArgs (..), Refact, RefactState, freshVar, lookupExprArg, lookupIdxListArg, lookupNameArg)
-import Interface.Pretty (Print (printVal))
-
+import Refactoring.Utils (FromRefactorArgs (..), Refact, lookupExprArg, lookupIdxListArg, lookupNameArg, slugify)
 
 -- Arguments to the refactoring.
 data RelFuncArgs = RelFuncArgs
@@ -46,9 +41,9 @@ piTypeToListWithDummy ty =
    in tys ++ [(Var "DummyVar" 0, rTy)]
 
 -- like listToPiType, but as a (var,type) list, so it's easier to work with
-listWithDummyToPiType :: ([(Var, Type)]) -> Type
+listWithDummyToPiType :: [(Var, Type)] -> Type
 listWithDummyToPiType l =
-  listToPiType (take ((length l) - 1) l, snd (last l))
+  listToPiType (take (length l - 1) l, snd (last l))
 
 -- insert into a list after given index
 insertAfter :: [a] -> Int -> a -> [a]
@@ -66,7 +61,7 @@ isAppData dName ty =
 funcHasTyAsParam :: DeclItem -> String -> Bool
 funcHasTyAsParam decl dName =
   let (tyList, retTy) = piTypeToList (declTy decl)
-   in any (isAppData dName) ((retTy) : (map (\t -> (snd t)) tyList))
+   in any (isAppData dName) (retTy : map (\t -> (snd t)) tyList)
 
 removeSpaces :: String -> String
 removeSpaces = filter (\c -> (c /= ' ' && c /= '?'))
@@ -142,7 +137,7 @@ relFuncParams args (Program items) =
       let (outerTerm, argList) = appToList (Term (App term1 term2) termDat)
        in if termValue outerTerm == Global (relFuncParamsFuncName args)
             then
-              let holeInserted = insertAfter argList i (genTerm (Hole (Var ("vrel_" ++ (removeSpaces (printVal (argList!!(i+1)))) ++(show i)) 0))) -- todo: need fresh vars
+              let holeInserted = insertAfter argList i (genTerm (Hole (Var ("vrel_" ++ slugify (argList !! (i + 1)) ++ show i) 0))) -- todo: need fresh vars
                in listToApp (outerTerm, holeInserted)
             else Term (App (relFuncParams_clRhs i term1) (relFuncParams_clRhs i term2)) termDat
     -- todo: recurse down other patterns
@@ -154,18 +149,19 @@ relFuncParams args (Program items) =
         ( map
             ( \item -> case item of
                 Decl d ->
-                  if declName d == relFuncParamsFuncName args                
-                  then item
-                  else Decl
-                    d
-                      { declClauses =
-                          map
-                            ( \cl -> case cl of
-                                ImpossibleClause pat l -> ImpossibleClause pat l
-                                Clause pat term l -> Clause pat (relFuncParams_clRhs i term) l
-                            )
-                            (declClauses d)
-                      }
+                  if declName d == relFuncParamsFuncName args
+                    then item
+                    else
+                      Decl
+                        d
+                          { declClauses =
+                              map
+                                ( \cl -> case cl of
+                                    ImpossibleClause pat l -> ImpossibleClause pat l
+                                    Clause pat term l -> Clause pat (relFuncParams_clRhs i term) l
+                                )
+                                (declClauses d)
+                          }
                 _ -> item
             )
             items2
