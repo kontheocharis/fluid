@@ -8,13 +8,17 @@ import Refactoring.Utils (FromRefactorArgs (..), Refact, freshVar, lookupPositio
 -- Arguments to the enhance patterns refactoring.
 newtype ExpandPatternArgs = ExpandPatternArgs
   { -- | The position of the pattern to enhance.
-    enhancePatSourcePos :: Pos
+   -- enhancePatSourcePos :: Pos
+    addParamFuncName :: String,
+    -- | The position of the index to add to (count from LEFT, add before i)
+    addParamIndexPos :: Int,
   }
 
 instance FromRefactorArgs ExpandPatternArgs where
   fromRefactorArgs args =
     ExpandPatternArgs
-      <$> lookupPositionArg "pos" args
+      <$> lookupNameArg "func" args
+      <*> lookupIdxArg "index" args
 
 -- stack run -- -r D:\Papers\fluid\app\Examples\Test2.fluid -n enhance-pats -a "pos=6:3"
 
@@ -51,10 +55,13 @@ stringToCtrs ty prog
                   Just it -> getNamesAndParams (typeToCtrs it )
 
 expandPattern :: ExpandPatternArgs -> Program -> Refact Program
-expandPattern (ExpandPatternArgs p) prog@(Program items) =
+expandPattern (ExpandPatternArgs n i) prog@(Program items) =                   
   -- error (show prog)
-  let (Just (Term t d)) = locToTerm p prog
-      (Just c) = termToClause (Term t d) prog
+  let -- (Just (Term t d)) = locToTerm p prog
+      
+      clauses = nameToClauses prog 
+
+      -- (Just c) = termToClause (Term t d) prog
       (Just (DeclItem declName declTy clauses l)) = termToDeclItem (Term t d) prog
       (Just ty) = getTypeName (Term t d)
       ctrsInfo  = stringToCtrs ty prog

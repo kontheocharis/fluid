@@ -20,6 +20,15 @@ stack run -- -c ./step3b.fluid
 # Does not typecheck because of impossible cases (intended)
 # stack run -- -c ./step3c.fluid
 
+stack run -- -r ./step3b.fluid -n expand-pattern -a "pos=31:18" > step3c1.fluid
+stack run -- -r ./step3c1.fluid -n expand-pattern -a "pos=31:11" > step3c2.fluid
+
+stack run -- -r ./step3c2.fluid -n identify-impossibles -a 'decl=lookupVar' > step3c3.fluid
+
+stack run -- -r ./step3c3.fluid -n expand-pattern -a "pos=33:11" > step3c.fluid
+
+# stack run -- -r ./step3c1.fluid -n expand-pattern -a "pos=31:11" > step3c1.fluid 
+
 stack run -- -r ./step3c.fluid -n identify-impossibles -a 'decl=lookupVar' > step3d.fluid
 stack run -- -c ./step3d.fluid
 
@@ -35,6 +44,16 @@ stack run -- -c ./step5a.fluid
 # Broken: does not add recursive holes
 # stack run -- -r ./step5a.fluid -n rel-func-params -a 'func=eval, inds=[3,2,4], reln=`Unzip`' > step5b.fluid
 stack run -- -c ./step5b.fluid
+
+stack run -- -r ./step5b.fluid -n expand-pattern -a "pos=40:6" > step5b1.fluid
+stack run -- -r ./step5b1.fluid -n expand-pattern -a "pos=42:6" > step5b2.fluid
+stack run -- -r ./step5b2.fluid -n expand-pattern -a "pos=40:15" > step5b3.fluid
+
+stack run -- -r ./step5b3.fluid -n identify-impossibles -a 'decl=eval' > step5b4.fluid
+
+stack run -- -r ./step5b4.fluid -n expand-pattern -a "pos=42:9" > step5b5.fluid
+
+# stack run -- -r ./step5b4.fluid -n expand-pattern -a "pos=40:26" > step5b5.fluid
 
 # Broken: pattern expansion
 # Does not typecheck because of impossible cases (intended)

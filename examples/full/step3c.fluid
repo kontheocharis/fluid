@@ -28,10 +28,10 @@ data Expr : (newInd0 : List V) -> Type where
   | Add : (addparam_0 : List V) -> (n32 : Expr addparam_0) -> (n33 : Expr addparam_0) -> Expr addparam_0
 
 lookupVar : (newParamV : List V) -> (x : V) -> (relParamV_func : Elem x newParamV) -> (env : List ((n36 : V) ** Nat)) -> Maybe Nat
-lookupVar [] x (Here y ys) [] = Nothing
-lookupVar [] x (There y ys el z) [] = Nothing
-lookupVar (x::xs) x (Here y ys) [] = Nothing
-lookupVar (x::xs) x (There y ys el z) [] = Nothing
+lookupVar (x0::x1) x (Here x0 x1) [] = Nothing
+lookupVar [] x (Here x0 x1) [] impossible
+lookupVar (x0 :: x1) x (There x2 x3 x4 x5) [] = Nothing
+lookupVar [] x (There x2 x3 x4 x5) [] = Nothing
 lookupVar patV (MkV x) relParam_patV ((MkV y, val)::ys) = case isEqual x y of
   | True => Just val
   | False => lookupVar ?addParamHole_MkVx0 (MkV x) ?vrel_1 ys
