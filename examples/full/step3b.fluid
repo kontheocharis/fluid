@@ -27,15 +27,15 @@ data Expr : (vars : List V) -> Type where
   | Var : (n43 : V) -> (varparam_1 : List V) -> (relParamV : Elem n43 varparam_1) -> Expr varparam_1
   | Add : (addparam_0 : List V) -> (n44 : Expr addparam_0) -> (n45 : Expr addparam_0) -> Expr addparam_0
 
-lookupVar : (newParamV : List V) -> (x : V) -> (relParamV_func : Elem x newParamV) -> (env : List ((n48 : V) ** Nat)) -> Maybe Nat
-lookupVar patV x relParam_patV [] = Nothing
-lookupVar patV (MkV x) relParam_patV ((MkV y, val)::ys) = case isEqual x y of
+lookupVar : (patV : List V) -> (x : V) -> (relParamV_funcElem : Elem x patV) -> (env : List ((n48 : V) ** Nat)) -> Maybe Nat
+lookupVar patV x relParam_patVElem [] = Nothing
+lookupVar patV (MkV x) relParam_patVElem ((MkV y, val)::ys) = case isEqual x y of
   | True => Just val
-  | False => lookupVar ?addParamHole_MkVx0 (MkV x) ?vrel_ys1 ys
+  | False => lookupVar ?addParamHole_MkVx0 (MkV x) ?vrel_Elem1 ys
 
 eval : (env : List ((n57 : V) ** Nat)) -> (evalparam_1 : List V) -> (n58 : Expr evalparam_1) -> Maybe Nat
 eval env patvar_1 (Num n patvar_1) = Just n
-eval env patvar_1 (Var x patvar_1 vrel_1) = lookupVar ?addParamHole_x0 x ?vrel_env1 env
+eval env patvar_1 (Var x patvar_1 vrel_1) = lookupVar ?addParamHole_x0 x ?vrel_Elem1 env
 eval env paramforpatvar_Add_0 (Add paramforpatvar_Add_0 e1 e2) = case eval env paramforpatvar_Add_0 e1 of
   | (Just e1') => case eval env paramforpatvar_Add_0 e2 of
     | (Just e2') => Just (plus e1' e2')

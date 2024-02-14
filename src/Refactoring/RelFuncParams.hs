@@ -122,13 +122,13 @@ relFuncParams args (Program items) =
     makeRelationParam :: [Var] -> (Var, Type)
     makeRelationParam vars =
       let termList = map (\v -> genTerm (V v)) vars
-       in (Var "relParamV_func" 0, listToApp (relFuncParamsNewTerm args, termList)) -- todo: get fresh var
+       in (Var ("relParamV_func" ++ slugify (relFuncParamsNewTerm args)) 0, listToApp (relFuncParamsNewTerm args, termList)) -- todo: get fresh var
       -- update clauses to add new pattern variables or holes in recursive calls
     relFuncParams_cl :: Int -> Clause -> Clause
     relFuncParams_cl i (Clause lhsPats rhsTerm l) =
-      Clause (insertAfter lhsPats i (genTerm (V (Var "relParam_patV" 0)))) (relFuncParams_clRhs i rhsTerm) l
+      Clause (insertAfter lhsPats i (genTerm (V (Var ("relParam_patV" ++ slugify (relFuncParamsNewTerm args)) 0)))) (relFuncParams_clRhs i rhsTerm) l
     relFuncParams_cl i (ImpossibleClause lhsPats l) =
-      ImpossibleClause (insertAfter lhsPats i (genTerm (V (Var "relParam_patV" 0)))) l
+      ImpossibleClause (insertAfter lhsPats i (genTerm (V (Var ("relParam_patV" ++ slugify (relFuncParamsNewTerm args)) 0)))) l
     -- add holes in all function calls
     relFuncParams_clRhs :: Int -> Term -> Term
     relFuncParams_clRhs i (Term (Case caseTerm patTermList) _) =
@@ -137,7 +137,7 @@ relFuncParams args (Program items) =
       let (outerTerm, argList) = appToList (Term (App term1 term2) termDat)
        in if termValue outerTerm == Global (relFuncParamsFuncName args)
             then
-              let holeInserted = insertAfter argList i (genTerm (Hole (Var ("vrel_" ++ slugify (argList !! (i + 1)) ++ show i) 0))) -- todo: need fresh vars
+              let holeInserted = insertAfter argList i (genTerm (Hole (Var ("vrel_" ++ slugify (relFuncParamsNewTerm args) ++ show i) 0))) -- todo: need fresh vars
                in listToApp (outerTerm, holeInserted)
             else Term (App (relFuncParams_clRhs i term1) (relFuncParams_clRhs i term2)) termDat
     -- todo: recurse down other patterns

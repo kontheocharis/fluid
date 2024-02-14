@@ -59,7 +59,7 @@ addParam args (Program items) =
     addParam_func d =
       let (tyList, outTy) = piTypeToList (declTy d)
           (l, r) = splitAt (addParamIndexPos args) tyList
-          newTyList = l ++ ((Var "newParamV" 0, addParamNewTerm args) : r)
+          newTyList = l ++ ((Var (addParamParamName args) 0, addParamNewTerm args) : r)
           newSig = listToPiType (newTyList, outTy)
        in d {declTy = newSig, declClauses = map addParam_cl (declClauses d)}
 

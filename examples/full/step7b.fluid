@@ -32,9 +32,9 @@ lookupVar patV2 [] x (Here y ys) [] impossible
 lookupVar patV2 [] x (There y ys el z) [] impossible
 lookupVar patV2 (x::xs) x (Here y ys) [] = Nothing
 lookupVar patV2 (x::xs) x (There y ys el z) [] = Nothing
-lookupVar patV2 patV (MkV x) relParam_patV ((MkV y, val)::ys) = case isEqual x y of
+lookupVar (p::patV2) patV (MkV x) relParam_patV ((MkV y, val)::ys) = case isEqual x y of
   | True => Just val
-  | False => lookupVar ?addParamHole_patV0 patV (MkV x) relParam_patV ys
+  | False => lookupVar patV2 patV (MkV x) relParam_patV ys
 
 eval : (newParamV : List Nat) -> (env : List ((n45 : V) ** Nat)) -> (evalparam_1 : List V) -> (relParamV_func : Unzip env evalparam_1 newParamV) -> (n46 : Expr evalparam_1) -> Maybe Nat
 eval patV env patvar_1 relParam_patV (Num n patvar_1) = Just n

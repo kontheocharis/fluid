@@ -27,7 +27,7 @@ data Expr : (vars : List V) -> Type where
   | Var : (n43 : V) -> (varparam_1 : List V) -> (relParamV : Elem n43 varparam_1) -> Expr varparam_1
   | Add : (addparam_0 : List V) -> (n44 : Expr addparam_0) -> (n45 : Expr addparam_0) -> Expr addparam_0
 
-lookupVar : (newParamV : List V) -> (x : V) -> (env : List ((n48 : V) ** Nat)) -> Maybe Nat
+lookupVar : (patV : List V) -> (x : V) -> (env : List ((n48 : V) ** Nat)) -> Maybe Nat
 lookupVar patV x [] = Nothing
 lookupVar patV (MkV x) ((MkV y, val)::ys) = case isEqual x y of
   | True => Just val
