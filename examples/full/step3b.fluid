@@ -37,7 +37,7 @@ eval : (env : List ((n57 : V) ** Nat)) -> (evalparam_1 : List V) -> (n58 : Expr 
 eval env patvar_1 (Num n patvar_1) = Just n
 eval env patvar_1 (Var x patvar_1 vrel_1) = lookupVar ?addParamHole_x0 x ?vrel_Elem1 env
 eval env paramforpatvar_Add_0 (Add paramforpatvar_Add_0 e1 e2) = case eval env paramforpatvar_Add_0 e1 of
+  | Nothing => Nothing
   | (Just e1') => case eval env paramforpatvar_Add_0 e2 of
     | (Just e2') => Just (plus e1' e2')
-    | Nothing => Nothing
     | Nothing => Nothing

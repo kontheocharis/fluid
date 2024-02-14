@@ -27,7 +27,7 @@ echo "Step 3d"
 stack run -- -r ./step3c.fluid -n identify-impossibles -a 'decl=lookupVar' > step3d.fluid
 stack run -- -c ./step3d.fluid
 
-# Manual: fill holes + pattern expansion
+# Manual: fill holes + remove case expression
 echo "Step 4"
 stack run -- -c ./step4.fluid
 
@@ -55,27 +55,39 @@ echo "Step 7a"
 stack run -- -r ./step6.fluid -n add-param -a 'func=lookupVar, index=0, type=`List Nat`, name=patV2' > step7a.fluid
 stack run -- -c ./step7a.fluid
 
-# Manual: fill holes
+# Broken: pattern expansion does not work
 echo "Step 7b"
 stack run -- -c ./step7b.fluid
 
+# Manual: fill holes
 echo "Step 7c"
-stack run -- -r ./step7b.fluid -n rel-func-params -a 'func=lookupVar, inds=[1,4,5], reln=`Unzip`' > step7c.fluid
 stack run -- -c ./step7c.fluid
+
+echo "Step 7d"
+stack run -- -r ./step7c.fluid -n rel-func-params -a 'func=lookupVar, inds=[1,4,5], reln=`Unzip`' > step7d.fluid
+stack run -- -c ./step7d.fluid
 
 # Broken: pattern expansion
 # Not meant to typecheck because of impossible cases
-echo "Step 7d"
-# stack run -- -c ./step7d.fluid
-
 echo "Step 7e"
-stack run -- -r ./step7d.fluid -n identify-impossibles -a 'decl=lookupVar' > step7e.fluid
-stack run -- -c ./step7e.fluid
+# stack run -- -c ./step7e.fluid
 
-# Manual: fill holes
 echo "Step 7f"
+stack run -- -r ./step7e.fluid -n identify-impossibles -a 'decl=lookupVar' > step7f.fluid
 stack run -- -c ./step7f.fluid
 
-# Temporary to check bool tautology removal:
-# stack run -- -r ./boolean-tautology.fluid -n rm-taut -a 'lx=35, ly=64, op=isEqual' > boolean-tautology2.fluid
-# stack run -- -c ./boolean-tautology2.fluid
+# Manual: fill holes
+echo "Step 8"
+stack run -- -c ./step8.fluid
+
+# Broken: remove maybe
+echo "Step 9"
+# stack run -- -r ./step8.fluid -n remove-maybe -a 'func=lookupVar' > step9.fluid
+stack run -- -c ./step9.fluid
+
+# Step 10 not needed anymore
+
+# Broken: remove maybe
+echo "Step 11"
+# stack run -- -r ./step9.fluid -n remove-maybe -a 'func=eval' > step11.fluid
+stack run -- -c ./step11.fluid

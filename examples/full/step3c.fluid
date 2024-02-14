@@ -32,7 +32,16 @@ lookupVar [] x (Here y ys) [] = Nothing
 lookupVar [] x (There y ys el z) [] = Nothing
 lookupVar (x::xs) x (Here y ys) [] = Nothing
 lookupVar (x::xs) x (There y ys el z) [] = Nothing
-lookupVar patV (MkV x) relParam_patV ((MkV y, val)::ys) = case isEqual x y of
+lookupVar [] (MkV x) (Here _ _) ((MkV y, val)::ys) = case isEqual x y of
+  | True => Just val
+  | False => lookupVar ?addParamHole_MkVx0 (MkV x) ?vrel_ys1 ys
+lookupVar (p::ps) (MkV x) (Here _ _) ((MkV y, val)::ys) = case isEqual x y of
+  | True => Just val
+  | False => lookupVar ?addParamHole_MkVx0 (MkV x) ?vrel_ys1 ys
+lookupVar [] (MkV x) (There _ _ _ _) ((MkV y, val)::ys) = case isEqual x y of
+  | True => Just val
+  | False => lookupVar ?addParamHole_MkVx0 (MkV x) ?vrel_ys1 ys
+lookupVar (p::ps) (MkV x) (There _ _ _ _) ((MkV y, val)::ys) = case isEqual x y of
   | True => Just val
   | False => lookupVar ?addParamHole_MkVx0 (MkV x) ?vrel_ys1 ys
 
@@ -40,7 +49,7 @@ eval : (env : List ((n57 : V) ** Nat)) -> (evalparam_1 : List V) -> (n58 : Expr 
 eval env patvar_1 (Num n patvar_1) = Just n
 eval env patvar_1 (Var x patvar_1 vrel_1) = lookupVar ?addParamHole_x0 x ?vrel_env1 env
 eval env paramforpatvar_Add_0 (Add paramforpatvar_Add_0 e1 e2) = case eval env paramforpatvar_Add_0 e1 of
+  | Nothing => Nothing
   | (Just e1') => case eval env paramforpatvar_Add_0 e2 of
     | (Just e2') => Just (plus e1' e2')
-    | Nothing => Nothing
     | Nothing => Nothing
