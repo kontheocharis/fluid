@@ -135,7 +135,9 @@ removeMaybe args (Program itemL) =
           ( map
               ( \item ->
                   case item of
-                    (Decl decl) -> Decl (decl {declClauses = map updateUsecase_cl (declClauses decl)})
+                    (Decl decl) -> if declName decl == removeMaybeFuncName args 
+                                   then Decl decl
+                                   else Decl (decl {declClauses = map updateUsecase_cl (declClauses decl)})
                     (Data dat) -> Data dat
               )
               items1
@@ -150,13 +152,11 @@ removeMaybe args (Program itemL) =
       genTerm (Lam var (updateUsecase_term term2))
     updateUsecase_term (Term (Pair term1 term2) termDat) =
       genTerm (Pair (updateUsecase_term term1) (updateUsecase_term term2))
-    updateUsecase_term (Term (MJust term) termDat) =
-      genTerm (MJust (updateUsecase_term term))
     updateUsecase_term (Term (App term1 term2) termDat) =
       let (appHead, appOthers) = appToList (Term (App term1 term2) termDat)
        in case termValue appHead of
             Global str ->
-              let recRes = genTerm (App (updateUsecase_term term1) (updateUsecase_term term2))
+              let recRes = genTerm (App term1 term2)
                in if str == removeMaybeFuncName args
                     then genTerm (MJust recRes) -- todo: in usecase of f where f is applied partially, do (\lambda x -> Just (f (..) x))
                     else recRes
