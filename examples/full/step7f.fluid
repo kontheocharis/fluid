@@ -31,17 +31,17 @@ lookupVar : (patV2 : List Nat) -> (newParamV : List V) -> (x : V) -> (relParamV_
 lookupVar patV2 [] x (Here y ys) [] relParam_patVUnzip impossible
 lookupVar patV2 [] x (There y ys el z) [] relParam_patVUnzip impossible
 lookupVar patV2 (x::xs) x (Here y ys) [] NilUZ impossible
-lookupVar patV2 (x::xs) x (Here y ys) [] (ConsUZ _ _ _ _ _ _) impossible
+lookupVar patV2 (x::xs) x (Here y ys) [] (ConsUZ x0 x1 x2 x3 x4 x5) impossible
 lookupVar patV2 (x::xs) x (There y ys el z) [] NilUZ impossible
-lookupVar patV2 (x::xs) x (There y ys el z) [] (ConsUZ _ _ _ _ _ _) impossible
+lookupVar patV2 (x::xs) x (There y ys el z) [] (ConsUZ x6 x7 x8 x9 x10 x11) impossible
 lookupVar patV2 [] (MkV x) (Here _ _) ((MkV y, val)::ys) relParam_patVUnzip impossible
 lookupVar patV2 (p::ps) (MkV x) (Here v72 v73) ((MkV y, val)::ys) NilUZ impossible
-lookupVar patV2 (p::ps) (MkV x) (Here v72 v73) ((MkV y, val)::ys) (ConsUZ v111 v112 v113 v114 v115 v116) = Just val
+lookupVar patV2 (p::ps) (MkV x) (Here v72 v73) ((MkV y, val)::ys) (ConsUZ x12 x13 x14 x15 x16 x17) = Just val
 lookupVar patV2 [] (MkV x) (There _ _ _ _) ((MkV y, val)::ys) relParam_patVUnzip impossible
 lookupVar [] (p::ps) (MkV x) (There v100 v101 v102 v103) ((MkV y, val)::ys) NilUZ impossible
-lookupVar [] (p::ps) (MkV x) (There v100 v101 v102 v103) ((MkV y, val)::ys) (ConsUZ _ _ _ _ _ _) impossible
+lookupVar [] (p::ps) (MkV x) (There v100 v101 v102 v103) ((MkV y, val)::ys) (ConsUZ x18 x19 x20 x21 x22 x23) impossible
 lookupVar (v::patV2) (p::ps) (MkV x) (There v100 v101 v102 v103) ((MkV y, val)::ys) NilUZ impossible
-lookupVar (v::patV2) (p::ps) (MkV x) (There v100 v101 v102 v103) ((MkV y, val)::ys) (ConsUZ v184 v185 v186 v187 v188 v189) = lookupVar (v::patV2) ps (MkV x) v102 ys ?vrel_Unzip4
+lookupVar (v::patV2) (p::ps) (MkV x) (There v100 v101 v102 v103) ((MkV y, val)::ys) (ConsUZ x24 x25 x26 x27 x28 x29) = lookupVar (v::patV2) ps (MkV x) v102 ys ?vrel_Unzip4
 
 eval : (newParamV : List Nat) -> (env : List ((n45 : V) ** Nat)) -> (evalparam_1 : List V) -> (relParamV_func : Unzip env evalparam_1 newParamV) -> (n46 : Expr evalparam_1) -> Maybe Nat
 eval patV env patvar_1 relParam_patV (Num n patvar_1) = Just n

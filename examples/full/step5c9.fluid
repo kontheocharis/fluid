@@ -50,8 +50,7 @@ eval [] [] (x4::x5) (ConsUZ x12 x13 x14 x15 x16 x17) (Num n (x4::x5)) impossible
 eval [] [] [] NilUZ (Num n []) = Just n
 eval [] [] [] (ConsUZ x18 x19 x20 x21 x22 x23) (Num n []) impossible
 eval (x2::x3) (x4::x5) (x6::x7) NilUZ (Var x (x6::x7) vrel_1) impossible
-eval (x2::x3) ((x0, x1)::x5) (x6::x7) (ConsUZ x24 x25 x26 x27 x28 x29) (Var x (x6::x7) (Here p0 p1)) = lookupVar ?addParamHole_x0 x ?vrel_env1 ((x0, x1)::x5)
-eval (x2::x3) ((x0, x1)::x5) (x6::x7) (ConsUZ x24 x25 x26 x27 x28 x29) (Var x (x6::x7) (There p2 p3 p4 p5)) = lookupVar ?addParamHole_x0 x ?vrel_env1 ((x0, x1)::x5)
+eval (x2::x3) ((x0, x1)::x5) (x6::x7) (ConsUZ x24 x25 x26 x27 x28 x29) (Var x (x6::x7) vrel_1) = lookupVar ?addParamHole_x0 x ?vrel_env1 ((x0, x1)::x5)
 eval (x2::x3) (x4::x5) [] NilUZ (Var x [] vrel_1) impossible
 eval (x2::x3) (x4::x5) [] (ConsUZ x30 x31 x32 x33 x34 x35) (Var x [] vrel_1) impossible
 eval (x2::x3) [] (x8::x9) NilUZ (Var x (x8::x9) vrel_1) impossible
