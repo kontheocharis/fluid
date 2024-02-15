@@ -1,13 +1,25 @@
-module Refactoring.TraverseUtils where
+module Refactoring.TraverseUtils
+  ( within,
+    locToTerm,
+    locToTerm',
+    termToCase,
+    termToClause,
+    termToDeclItem,
+    termToId,
+    getTypeName,
+    stringToDataItem,
+    insertClauses,
+    replaceDeclItem,
+    replaceTerm,
+    replaceVar,
+    typeToCtrs,
+    stringToDecl,
+  )
+where
 
-import Data.Generics (Data)
-import Data.Typeable (Typeable)
-import Debug.Trace
-import GHC.Generics (Generic)
 import Generics.SYB hiding (Generic, Refl)
 import Interface.Pretty
 import Lang
-import Refactoring.Utils
 
 type SimpPos = (Int, Int)
 
@@ -95,16 +107,46 @@ termToDeclItem (Term t d) prog =
     --      getColPos (endPos (getLoc d)) <= getColPos (Just end) = Just $ x -}
     inItem _ = Nothing
 
+-- returns the type of the given term
 getTypeName ::
-  (Data t) =>
   Term ->
-  t ->
   Maybe String
-getTypeName (Term t d) prog =
-  Generics.SYB.something (Nothing `Generics.SYB.mkQ` inGlobal) prog
+getTypeName (Term t d) =
+  Generics.SYB.something (Nothing `Generics.SYB.mkQ` inTerm) d
   where
-    inGlobal x@(Global s) = Just s
-    inGlobal _ = Nothing
+    inTerm :: TermValue -> Maybe String
+    inTerm x@(ListT _) = Just "List"
+    inTerm x@(SigmaT _ _ _) = Just "Sigma"
+    inTerm x@(Global s) = Just s
+    inTerm _ = Nothing
+
+-- inGlobal _ = mempty
+
+{-
+nameToClauses ::
+  (Data t) =>
+  String ->
+  t ->
+  [ Clause ]
+nameToClauses name prog =
+   Generics.SYB.everything (++) ([] `Generics.SYB.mkQ` inClause) t
+  where
+    inClause c@()
+      |    = return c
+    inClause _ = []
+-}
+
+stringToDecl ::
+  (Data t) =>
+  String ->
+  t ->
+  Maybe DeclItem
+stringToDecl name prog =
+  Generics.SYB.something (Nothing `Generics.SYB.mkQ` inDecls) prog
+  where
+    inDecls d@(Decl d1)
+      | declName d1 == name = Just d1
+    inDecls _ = Nothing
 
 -- returns a type declaration based on the type of a term
 stringToDataItem ::
