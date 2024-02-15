@@ -27,23 +27,17 @@ data Expr : (vars : List V) -> Type where
   | Var : (n43 : V) -> (varparam_1 : List V) -> (relParamV : Elem n43 varparam_1) -> Expr varparam_1
   | Add : (addparam_0 : List V) -> (n44 : Expr addparam_0) -> (n45 : Expr addparam_0) -> Expr addparam_0
 
-lookupVar : (patV : List V) -> (x : V) -> (relParamV_funcElem : Elem x patV) -> (env : List ((n48 : V) ** Nat)) -> Maybe Nat
-lookupVar (x0::x1) x (Here x0 x1) [] = Nothing
-lookupVar (x0::x1) x (There x2 x3 x4 x5) [] = Nothing
-lookupVar [] x (Here x6 x7) [] impossible
-lookupVar [] x (There x8 x9 x10 x11) [] impossible
-lookupVar (x2::x3) (MkV x) (Here x12 x13) ((MkV y, val)::ys) = Just val
-lookupVar (x2::x3) (MkV x) (There x14 x15 x16 x17) ((MkV y, val)::ys) = case isEqual x y of
+lookupVar : (patV : List V) -> (x : V) -> (env : List ((n48 : V) ** Nat)) -> Maybe Nat
+lookupVar patV x [] = Nothing
+lookupVar patV (MkV x) ((MkV y, val)::ys) = case isEqual x y of
   | True => Just val
-  | False => lookupVar x3 (MkV x) x16 ys
-lookupVar [] (MkV x) (Here x18 x19) ((MkV y, val)::ys) impossible
-lookupVar [] (MkV x) (There x20 x21 x22 x23) ((MkV y, val)::ys) impossible
+  | False => lookupVar ?addParamHole_MkVx0 (MkV x) ys
 
-eval : (patV1 : List Nat) -> (env : List ((n57 : V) ** Nat)) -> (evalparam_1 : List V) -> (n58 : Expr evalparam_1) -> Maybe Nat
-eval patV1 env patvar_1 (Num n patvar_1) = Just n
-eval patV1 env patvar_1 (Var x patvar_1 vrel_1) = lookupVar ?addParamHole_x0 x ?vrel_Elem1 env
-eval patV1 env paramforpatvar_Add_0 (Add paramforpatvar_Add_0 e1 e2) = case eval ?addParamHole_env0 env paramforpatvar_Add_0 e1 of
+eval : (env : List ((n57 : V) ** Nat)) -> (evalparam_1 : List V) -> (n58 : Expr evalparam_1) -> Maybe Nat
+eval env patvar_1 (Num n patvar_1) = Just n
+eval env patvar_1 (Var x patvar_1 vrel_1) = lookupVar ?addParamHole_x0 x env
+eval env paramforpatvar_Add_0 (Add paramforpatvar_Add_0 e1 e2) = case eval env paramforpatvar_Add_0 e1 of
   | Nothing => Nothing
-  | (Just e1') => case eval ?addParamHole_env0 env paramforpatvar_Add_0 e2 of
+  | (Just e1') => case eval env paramforpatvar_Add_0 e2 of
     | (Just e2') => Just (plus e1' e2')
     | Nothing => Nothing

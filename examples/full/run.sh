@@ -61,10 +61,10 @@ stack run -- -r ./step5c6.fluid -n expand-pattern -a "func=eval, index=3" > step
 stack run -- -r ./step5c7.fluid -n identify-impossibles -a 'decl=eval' > step5c8.fluid
 
 echo 'step5c8'
-stack run -- -r ./step5c8.fluid -n expand-pattern-single -a 'pos=53:16, name=x' > step5c9.fluid
+stack run -- -r ./step5c8.fluid -n expand-pattern-single -a 'pos=55:16, name=x' > step5c9.fluid
 
 echo 'step5c9'
-stack run -- -r ./step5c9.fluid -n expand-pattern-single -a 'pos=53:88, name=p' > step5c10.fluid
+stack run -- -r ./step5c9.fluid -n expand-pattern-single -a 'pos=55:88, name=p' > step5c10.fluid
 stack run -- -r ./step5c10.fluid -n identify-impossibles -a 'decl=eval' > step5c.fluid
 
 echo "Step 5d"
@@ -79,8 +79,9 @@ echo "Step 7a"
 stack run -- -r ./step6.fluid -n add-param -a 'func=lookupVar, index=0, type=`List Nat`, name=patV2' > step7a.fluid
 stack run -- -c ./step7a.fluid
 
-# Broken: pattern expansion does not work
+# Pattern expansion
 echo "Step 7b"
+stack run -- -r ./step7a.fluid -n expand-pattern-single -a "pos=38:11, name=q" > step7b.fluid
 stack run -- -c ./step7b.fluid
 
 # Manual: fill holes
@@ -91,7 +92,7 @@ echo "Step 7d"
 stack run -- -r ./step7c.fluid -n rel-func-params -a 'func=lookupVar, inds=[1,4,5], reln=`Unzip`' > step7d.fluid
 stack run -- -c ./step7d.fluid
 
-# Broken: pattern expansion
+# Pattern expansion
 # Not meant to typecheck because of impossible cases
 echo "Step 7e"
 stack run -- -r ./step7d.fluid -n expand-pattern -a "func=lookupVar, index=5" > step7e1.fluid
@@ -102,7 +103,7 @@ echo "Step 7f"
 stack run -- -r ./step7e.fluid -n identify-impossibles -a 'decl=lookupVar' > step7f.fluid
 stack run -- -c ./step7f.fluid
 
-# Manual: fill holes
+# Manual: fill holes + remove impossible case (we could add an extra expansion here l130-131)
 echo "Step 8"
 stack run -- -c ./step8.fluid
 
