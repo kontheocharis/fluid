@@ -13,6 +13,7 @@ module Refactoring.TraverseUtils
     replaceTerm,
     replaceVar,
     typeToCtrs,
+    stringToDecl
   )
 where
 
@@ -120,6 +121,32 @@ getTypeName (Term t d) =
     inTerm _ = Nothing 
 
     -- inGlobal _ = mempty
+
+{-
+nameToClauses :: 
+  (Data t) => 
+  String ->
+  t ->
+  [ Clause ]
+nameToClauses name prog = 
+   Generics.SYB.everything (++) ([] `Generics.SYB.mkQ` inClause) t 
+  where
+    inClause c@() 
+      |    = return c 
+    inClause _ = []
+-}
+
+stringToDecl ::
+  (Data t) =>
+  String ->
+  t ->
+  Maybe DeclItem 
+stringToDecl name prog =
+   Generics.SYB.something (Nothing `Generics.SYB.mkQ` inDecls) prog
+  where 
+    inDecls d@(Decl d1) 
+      | declName d1 == name = Just d1 
+    inDecls _ = Nothing  
 
 -- returns a type declaration based on the type of a term
 stringToDataItem ::

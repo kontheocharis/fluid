@@ -29,12 +29,17 @@ data Expr : (newInd0 : List V) -> Type where
 
 lookupVar : (newParamV : List V) -> (x : V) -> (relParamV_func : Elem x newParamV) -> (env : List ((n36 : V) ** Nat)) -> Maybe Nat
 lookupVar (x0::x1) x (Here x0 x1) [] = Nothing
-lookupVar [] x (Here x0 x1) [] impossible
 lookupVar (x0::x1) x (There x2 x3 x4 x5) [] = Nothing
-lookupVar [] x (There x2 x3 x4 x5) [] impossible
-lookupVar patV (MkV x) relParam_patV ((MkV y, val)::ys) = case isEqual x y of
+lookupVar [] x (Here x6 x7) [] impossible
+lookupVar [] x (There x8 x9 x10 x11) [] impossible
+lookupVar (x2::x3) (MkV x) (Here x12 x13) ((MkV y, val)::ys) = case isEqual x y of
   | True => Just val
   | False => lookupVar ?addParamHole_MkVx0 (MkV x) ?vrel_1 ys
+lookupVar (x2::x3) (MkV x) (There x14 x15 x16 x17) ((MkV y, val)::ys) = case isEqual x y of
+  | True => Just val
+  | False => lookupVar ?addParamHole_MkVx0 (MkV x) ?vrel_1 ys
+lookupVar [] (MkV x) (Here x18 x19) ((MkV y, val)::ys) impossible
+lookupVar [] (MkV x) (There x20 x21 x22 x23) ((MkV y, val)::ys) impossible
 
 eval : (env : List ((n45 : V) ** Nat)) -> (evalparam_1 : List V) -> (n46 : Expr evalparam_1) -> Maybe Nat
 eval env patvar_1 (Num n patvar_1) = Just n

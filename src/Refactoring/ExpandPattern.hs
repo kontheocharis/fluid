@@ -3,15 +3,15 @@ module Refactoring.ExpandPattern (expandPattern) where
 import Control.Monad (replicateM)
 import Lang
 import Refactoring.TraverseUtils
-import Refactoring.Utils (FromRefactorArgs (..), Refact, freshVar, lookupPositionArg)
+import Refactoring.Utils (FromRefactorArgs (..), Refact, freshVar, lookupPositionArg, lookupNameArg, lookupIdxArg)
 
 -- Arguments to the enhance patterns refactoring.
-newtype ExpandPatternArgs = ExpandPatternArgs
+data ExpandPatternArgs = ExpandPatternArgs
   { -- | The position of the pattern to enhance.
    -- enhancePatSourcePos :: Pos
     addParamFuncName :: String,
     -- | The position of the index to add to (count from LEFT, add before i)
-    addParamIndexPos :: Int,
+    addParamIndexPos :: Int
   }
 
 instance FromRefactorArgs ExpandPatternArgs where
@@ -54,11 +54,38 @@ stringToCtrs ty prog
  | otherwise = case stringToDataItem ty prog of 
                   Just it -> getNamesAndParams (typeToCtrs it )
 
+
+-- transformClauses :: [Clause] -> [Clause]
+transformClauses _ _ [] = return []
+transformClauses index prog (Clause pats term loc:clauses) = 
+    let 
+      (Term t d) = pats !! index 
+      (Just ty) = getTypeName (Term t d)
+      ctrsInfo  = stringToCtrs ty prog
+    in 
+      do 
+        newTerms <- mapM buildPat ctrsInfo
+        newCls <- replaceTerms t newTerms (Clause pats term loc) (termToId t)
+        -- let clauses' = insertClauses clauses c newCls
+        clauses' <- transformClauses index prog clauses
+        return (newCls ++ clauses')
+transformClauses index prog (c:cs) = do
+        clauses' <- transformClauses index prog cs
+        return (c : clauses')  
+
+
 expandPattern :: ExpandPatternArgs -> Program -> Refact Program
 expandPattern (ExpandPatternArgs n i) prog@(Program items) =                   
   -- error (show prog)
   let -- (Just (Term t d)) = locToTerm p prog
-      
+      (Just (DeclItem declName declTy clauses l)) = stringToDecl n prog     
+  in 
+    do         
+      clauses' <- transformClauses i prog clauses 
+      prog' <- replaceDeclItem (DeclItem declName declTy clauses l) (DeclItem declName declTy clauses' l) prog
+      return prog'
+
+{-
       clauses = nameToClauses prog 
 
       -- (Just c) = termToClause (Term t d) prog
@@ -75,3 +102,4 @@ expandPattern (ExpandPatternArgs n i) prog@(Program items) =
         -- error (show d)
 
         return prog'
+-}
