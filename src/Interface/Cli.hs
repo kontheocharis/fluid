@@ -19,6 +19,7 @@ import Parsing.Parser (parseProgram, parseRefactorArgs, parseTerm)
 import Refactoring.AddIndex (addIndex)
 import Refactoring.AddParam (addParam)
 import Refactoring.ExpandPattern (expandPattern)
+import Refactoring.ExpandPatternSingle (expandPatternSingle)
 import Refactoring.FillHoles (fillHoles)
 import Refactoring.IdentifyImpossibles (identifyImpossibles)
 import Refactoring.RelCtorParams (relCtorParams)
@@ -152,6 +153,7 @@ runCompiler (Args (Refactor f) fl@(Flags {refactorArgs = a, refactorName = Just 
   "spec-ctor" -> applyRefactoring f a fl PostTc specCtor
   "add-param" -> applyRefactoring f a fl PostTc addParam
   "expand-pattern" -> applyRefactoring f a fl PostTc expandPattern
+  "expand-pattern-single" -> applyRefactoring f a fl PostTc expandPatternSingle
   "rm-taut" -> applyRefactoring f a fl PostTc rmTautCase
   "add-index" -> applyRefactoring f a fl PostTc addIndex
   "unify-inds" -> applyRefactoring f a fl PostTc unifyInds

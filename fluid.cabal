@@ -37,6 +37,7 @@ library
       Refactoring.AddParam
       Refactoring.Clauses
       Refactoring.ExpandPattern
+      Refactoring.ExpandPatternSingle
       Refactoring.FillHoles
       Refactoring.IdentifyImpossibles
       Refactoring.Ornamenting

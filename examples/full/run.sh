@@ -68,7 +68,11 @@ stack run -- -r ./step5c6.fluid -n expand-pattern -a "func=eval, index=3" > step
 stack run -- -r ./step5c7.fluid -n identify-impossibles -a 'decl=eval' > step5c8.fluid
 
 echo 'step5c8'
-stack run -- -r ./step5c8.fluid -n expand-pattern -a "func=eval, index=4" > step5c.fluid
+stack run -- -r ./step5c8.fluid -n expand-pattern-single -a 'pos=52:16, name=x' > step5c9.fluid
+
+echo 'step5c9'
+stack run -- -r ./step5c9.fluid -n expand-pattern-single -a 'pos=52:88, name=p' > step5c10.fluid
+stack run -- -r ./step5c10.fluid -n identify-impossibles -a 'decl=eval' > step5c.fluid
 
 #stack run -- -r ./step5b1.fluid -n expand-pattern -a "pos=42:6" > step5b2.fluid
 #stack run -- -r ./step5b2.fluid -n expand-pattern -a "pos=40:15" > step5b3.fluid
