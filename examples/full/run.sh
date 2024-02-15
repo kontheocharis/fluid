@@ -82,12 +82,12 @@ stack run -- -c ./step8.fluid
 
 # Broken: remove maybe
 echo "Step 9"
-# stack run -- -r ./step8.fluid -n remove-maybe -a 'func=lookupVar' > step9.fluid
+stack run -- -r ./step8.fluid -n remove-maybe -a 'func=lookupVar' > step9.fluid
 stack run -- -c ./step9.fluid
 
 # Step 10 not needed anymore
 
 # Broken: remove maybe
 echo "Step 11"
-# stack run -- -r ./step9.fluid -n remove-maybe -a 'func=eval' > step11.fluid
+stack run -- -r ./step9.fluid -n remove-maybe -a 'func=eval' > step11.fluid
 stack run -- -c ./step11.fluid
