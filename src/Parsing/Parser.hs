@@ -5,6 +5,7 @@ import Control.Monad (void)
 import Data.Char (isSpace)
 import Data.String
 import Data.Text (Text)
+import Debug.Trace
 import Lang
   ( Clause (..),
     CtorItem (..),
@@ -54,8 +55,6 @@ import Text.Parsec
 import Text.Parsec.Char (alphaNum, digit, letter)
 import Text.Parsec.Prim (try)
 import Text.Parsec.Text ()
-
-import Debug.Trace
 
 -- | Parser state, used for generating fresh variables.
 data ParserState = ParserState
@@ -236,12 +235,12 @@ dataItem = whiteWrap $ do
 -- | Parse a declaration.
 declItem :: Parser DeclItem
 declItem = whiteWrap $ do
-  start <- getPos 
+  start <- getPos
   (name, ty) <- declSignature
   enter
   clauses <- many (declClause name)
   end <- getPos
-  return $ DeclItem name ty clauses (Loc start end) 
+  return $ DeclItem name ty clauses (Loc start end)
 
 -- | Parse the type signature of a declaration.
 declSignature :: Parser (String, Type)
@@ -266,12 +265,13 @@ declClause name = do
             _ -> (False, ps')
   clause <-
     if im
-      then do end <- getPos
-              return $ ImpossibleClause ps (Loc start end)
+      then do
+        end <- getPos
+        return $ ImpossibleClause ps (Loc start end)
       else do
         reservedOp "="
         c <- Clause ps <$> term
-        end <- getPos 
+        end <- getPos
         return (c (Loc start end))
   enter
   return clause
@@ -482,6 +482,10 @@ integer = do
 integerList :: Parser [Int]
 integerList = between (symbol "[") (symbol "]") $ sepBy integer (symbol ",")
 
+-- | Parse a bool
+bool :: Parser Bool
+bool = (reserved "True" >> return True) <|> (reserved "False" >> return False)
+
 -- | Parse a position.
 position :: Parser Pos
 position = do
@@ -495,6 +499,7 @@ refactorArgKind :: Parser RefactorArgKind
 refactorArgKind =
   try (Position <$> position)
     <|> try (Idx <$> integer)
+    <|> try (Flag <$> bool)
     <|> try (Name <$> anyIdentifier)
     <|> try (IdxList <$> integerList)
     <|> (Expr <$> between (symbol "`") (symbol "`") term)

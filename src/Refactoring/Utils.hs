@@ -14,6 +14,7 @@ module Refactoring.Utils
     lookupIdxListArg,
     lookupPositionArg,
     lookupExprArg,
+    lookupFlagArg,
     slugify,
     isGlobal,
   )
@@ -21,6 +22,7 @@ where
 
 import Control.Monad.Except (ExceptT, runExceptT)
 import Control.Monad.State (MonadState (get), State, put, runState)
+import Data.Functor ((<&>))
 import Interface.Pretty (Print (printVal))
 import Lang (HasTermValue (getTermValue), Pos, Term (..), TermValue (..), Var (..))
 
@@ -51,7 +53,7 @@ freshVar prefix = do
   return $ Var (prefix ++ show h) h
 
 -- | The kind of an argument that might be given to a refactoring.
-data RefactorArgKind = Name String | Idx Int | Position Pos | Expr Term | IdxList [Int] deriving (Show)
+data RefactorArgKind = Name String | Idx Int | Position Pos | Expr Term | IdxList [Int] | Flag Bool deriving (Show)
 
 -- | Opaque arguments given to a refactoring as key-value pairs.
 --
@@ -77,6 +79,13 @@ lookupPositionArg name (RefactorArgs args) = lookup name args >>= \case Position
 -- | Look up a term argument.
 lookupExprArg :: String -> RefactorArgs -> Maybe Term
 lookupExprArg name (RefactorArgs args) = lookup name args >>= \case Expr e -> Just e; _ -> Nothing
+
+-- | Look up a flag argument.
+lookupFlagArg :: String -> RefactorArgs -> Maybe Bool
+lookupFlagArg name (RefactorArgs args) = case lookup name args of
+  Just (Flag b) -> Just b
+  Just _ -> Nothing
+  Nothing -> Just False
 
 -- | Class for types that can be parsed from refactoring arguments.
 class FromRefactorArgs a where
