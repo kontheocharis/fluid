@@ -26,7 +26,7 @@ stack run -- -r ./step3b.fluid -n expand-pattern -a 'func=lookupVar, index=0' > 
 stack run -- -r ./step3b1.fluid -n expand-pattern -a 'func=lookupVar, index=2' > step3c.fluid
 
 echo "Step 3d"
-stack run -- -r ./step3c.fluid -n identify-impossibles -a 'decl=lookupVar, remove=True' > step3d.fluid
+stack run -- -r ./step3c.fluid -n identify-impossibles -a 'decl=lookupVar' > step3d.fluid
 stack run -- -c ./step3d.fluid
 
 # Manual: fill holes + remove case expression
@@ -42,33 +42,33 @@ stack run -- -r ./step5a.fluid -n rel-func-params -a 'func=eval, inds=[3,2,4], r
 stack run -- -c ./step5b.fluid
 
 # Pattern expansion
-echo 'step5c'
+echo 'Step 5c1'
 stack run -- -r ./step5b.fluid -n expand-pattern -a "func=eval, index=0" > step5c1.fluid
 
-echo 'step5c1'
+echo 'Step 5c2'
 stack run -- -r ./step5c1.fluid -n expand-pattern -a "func=eval, index=1" > step5c2.fluid
 
-echo 'step5c2'
-stack run -- -r ./step5c2.fluid -n identify-impossibles -a 'decl=eval, remove=True' > step5c3.fluid
+echo 'Step 5c3'
+stack run -- -r ./step5c2.fluid -n identify-impossibles -a 'decl=eval' > step5c3.fluid
 
-echo 'step5c3'
-stack run -- -r ./step5c3.fluid -n identify-impossibles -a 'decl=eval, remove=True' > step5c4.fluid
+echo 'Step 5c4'
+stack run -- -r ./step5c3.fluid -n identify-impossibles -a 'decl=eval' > step5c4.fluid
 stack run -- -r ./step5c4.fluid -n expand-pattern -a "func=eval, index=2" > step5c5.fluid
-stack run -- -r ./step5c5.fluid -n identify-impossibles -a 'decl=eval, remove=True' > step5c6.fluid
+stack run -- -r ./step5c5.fluid -n identify-impossibles -a 'decl=eval' > step5c6.fluid
 
-echo 'step5c6'
+echo 'Step 5c8'
 stack run -- -r ./step5c6.fluid -n expand-pattern -a "func=eval, index=3" > step5c7.fluid
-stack run -- -r ./step5c7.fluid -n identify-impossibles -a 'decl=eval, remove=True' > step5c8.fluid
+stack run -- -r ./step5c7.fluid -n identify-impossibles -a 'decl=eval' > step5c8.fluid
 
-echo 'step5c8'
+echo 'Step 5c9'
 stack run -- -r ./step5c8.fluid -n expand-pattern-single -a 'pos=55:16, name=x' > step5c9.fluid
 
-echo 'step5c9'
+echo 'Step 5c'
 stack run -- -r ./step5c9.fluid -n expand-pattern-single -a 'pos=55:88, name=p' > step5c10.fluid
-stack run -- -r ./step5c10.fluid -n identify-impossibles -a 'decl=eval, remove=True' > step5c.fluid
+stack run -- -r ./step5c10.fluid -n identify-impossibles -a 'decl=eval' > step5c.fluid
 
 echo "Step 5d"
-stack run -- -r ./step5c.fluid -n identify-impossibles -a 'decl=eval, remove=True' > step5d.fluid
+stack run -- -r ./step5c.fluid -n identify-impossibles -a 'decl=eval' > step5d.fluid
 stack run -- -c ./step5d.fluid
 
 # Manual: fill holes
@@ -96,11 +96,11 @@ stack run -- -c ./step7d.fluid
 # Not meant to typecheck because of impossible cases
 echo "Step 7e"
 stack run -- -r ./step7d.fluid -n expand-pattern -a "func=lookupVar, index=5" > step7e1.fluid
-stack run -- -r ./step7e1.fluid -n identify-impossibles -a 'decl=lookupVar, remove=True' > step7e.fluid
+stack run -- -r ./step7e1.fluid -n identify-impossibles -a 'decl=lookupVar' > step7e.fluid
 stack run -- -c ./step7e.fluid
 
 echo "Step 7f"
-stack run -- -r ./step7e.fluid -n identify-impossibles -a 'decl=lookupVar, remove=True' > step7f.fluid
+stack run -- -r ./step7e.fluid -n identify-impossibles -a 'decl=lookupVar' > step7f.fluid
 stack run -- -c ./step7f.fluid
 
 # Manual: fill holes + remove impossible case (we could add an extra expansion here l130-131)
@@ -112,9 +112,13 @@ echo "Step 9"
 stack run -- -r ./step8.fluid -n remove-maybe -a 'func=lookupVar' > step9.fluid
 stack run -- -c ./step9.fluid
 
-# Step 10 not needed anymore
-
 # Remove maybe
+echo "Step 10"
+stack run -- -r ./step9.fluid -n remove-maybe -a 'func=eval' > step10.fluid
+stack run -- -c ./step10.fluid
+
+# Remove impossible cases
 echo "Step 11"
-stack run -- -r ./step9.fluid -n remove-maybe -a 'func=eval' > step11.fluid
+stack run -- -r ./step10.fluid -n identify-impossibles -a 'decl=lookupVar, remove=True' > step11a.fluid
+stack run -- -r ./step11a.fluid -n identify-impossibles -a 'decl=eval, remove=True' > step11.fluid
 stack run -- -c ./step11.fluid

@@ -27,7 +27,7 @@ data Expr : (newInd0 : List V) -> Type where
   | Var : (n43 : V) -> (varparam_1 : List V) -> (relParamV : Elem n43 varparam_1) -> Expr varparam_1
   | Add : (addparam_0 : List V) -> (n44 : Expr addparam_0) -> (n45 : Expr addparam_0) -> Expr addparam_0
 
-lookupVar : (patV2 : List Nat) -> (newParamV : List V) -> (x : V) -> (relParamV_func : Elem x newParamV) -> (env : List ((n48 : V) ** Nat)) -> (relParamV_funcUnzip : Unzip env newParamV patV2) -> Maybe Nat
+lookupVar : (patV2 : List Nat) -> (newParamV : List V) -> (x : V) -> (relParamV_func : Elem x newParamV) -> (env : List ((n48 : V) ** Nat)) -> (relParamV_funcUnzip : Unzip env newParamV patV2) -> Nat
 lookupVar patV2 [] x (Here y ys) [] relParam_patVUnzip impossible
 lookupVar patV2 [] x (There y ys el z) [] relParam_patVUnzip impossible
 lookupVar patV2 (x::xs) x (Here y ys) [] NilUZ impossible
@@ -36,14 +36,14 @@ lookupVar patV2 (x::xs) x (There y ys el z) [] NilUZ impossible
 lookupVar patV2 (x::xs) x (There y ys el z) [] (ConsUZ x6 x7 x8 x9 x10 x11) impossible
 lookupVar patV2 [] (MkV x) (Here _ _) ((MkV y, val)::ys) relParam_patVUnzip impossible
 lookupVar patV2 (p::ps) (MkV x) (Here v72 v73) ((MkV y, val)::ys) NilUZ impossible
-lookupVar patV2 (p::ps) (MkV x) (Here v72 v73) ((MkV y, val)::ys) (ConsUZ x12 x13 x14 x15 x16 x17) = Just val
+lookupVar patV2 (p::ps) (MkV x) (Here v72 v73) ((MkV y, val)::ys) (ConsUZ x12 x13 x14 x15 x16 x17) = val
 lookupVar patV2 [] (MkV x) (There _ _ _ _) ((MkV y, val)::ys) relParam_patVUnzip impossible
 lookupVar (q0::q1) (p::ps) (MkV x) (There v100 v101 v102 v103) ((MkV y, val)::ys) NilUZ impossible
 lookupVar (q0::q1) (p::ps) (MkV x) (There v100 v101 v102 v103) ((MkV y, val)::ys) (ConsUZ x18 x19 x20 x21 x22 x23) = lookupVar q1 ps (MkV x) v102 ys x23
 lookupVar [] (p::ps) (MkV x) (There v100 v101 v102 v103) ((MkV y, val)::ys) NilUZ impossible
 lookupVar [] (p::ps) (MkV x) (There v100 v101 v102 v103) ((MkV y, val)::ys) (ConsUZ x24 x25 x26 x27 x28 x29) impossible
 
-eval : (patV1 : List Nat) -> (env : List ((n57 : V) ** Nat)) -> (evalparam_1 : List V) -> (relParamV_funcUnzip : Unzip env evalparam_1 patV1) -> (n58 : Expr evalparam_1) -> Maybe Nat
+eval : (patV1 : List Nat) -> (env : List ((n57 : V) ** Nat)) -> (evalparam_1 : List V) -> (relParamV_funcUnzip : Unzip env evalparam_1 patV1) -> (n58 : Expr evalparam_1) -> Nat
 eval (x0::x1) (x0::x1) patvar_1 relParam_patVUnzip (Num n patvar_1) impossible
 eval (x0::x1) [] (x0::x1) relParam_patVUnzip (Num n (x0::x1)) impossible
 eval (x0::x1) [] [] NilUZ (Num n []) impossible
@@ -53,7 +53,7 @@ eval [] (x2::x3) [] NilUZ (Num n []) impossible
 eval [] (x2::x3) [] (ConsUZ x6 x7 x8 x9 x10 x11) (Num n []) impossible
 eval [] [] (x4::x5) NilUZ (Num n (x4::x5)) impossible
 eval [] [] (x4::x5) (ConsUZ x12 x13 x14 x15 x16 x17) (Num n (x4::x5)) impossible
-eval [] [] [] NilUZ (Num n []) = Just n
+eval [] [] [] NilUZ (Num n []) = n
 eval [] [] [] (ConsUZ x18 x19 x20 x21 x22 x23) (Num n []) impossible
 eval (x2::x3) (x4::x5) (x6::x7) NilUZ (Var x (x6::x7) vrel_1) impossible
 eval (x2::x3) ((x0, x1)::x5) (x6::x7) (ConsUZ x24 x25 x26 x27 x28 x29) (Var x (x6::x7) (Here p0 p1)) = lookupVar (x2::x3) (x6::x7) x (Here p0 p1) ((x0, x1)::x5) (ConsUZ x24 x25 x26 x27 x28 x29)
@@ -75,10 +75,8 @@ eval [] [] [] NilUZ (Var x [] (There _ _ _ _)) impossible
 eval [] [] [] (ConsUZ x66 x67 x68 x69 x70 x71) (Var x [] vrel_1) impossible
 eval (x4::x5) (x8::x9) (x14::x15) NilUZ (Add (x14::x15) e1 e2) impossible
 eval (x4::x5) (x8::x9) (x14::x15) (ConsUZ x72 x73 x74 x75 x76 x77) (Add (x14::x15) e1 e2) = case eval (x4::x5) (x8::x9) (x14::x15) (ConsUZ x72 x73 x74 x75 x76 x77) e1 of
-  | Nothing => Nothing
-  | (Just e1') => case eval (x4::x5) (x8::x9) (x14::x15) (ConsUZ x72 x73 x74 x75 x76 x77) e2 of
-    | (Just e2') => Just (plus e1' e2')
-    | Nothing => Nothing
+  | e1' => case eval (x4::x5) (x8::x9) (x14::x15) (ConsUZ x72 x73 x74 x75 x76 x77) e2 of
+    | e2' => plus e1' e2'
 eval (x4::x5) (x8::x9) [] NilUZ (Add [] e1 e2) impossible
 eval (x4::x5) (x8::x9) [] (ConsUZ x78 x79 x80 x81 x82 x83) (Add [] e1 e2) impossible
 eval (x4::x5) [] (x16::x17) NilUZ (Add (x16::x17) e1 e2) impossible
@@ -92,8 +90,6 @@ eval [] (x10::x11) [] (ConsUZ x102 x103 x104 x105 x106 x107) (Add [] e1 e2) impo
 eval [] [] (x20::x21) NilUZ (Add (x20::x21) e1 e2) impossible
 eval [] [] (x20::x21) (ConsUZ x108 x109 x110 x111 x112 x113) (Add (x20::x21) e1 e2) impossible
 eval [] [] [] NilUZ (Add [] e1 e2) = case eval [] [] [] NilUZ e1 of
-  | Nothing => Nothing
-  | (Just e1') => case eval [] [] [] NilUZ e2 of
-    | (Just e2') => Just (plus e1' e2')
-    | Nothing => Nothing
+  | e1' => case eval [] [] [] NilUZ e2 of
+    | e2' => plus e1' e2'
 eval [] [] [] (ConsUZ x114 x115 x116 x117 x118 x119) (Add [] e1 e2) impossible
