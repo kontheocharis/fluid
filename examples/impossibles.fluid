@@ -1,4 +1,0 @@
-index : (n : Nat) -> Fin n -> Vect Nat n -> Nat
-index Z FZ VNil = ?h1
-index (S n) FZ (VCons x xs) = x
-index (S n) (FS i) (VCons x xs) = index n i xs

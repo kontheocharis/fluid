@@ -1,2 +1,0 @@
-f: (Nat ** Nat) -> Nat 
-f x = Z

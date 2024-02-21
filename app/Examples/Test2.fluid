@@ -1,6 +1,0 @@
-data Elem : (a : Type) -> a -> List a -> Type where 
- | Here : (a :Type) -> (x : a) -> (xs : List a) -> Elem a x (x :: xs) 
- | There : (a : Type) -> (x : a) -> (xs : List a) -> (later : Elem a x xs) -> (y : a) -> Elem a x (y :: xs)
-
-f : (l : List Nat) -> (x : Nat) -> Elem Nat x l -> Elem Nat x l 
-f l x p = p 

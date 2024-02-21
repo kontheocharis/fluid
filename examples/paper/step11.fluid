@@ -1,0 +1,150 @@
+data V : Type where
+  | MkV : (n1 : Nat) -> V
+
+data Elem : (n17 : V) -> (n18 : List V) -> Type where
+  | Here : (x : V) -> (xs : List V) -> Elem x (x::xs)
+  | There : (x : V) -> (xs : List V) -> (n25 : Elem x xs) -> (y : V) -> Elem x (y::xs)
+
+data Unzip : (n14 : List ((n15 : V) ** Nat)) -> (n16 : List V) -> (n17 : List Nat) -> Type where
+  | NilUZ : Unzip [] [] []
+  | ConsUZ : (x : V) -> (y : Nat) -> (xs : List ((n22 : V) ** Nat)) -> (vs : List V) -> (ws : List Nat) -> (n25 : Unzip xs vs ws) -> Unzip ((x, y)::xs) (x::vs) (y::ws)
+
+data Bool : Type where
+  | True : Bool
+  | False : Bool
+
+isEqual : (n15 : Nat) -> (n16 : Nat) -> Bool
+isEqual Z Z = True
+isEqual (S n) (S m) = isEqual n m
+isEqual v14 v15 = False
+
+plus : (n25 : Nat) -> (n26 : Nat) -> Nat
+plus a Z = a
+plus a (S n) = S (plus a n)
+
+data Expr : (newInd0 : List V) -> Type where
+  | Num : (n29 : Nat) -> (numparam_1 : List V) -> Expr numparam_1
+  | Var : (n31 : V) -> (varparam_1 : List V) -> (relParamV : Elem n31 varparam_1) -> Expr varparam_1
+  | Add : (addparam_0 : List V) -> (n32 : Expr addparam_0) -> (n33 : Expr addparam_0) -> Expr addparam_0
+
+lookupVar : (patV2 : List Nat) -> (newParamV : List V) -> (x : V) -> (relParamV_func : Elem x newParamV) -> (env : List ((n48 : V) ** Nat)) -> (relParamV_funcUnzip : Unzip env newParamV patV2) -> Nat
+lookupVar patV2 [] x (Here y ys) [] relParam_patVUnzip impossible
+lookupVar patV2 [] x (There y ys el z) [] relParam_patVUnzip impossible
+lookupVar patV2 (x::xs) x (Here y ys) [] NilUZ impossible
+lookupVar patV2 (x::xs) x (Here y ys) [] (ConsUZ _ _ _ _ _ _) impossible
+lookupVar patV2 (x::xs) x (There y ys el z) [] NilUZ impossible
+lookupVar patV2 (x::xs) x (There y ys el z) [] (ConsUZ _ _ _ _ _ _) impossible
+lookupVar patV2 [] (MkV x) (Here _ _) ((MkV y, val)::ys) relParam_patVUnzip impossible
+lookupVar patV2 (p::ps) (MkV x) (Here v72 v73) ((MkV y, val)::ys) NilUZ impossible
+lookupVar patV2 (p::ps) (MkV x) (Here v72 v73) ((MkV y, val)::ys) (ConsUZ v111 v112 v113 v114 v115 v116) = val
+lookupVar patV2 [] (MkV x) (There _ _ _ _) ((MkV y, val)::ys) relParam_patVUnzip impossible
+lookupVar [] (p::ps) (MkV x) (There v100 v101 v102 v103) ((MkV y, val)::ys) NilUZ impossible
+lookupVar [] (p::ps) (MkV x) (There v100 v101 v102 v103) ((MkV y, val)::ys) (ConsUZ _ _ _ _ _ _) impossible
+lookupVar (v::patV2) (p::ps) (MkV x) (There v100 v101 v102 v103) ((MkV y, val)::ys) NilUZ impossible
+lookupVar (v::patV2) (p::ps) (MkV x) (There v100 v101 v102 v103) ((MkV y, val)::ys) (ConsUZ v184 v185 v186 v187 v188 v189) = lookupVar patV2 ps (MkV x) v102 ys v189
+
+eval : (newParamV : List Nat) -> (env : List ((n45 : V) ** Nat)) -> (evalparam_1 : List V) -> (relParamV_func : Unzip env evalparam_1 newParamV) -> (n46 : Expr evalparam_1) -> Nat
+eval patV env patvar_1 relParam_patV (Num n patvar_1) = n
+eval [] [] [] NilUZ (Var x [] (Here p ps)) impossible
+eval [] [] [] NilUZ (Var x (x'::xs') (There p ps el z)) impossible
+eval (y::ys) ((x, y)::env) (x::vars) (ConsUZ v100 v101 v102 v103 v104 v105) (Var x (x::vars) (Here p ps)) = lookupVar (y::ys) (x::vars) x (Here p ps) ((x, y)::env) (ConsUZ v100 v101 v102 v103 v104 v105)
+eval (y::ys) ((x, y)::env) (x::vars) (ConsUZ v134 v135 v136 v137 v138 v139) (Var x (x::vars) (There p ps el z)) = lookupVar (y::ys) (x::vars) x (There p ps el z) ((x, y)::env) (ConsUZ v134 v135 v136 v137 v138 v139)
+eval patV env paramforpatvar_Add_0 relParam_patV (Add paramforpatvar_Add_0 e1 e2) = case eval patV env paramforpatvar_Add_0 relParam_patV e1 of
+  | e1' => case eval patV env paramforpatvar_Add_0 relParam_patV e2 of
+    | e2' => plus e1' e2'
+
+data V : Type where
+  | MkV : (n1 : Nat) -> V
+
+data Elem : (n17 : V) -> (n18 : List V) -> Type where
+  | Here : (x : V) -> (xs : List V) -> Elem x (x::xs)
+  | There : (x : V) -> (xs : List V) -> (n25 : Elem x xs) -> (y : V) -> Elem x (y::xs)
+
+data Unzip : (n14 : List ((n15 : V) ** Nat)) -> (n16 : List V) -> (n17 : List Nat) -> Type where
+  | NilUZ : Unzip [] [] []
+  | ConsUZ : (x : V) -> (y : Nat) -> (xs : List ((n22 : V) ** Nat)) -> (vs : List V) -> (ws : List Nat) -> (n25 : Unzip xs vs ws) -> Unzip ((x, y)::xs) (x::vs) (y::ws)
+
+data Bool : Type where
+  | True : Bool
+  | False : Bool
+
+isEqual : (n27 : Nat) -> (n28 : Nat) -> Bool
+isEqual Z Z = True
+isEqual (S n) (S m) = isEqual n m
+isEqual v38 v39 = False
+
+plus : (n37 : Nat) -> (n38 : Nat) -> Nat
+plus a Z = a
+plus a (S n) = S (plus a n)
+
+data Expr : (newInd0 : List V) -> Type where
+  | Num : (n41 : Nat) -> (numparam_1 : List V) -> Expr numparam_1
+  | Var : (n43 : V) -> (varparam_1 : List V) -> (relParamV : Elem n43 varparam_1) -> Expr varparam_1
+  | Add : (addparam_0 : List V) -> (n44 : Expr addparam_0) -> (n45 : Expr addparam_0) -> Expr addparam_0
+
+lookupVar : (patV2 : List Nat) -> (newParamV : List V) -> (x : V) -> (relParamV_func : Elem x newParamV) -> (env : List ((n48 : V) ** Nat)) -> (relParamV_funcUnzip : Unzip env newParamV patV2) -> Nat
+lookupVar patV2 [] x (Here y ys) [] relParam_patVUnzip impossible
+lookupVar patV2 [] x (There y ys el z) [] relParam_patVUnzip impossible
+lookupVar patV2 (x::xs) x (Here y ys) [] NilUZ impossible
+lookupVar patV2 (x::xs) x (Here y ys) [] (ConsUZ x0 x1 x2 x3 x4 x5) impossible
+lookupVar patV2 (x::xs) x (There y ys el z) [] NilUZ impossible
+lookupVar patV2 (x::xs) x (There y ys el z) [] (ConsUZ x6 x7 x8 x9 x10 x11) impossible
+lookupVar patV2 [] (MkV x) (Here _ _) ((MkV y, val)::ys) relParam_patVUnzip impossible
+lookupVar patV2 (p::ps) (MkV x) (Here v72 v73) ((MkV y, val)::ys) NilUZ impossible
+lookupVar patV2 (p::ps) (MkV x) (Here v72 v73) ((MkV y, val)::ys) (ConsUZ x12 x13 x14 x15 x16 x17) = val
+lookupVar patV2 [] (MkV x) (There _ _ _ _) ((MkV y, val)::ys) relParam_patVUnzip impossible
+lookupVar (q0::q1) (p::ps) (MkV x) (There v100 v101 v102 v103) ((MkV y, val)::ys) NilUZ impossible
+lookupVar (q0::q1) (p::ps) (MkV x) (There v100 v101 v102 v103) ((MkV y, val)::ys) (ConsUZ x18 x19 x20 x21 x22 x23) = lookupVar q1 ps (MkV x) v102 ys x23
+lookupVar [] (p::ps) (MkV x) (There v100 v101 v102 v103) ((MkV y, val)::ys) NilUZ impossible
+lookupVar [] (p::ps) (MkV x) (There v100 v101 v102 v103) ((MkV y, val)::ys) (ConsUZ x24 x25 x26 x27 x28 x29) impossible
+
+eval : (patV1 : List Nat) -> (env : List ((n57 : V) ** Nat)) -> (evalparam_1 : List V) -> (relParamV_funcUnzip : Unzip env evalparam_1 patV1) -> (n58 : Expr evalparam_1) -> Nat
+eval (x0::x1) (x0::x1) patvar_1 relParam_patVUnzip (Num n patvar_1) impossible
+eval (x0::x1) [] (x0::x1) relParam_patVUnzip (Num n (x0::x1)) impossible
+eval (x0::x1) [] [] NilUZ (Num n []) impossible
+eval (x0::x1) [] [] (ConsUZ x0 x1 x2 x3 x4 x5) (Num n []) impossible
+eval [] (x2::x3) (x2::x3) relParam_patVUnzip (Num n (x2::x3)) impossible
+eval [] (x2::x3) [] NilUZ (Num n []) impossible
+eval [] (x2::x3) [] (ConsUZ x6 x7 x8 x9 x10 x11) (Num n []) impossible
+eval [] [] (x4::x5) NilUZ (Num n (x4::x5)) impossible
+eval [] [] (x4::x5) (ConsUZ x12 x13 x14 x15 x16 x17) (Num n (x4::x5)) impossible
+eval [] [] [] NilUZ (Num n []) = n
+eval [] [] [] (ConsUZ x18 x19 x20 x21 x22 x23) (Num n []) impossible
+eval (x2::x3) (x4::x5) (x6::x7) NilUZ (Var x (x6::x7) vrel_1) impossible
+eval (x2::x3) ((x0, x1)::x5) (x6::x7) (ConsUZ x24 x25 x26 x27 x28 x29) (Var x (x6::x7) (Here p0 p1)) = lookupVar (x2::x3) (x6::x7) x (Here p0 p1) ((x0, x1)::x5) (ConsUZ x24 x25 x26 x27 x28 x29)
+eval (x2::x3) ((x0, x1)::x5) (x6::x7) (ConsUZ x24 x25 x26 x27 x28 x29) (Var x (x6::x7) (There p2 p3 p4 p5)) = lookupVar (x2::x3) (x6::x7) x (There p2 p3 p4 p5) ((x0, x1)::x5) (ConsUZ x24 x25 x26 x27 x28 x29)
+eval (x2::x3) (x4::x5) [] NilUZ (Var x [] vrel_1) impossible
+eval (x2::x3) (x4::x5) [] (ConsUZ x30 x31 x32 x33 x34 x35) (Var x [] vrel_1) impossible
+eval (x2::x3) [] (x8::x9) NilUZ (Var x (x8::x9) vrel_1) impossible
+eval (x2::x3) [] (x8::x9) (ConsUZ x36 x37 x38 x39 x40 x41) (Var x (x8::x9) vrel_1) impossible
+eval (x2::x3) [] [] NilUZ (Var x [] vrel_1) impossible
+eval (x2::x3) [] [] (ConsUZ x42 x43 x44 x45 x46 x47) (Var x [] vrel_1) impossible
+eval [] (x6::x7) (x10::x11) NilUZ (Var x (x10::x11) vrel_1) impossible
+eval [] (x6::x7) (x10::x11) (ConsUZ x48 x49 x50 x51 x52 x53) (Var x (x10::x11) vrel_1) impossible
+eval [] (x6::x7) [] NilUZ (Var x [] vrel_1) impossible
+eval [] (x6::x7) [] (ConsUZ x54 x55 x56 x57 x58 x59) (Var x [] vrel_1) impossible
+eval [] [] (x12::x13) NilUZ (Var x (x12::x13) vrel_1) impossible
+eval [] [] (x12::x13) (ConsUZ x60 x61 x62 x63 x64 x65) (Var x (x12::x13) vrel_1) impossible
+eval [] [] [] NilUZ (Var x [] (Here _ _)) impossible
+eval [] [] [] NilUZ (Var x [] (There _ _ _ _)) impossible
+eval [] [] [] (ConsUZ x66 x67 x68 x69 x70 x71) (Var x [] vrel_1) impossible
+eval (x4::x5) (x8::x9) (x14::x15) NilUZ (Add (x14::x15) e1 e2) impossible
+eval (x4::x5) (x8::x9) (x14::x15) (ConsUZ x72 x73 x74 x75 x76 x77) (Add (x14::x15) e1 e2) = case eval (x4::x5) (x8::x9) (x14::x15) (ConsUZ x72 x73 x74 x75 x76 x77) e1 of
+  | e1' => case eval (x4::x5) (x8::x9) (x14::x15) (ConsUZ x72 x73 x74 x75 x76 x77) e2 of
+    | e2' => plus e1' e2'
+eval (x4::x5) (x8::x9) [] NilUZ (Add [] e1 e2) impossible
+eval (x4::x5) (x8::x9) [] (ConsUZ x78 x79 x80 x81 x82 x83) (Add [] e1 e2) impossible
+eval (x4::x5) [] (x16::x17) NilUZ (Add (x16::x17) e1 e2) impossible
+eval (x4::x5) [] (x16::x17) (ConsUZ x84 x85 x86 (ConsUZ x84 x85 x86 x87 x88 x89) x88 x89) (Add (x16::x17) e1 e2) impossible
+eval (x4::x5) [] [] NilUZ (Add [] e1 e2) impossible
+eval (x4::x5) [] [] (ConsUZ x90 x91 x92 x93 x94 x95) (Add [] e1 e2) impossible
+eval [] (x10::x11) (x18::x19) NilUZ (Add (x18::x19) e1 e2) impossible
+eval [] (x10::x11) (x18::x19) (ConsUZ x96 x97 x98 x99 x100 x101) (Add (x18::x19) e1 e2) impossible
+eval [] (x10::x11) [] NilUZ (Add [] e1 e2) impossible
+eval [] (x10::x11) [] (ConsUZ x102 x103 x104 x105 x106 x107) (Add [] e1 e2) impossible
+eval [] [] (x20::x21) NilUZ (Add (x20::x21) e1 e2) impossible
+eval [] [] (x20::x21) (ConsUZ x108 x109 x110 x111 x112 x113) (Add (x20::x21) e1 e2) impossible
+eval [] [] [] NilUZ (Add [] e1 e2) = case eval [] [] [] NilUZ e1 of
+  | e1' => case eval [] [] [] NilUZ e2 of
+    | e2' => plus e1' e2'
+eval [] [] [] (ConsUZ x114 x115 x116 x117 x118 x119) (Add [] e1 e2) impossible

@@ -1,0 +1,47 @@
+data V : Type where
+  | MkV : (n1 : Nat) -> V
+
+data Elem : (n17 : V) -> (n18 : List V) -> Type where
+  | Here : (x : V) -> (xs : List V) -> Elem x (x::xs)
+  | There : (x : V) -> (xs : List V) -> (n25 : Elem x xs) -> (y : V) -> Elem x (y::xs)
+
+data Unzip : (n14 : List ((n15 : V) ** Nat)) -> (n16 : List V) -> (n17 : List Nat) -> Type where
+  | NilUZ : Unzip [] [] []
+  | ConsUZ : (x : V) -> (y : Nat) -> (xs : List ((n22 : V) ** Nat)) -> (vs : List V) -> (ws : List Nat) -> (n25 : Unzip xs vs ws) -> Unzip ((x, y)::xs) (x::vs) (y::ws)
+
+data Bool : Type where
+  | True : Bool
+  | False : Bool
+
+isEqual : (n27 : Nat) -> (n28 : Nat) -> Bool
+isEqual Z Z = True
+isEqual (S n) (S m) = isEqual n m
+isEqual v38 v39 = False
+
+plus : (n37 : Nat) -> (n38 : Nat) -> Nat
+plus a Z = a
+plus a (S n) = S (plus a n)
+
+data Expr : (vars : List V) -> Type where
+  | Num : (n41 : Nat) -> (numparam_1 : List V) -> Expr numparam_1
+  | Var : (n43 : V) -> (varparam_1 : List V) -> (relParamV : Elem n43 varparam_1) -> Expr varparam_1
+  | Add : (addparam_0 : List V) -> (n44 : Expr addparam_0) -> (n45 : Expr addparam_0) -> Expr addparam_0
+
+lookupVar : (patV : List V) -> (x : V) -> (relParamV_funcElem : Elem x patV) -> (env : List ((n48 : V) ** Nat)) -> Maybe Nat
+lookupVar (x0 :: x1) x relParam_patVElem [] = Nothing
+lookupVar [] x relParam_patVElem [] = Nothing
+lookupVar (x2 :: x3) (MkV x) relParam_patVElem ((MkV y, val)::ys) = case isEqual x y of
+  | True => Just val
+  | False => lookupVar ?addParamHole_MkVx0 (MkV x) ?vrel_Elem1 ys
+lookupVar [] (MkV x) relParam_patVElem ((MkV y, val)::ys) = case isEqual x y of
+  | True => Just val
+  | False => lookupVar ?addParamHole_MkVx0 (MkV x) ?vrel_Elem1 ys
+
+eval : (env : List ((n57 : V) ** Nat)) -> (evalparam_1 : List V) -> (n58 : Expr evalparam_1) -> Maybe Nat
+eval env patvar_1 (Num n patvar_1) = Just n
+eval env patvar_1 (Var x patvar_1 vrel_1) = lookupVar ?addParamHole_x0 x ?vrel_Elem1 env
+eval env paramforpatvar_Add_0 (Add paramforpatvar_Add_0 e1 e2) = case eval env paramforpatvar_Add_0 e1 of
+  | Nothing => Nothing
+  | (Just e1') => case eval env paramforpatvar_Add_0 e2 of
+    | (Just e2') => Just (plus e1' e2')
+    | Nothing => Nothing

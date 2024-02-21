@@ -2,11 +2,8 @@ module Refactoring.RelFuncParams (RelFuncArgs (..), relFuncParams) where
 
 import Lang
   ( Clause (..),
-    CtorItem (..),
-    DataItem (..),
     DeclItem (..),
     Item (..),
-    Pat (..),
     Program (..),
     Term (..),
     TermValue (..),
@@ -18,7 +15,7 @@ import Lang
     listToPiType,
     piTypeToList,
   )
-import Refactoring.Utils (FromRefactorArgs (..), Refact, RefactState, freshVar, lookupExprArg, lookupIdxListArg, lookupNameArg)
+import Refactoring.Utils (FromRefactorArgs (..), Refact, lookupExprArg, lookupIdxListArg, lookupNameArg, slugify)
 
 -- Arguments to the refactoring.
 data RelFuncArgs = RelFuncArgs
@@ -44,9 +41,9 @@ piTypeToListWithDummy ty =
    in tys ++ [(Var "DummyVar" 0, rTy)]
 
 -- like listToPiType, but as a (var,type) list, so it's easier to work with
-listWithDummyToPiType :: ([(Var, Type)]) -> Type
+listWithDummyToPiType :: [(Var, Type)] -> Type
 listWithDummyToPiType l =
-  listToPiType (take ((length l) - 1) l, snd (last l))
+  listToPiType (take (length l - 1) l, snd (last l))
 
 -- insert into a list after given index
 insertAfter :: [a] -> Int -> a -> [a]
@@ -64,7 +61,10 @@ isAppData dName ty =
 funcHasTyAsParam :: DeclItem -> String -> Bool
 funcHasTyAsParam decl dName =
   let (tyList, retTy) = piTypeToList (declTy decl)
-   in any (isAppData dName) ((retTy) : (map (\t -> (snd t)) tyList))
+   in any (isAppData dName) (retTy : map (\t -> (snd t)) tyList)
+
+removeSpaces :: String -> String
+removeSpaces = filter (\c -> (c /= ' ' && c /= '?'))
 
 -- relating params of constructor refactoring
 relFuncParams :: RelFuncArgs -> Program -> Refact Program
@@ -122,22 +122,22 @@ relFuncParams args (Program items) =
     makeRelationParam :: [Var] -> (Var, Type)
     makeRelationParam vars =
       let termList = map (\v -> genTerm (V v)) vars
-       in (Var "relParamV_func" 0, listToApp (relFuncParamsNewTerm args, termList)) -- todo: get fresh var
+       in (Var ("relParamV_func" ++ slugify (relFuncParamsNewTerm args)) 0, listToApp (relFuncParamsNewTerm args, termList)) -- todo: get fresh var
       -- update clauses to add new pattern variables or holes in recursive calls
     relFuncParams_cl :: Int -> Clause -> Clause
     relFuncParams_cl i (Clause lhsPats rhsTerm l) =
-      Clause (insertAfter lhsPats i (genTerm (V (Var "relParam_patV" 0)))) (relFuncParams_clRhs i rhsTerm) l
+      Clause (insertAfter lhsPats i (genTerm (V (Var ("relParam_patV" ++ slugify (relFuncParamsNewTerm args)) 0)))) (relFuncParams_clRhs i rhsTerm) l
     relFuncParams_cl i (ImpossibleClause lhsPats l) =
-      ImpossibleClause (insertAfter lhsPats i (genTerm (V (Var "relParam_patV" 0)))) l
+      ImpossibleClause (insertAfter lhsPats i (genTerm (V (Var ("relParam_patV" ++ slugify (relFuncParamsNewTerm args)) 0)))) l
     -- add holes in all function calls
     relFuncParams_clRhs :: Int -> Term -> Term
     relFuncParams_clRhs i (Term (Case caseTerm patTermList) _) =
-      genTerm (Case caseTerm (map (\pt -> ((fst pt), relFuncParams_clRhs i (snd pt))) patTermList))
+      genTerm (Case (relFuncParams_clRhs i caseTerm) (map (\pt -> ((fst pt), relFuncParams_clRhs i (snd pt))) patTermList))
     relFuncParams_clRhs i (Term (App term1 term2) termDat) =
       let (outerTerm, argList) = appToList (Term (App term1 term2) termDat)
        in if termValue outerTerm == Global (relFuncParamsFuncName args)
             then
-              let holeInserted = insertAfter argList i (genTerm (Hole (Var ("vrel_" ++ (show i)) 0))) -- todo: need fresh vars
+              let holeInserted = insertAfter argList i (genTerm (Hole (Var ("vrel_" ++ slugify (relFuncParamsNewTerm args) ++ show i) 0))) -- todo: need fresh vars
                in listToApp (outerTerm, holeInserted)
             else Term (App (relFuncParams_clRhs i term1) (relFuncParams_clRhs i term2)) termDat
     -- todo: recurse down other patterns
@@ -149,16 +149,19 @@ relFuncParams args (Program items) =
         ( map
             ( \item -> case item of
                 Decl d ->
-                  Decl
-                    d
-                      { declClauses =
-                          map
-                            ( \cl -> case cl of
-                                ImpossibleClause pat l -> ImpossibleClause pat l
-                                Clause pat term l -> Clause pat (relFuncParams_clRhs i term) l
-                            )
-                            (declClauses d)
-                      }
+                  if declName d == relFuncParamsFuncName args
+                    then item
+                    else
+                      Decl
+                        d
+                          { declClauses =
+                              map
+                                ( \cl -> case cl of
+                                    ImpossibleClause pat l -> ImpossibleClause pat l
+                                    Clause pat term l -> Clause pat (relFuncParams_clRhs i term) l
+                                )
+                                (declClauses d)
+                          }
                 _ -> item
             )
             items2
